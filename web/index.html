@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FreeCLinker</title>
-<meta name="description" content="ESP32 firmware that bridges a DJI Action or GoPro camera to a Betaflight flight controller — auto record on arm, live OSD telemetry, browser flash and config.">
+<title>FreeCLinker — FPSteVe Edition</title>
+<meta name="description" content="FPSteVe Edition of FreeCLinker — a personal fork of sheeprine's ESP32 firmware that bridges a DJI Action or GoPro camera to a Betaflight flight controller.">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -18,7 +18,6 @@
   a { color: #2563eb; text-decoration: none; }
   a:hover { text-decoration: underline; }
 
-  /* ── Header ─────────────────────────────────────────────────────────────── */
   header {
     display: flex;
     align-items: center;
@@ -31,7 +30,6 @@
   .brand { font-size: 13px; font-weight: bold; color: #2563eb; margin-right: auto; }
   header a { font-size: 12px; }
 
-  /* ── Hero ───────────────────────────────────────────────────────────────── */
   .hero {
     max-width: 720px;
     margin: 0 auto;
@@ -95,7 +93,23 @@
 
   .cta-note { font-size: 11px; color: #9ca3af; margin-top: 14px; }
 
-  /* ── Diagram ────────────────────────────────────────────────────────────── */
+  .attribution {
+    max-width: 720px;
+    margin: 0 auto 44px;
+    padding: 0 20px;
+  }
+  .attribution-box {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 16px 18px;
+    color: #374151;
+    font-size: 12px;
+    line-height: 1.7;
+    text-align: center;
+  }
+  .attribution-box strong { color: #111827; }
+
   .diagram-wrap { max-width: 760px; margin: 0 auto; padding: 0 20px 56px; }
 
   .diagram {
@@ -132,7 +146,6 @@
   }
   .diagram .link .arrow { font-size: 16px; color: #2563eb; letter-spacing: -1px; }
 
-  /* ── Sections ───────────────────────────────────────────────────────────── */
   section { max-width: 960px; margin: 0 auto; padding: 0 20px 56px; }
 
   .section-head { text-align: center; margin-bottom: 28px; }
@@ -144,7 +157,6 @@
     font-weight: normal;
   }
 
-  /* feature grid */
   .grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -175,7 +187,6 @@
   }
   .cam-badge.default { background: #dcfce7; color: #15803d; }
 
-  /* wiring / quickstart teaser */
   .quickstart-card {
     background: #ffffff;
     border: 1px solid #e5e7eb;
@@ -204,7 +215,6 @@
   .wiring-table tr:last-child td { border-bottom: none; }
   .wiring-table td.pin { color: #2563eb; }
 
-  /* footer */
   footer {
     border-top: 1px solid #e5e7eb;
     padding: 24px 20px 40px;
@@ -214,6 +224,7 @@
   }
   footer a { font-size: 11px; }
   footer .foot-links { margin-bottom: 10px; display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; }
+  footer .credit { max-width: 700px; margin: 10px auto 0; line-height: 1.6; }
 
   @media (max-width: 720px) {
     .grid { grid-template-columns: 1fr 1fr; }
@@ -230,14 +241,15 @@
 <body>
 
 <header>
-  <span class="brand">FreeCLinker</span>
+  <span class="brand">FreeCLinker — FPSteVe Edition</span>
   <a href="config.html">Config UI</a>
   <a href="flash.html">Flash</a>
-  <a href="https://github.com/sheeprine/freeclinker" target="_blank" rel="noopener">GitHub</a>
+  <a href="https://github.com/alfonsogordon/freeclinker" target="_blank" rel="noopener">FPSteVe fork</a>
+  <a href="https://github.com/sheeprine/freeclinker" target="_blank" rel="noopener">Original project</a>
 </header>
 
 <div class="hero">
-  <div class="kicker">ESP32 firmware</div>
+  <div class="kicker">FPSteVe Edition · personal fork of FreeCLinker</div>
   <h1>Your camera and your FC,<br><span>finally on speaking terms.</span></h1>
   <p class="tagline">
     FreeCLinker bridges a DJI Action or GoPro camera to a Betaflight flight controller over BLE and MSP —
@@ -248,9 +260,19 @@
   <div class="cta-row">
     <a class="btn primary" href="flash.html">Flash firmware →</a>
     <a class="btn" href="config.html">Configure device</a>
-    <a class="btn" href="https://github.com/sheeprine/freeclinker/blob/main/QUICKSTART.md" target="_blank" rel="noopener">Quickstart guide</a>
+    <a class="btn" href="https://github.com/sheeprine/freeclinker/blob/main/QUICKSTART.md" target="_blank" rel="noopener">Original quickstart guide</a>
   </div>
   <div class="cta-note">Flashing and configuration both run entirely in the browser — Chrome or Edge, no toolchain, no app.</div>
+</div>
+
+<div class="attribution">
+  <div class="attribution-box">
+    <strong>About this fork:</strong> FPSteVe Edition is a personal fork of
+    <a href="https://github.com/sheeprine/freeclinker" target="_blank" rel="noopener">FreeCLinker by sheeprine</a>.
+    The original developer created the project, architecture and core functionality — this fork builds on that work with my own changes and experiments.
+    Please visit the <a href="https://github.com/sheeprine/freeclinker" target="_blank" rel="noopener">original FreeCLinker repository</a>
+    and <a href="https://sheeprine.github.io/freeclinker/" target="_blank" rel="noopener">original FreeCLinker site</a> for the upstream project.
+  </div>
 </div>
 
 <div class="diagram-wrap">
@@ -262,7 +284,7 @@
     <div class="link"><span class="arrow">←—―—→</span>BLE</div>
     <div class="node esp32">
       <div class="node-title">ESP32</div>
-      <div class="node-sub">FreeCLinker</div>
+      <div class="node-sub">FreeCLinker · FPSteVe Edition</div>
     </div>
     <div class="link"><span class="arrow">←—―—→</span>MSP serial</div>
     <div class="node">
@@ -342,7 +364,7 @@
   <div class="quickstart-card">
     <div class="card-header">
       <h2>Wiring at a glance</h2>
-      <a href="https://github.com/sheeprine/freeclinker/blob/main/QUICKSTART.md" target="_blank" rel="noopener">Full quickstart ↗</a>
+      <a href="https://github.com/sheeprine/freeclinker/blob/main/QUICKSTART.md" target="_blank" rel="noopener">Original quickstart ↗</a>
     </div>
     <table class="wiring-table">
       <thead>
@@ -362,10 +384,16 @@
   <div class="foot-links">
     <a href="config.html">Config UI</a>
     <a href="flash.html">Flash firmware</a>
-    <a href="https://github.com/sheeprine/freeclinker" target="_blank" rel="noopener">GitHub</a>
-    <a href="https://github.com/sheeprine/freeclinker/blob/main/QUICKSTART.md" target="_blank" rel="noopener">Quickstart</a>
+    <a href="https://github.com/alfonsogordon/freeclinker" target="_blank" rel="noopener">FPSteVe fork on GitHub</a>
+    <a href="https://github.com/sheeprine/freeclinker" target="_blank" rel="noopener">Original FreeCLinker repository</a>
+    <a href="https://sheeprine.github.io/freeclinker/" target="_blank" rel="noopener">Original FreeCLinker site</a>
   </div>
-  FreeCLinker — DJI Action / GoPro ↔ Betaflight bridge, running on an ESP32.
+  <div class="credit">
+    FreeCLinker — DJI Action / GoPro ↔ Betaflight bridge, running on an ESP32.<br>
+    <strong>FPSteVe Edition is a fork.</strong> FreeCLinker and its core work were created by
+    <a href="https://github.com/sheeprine" target="_blank" rel="noopener">sheeprine</a>.
+    This edition builds on the original project with personal modifications.
+  </div>
 </footer>
 
 </body>
