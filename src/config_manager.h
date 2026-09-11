@@ -117,7 +117,7 @@ public:
     static constexpr const char *DEFAULT_FPV_HOT_TEXT          = "CAM HOT";
     // FPSteVe build preference: enabled here for testing/use. Upstream/public recommendation: default OFF.
     static constexpr bool     DEFAULT_FPV_PREARM_ENABLED       = true;
-    static constexpr const char *DEFAULT_FPV_PREARM_TEXT       = "CLEAN LENS";
+    static constexpr const char *DEFAULT_FPV_PREARM_TEXT       = "";
     static constexpr uint16_t DEFAULT_FPV_PREARM_SHOW_MS       = 1000;
     static constexpr uint16_t DEFAULT_FPV_PREARM_INTERVAL_MS   = 3000;
 

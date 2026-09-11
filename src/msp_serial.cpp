@@ -463,9 +463,9 @@ void MSPSerial::sendCraftName(const CameraData &data, const char *tpl) {
     // Phase A is the base state (RDY/REC/ERR). Phase B is the next active
     // warning, or (while recording with flash enabled) a true blank. If several
     // warnings are active, rotate one warning per second so none are hidden.
-    const bool reminderDue = _fpvPreArmEnabled && !_hasArmedSinceBoot && !recording &&
+    const bool reminderDue = _fpvPreArmText[0] != '\0' &&
+                             (!_fpvPreArmEnabled || !_hasArmedSinceBoot) && !recording &&
                              forcedState && strcmp(forcedState, "RDY") == 0 && warningCount == 0 &&
-                             _fpvPreArmText[0] != '\0' &&
                              ((millis() % _fpvPreArmIntervalMs) < _fpvPreArmShowMs);
     if (reminderDue) {
         sendCustomText(MSP_TEXT_CRAFT_NAME, _fpvPreArmText);

@@ -306,7 +306,7 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
         out.println("  set fpv_record <0|1>       - enable recording-state Craft Name template");
         out.println("  set fpv_record_text <tpl>  - recording template (default {state})");
         out.println("  set fpv_flash <0|1>        - flash {state} at 1 Hz while recording");
-        out.println("  set fpv_prearm <0|1>       - pre-arm reminder until first arm since boot");
+        out.println("  set fpv_prearm <0|1>       - custom message until first arm since boot");
         out.println("  set fpv_prearm_text <text> - reminder text (FPSteVe default CLEAN LENS)");
         out.println("  set fpv_prearm_show <ms>   - reminder visible duration (default 1000)");
         out.println("  set fpv_prearm_int <ms>    - reminder repeat interval (default 3000)");
