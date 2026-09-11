@@ -11,14 +11,10 @@ def must_replace(old, new, label):
     s = s.replace(old, new, 1)
 
 
-# FPSteVe branding / dark theme.
 must_replace('<title>FreeCLinker — Config</title>', '<title>FreeCLinker — FPSteVe Edition Config</title>', 'page title')
 must_replace('<span class="brand">FreeCLinker</span>', '<span class="brand">FreeCLinker — FPSteVe Edition</span>', 'brand')
 must_replace('</head>', '  <link rel="stylesheet" href="fps-theme.css">\n</head>', 'head close')
 
-# Replace the advanced state/warning editor with the intentionally small
-# FPSteVe controls. Existing element IDs are preserved for the upstream JS/CLI
-# contract, while advanced values remain hidden and fixed to our tested values.
 start_marker = '      <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">\n        <div class="cfg-field-name">State-aware Craft Name</div>'
 end_marker = '      <div class="card-footer">'
 start = s.find(start_marker)
@@ -56,80 +52,50 @@ lines = [
 ]
 s = s[:start] + '\n'.join(lines) + s[end:]
 
-# Master warning switch drives all three warning families in the UI.
 hook = "[fpvStateModeToggle, fpvErrorToggle, fpvReadyToggle, fpvRecordToggle, fpvFlashToggle, fpvLowBattToggle, fpvRecLowToggle, fpvHotToggle].forEach(el => el.addEventListener('change', updateFpvOptionState));"
 replacement = hook + "\n\n// FPSteVe simplified controls.\nfpvLowBattToggle.addEventListener('change', () => {\n  fpvRecLowToggle.checked = fpvLowBattToggle.checked;\n  fpvHotToggle.checked = fpvLowBattToggle.checked;\n  updateFpvOptionState();\n});\n\nconst customDurationInput = document.getElementById('fpvCustomDurationSec');\ncustomDurationInput.addEventListener('input', () => {\n  const sec = Math.min(2.5, Math.max(0.1, parseFloat(customDurationInput.value) || 1));\n  fpvPreArmShowInput.value = Math.round(sec * 1000);\n});"
 must_replace(hook, replacement, 'FPS option event hook')
 
-# Loading from an existing device: state mode is always on in FPSteVe Edition,
-# while the stored custom-message duration is mirrored to the visible seconds box.
-must_replace("} else if (key === 'fpv_state_mode') { fpvStateModeToggle.checked = (val === 'true');",
-             "} else if (key === 'fpv_state_mode') { fpvStateModeToggle.checked = true;",
-             'fpv_state_mode parser')
-must_replace("} else if (key === 'fpv_prearm_show') { fpvPreArmShowInput.value = parseInt(val) || 1000;",
-             "} else if (key === 'fpv_prearm_show') { fpvPreArmShowInput.value = parseInt(val) || 1000; const d = document.getElementById('fpvCustomDurationSec'); if (d) d.value = (Math.min(2500, Math.max(100, fpvPreArmShowInput.value)) / 1000).toFixed(1);",
-             'custom duration parser')
+must_replace("} else if (key === 'fpv_state_mode') { fpvStateModeToggle.checked = (val === 'true');", "} else if (key === 'fpv_state_mode') { fpvStateModeToggle.checked = true;", 'fpv_state_mode parser')
+must_replace("} else if (key === 'fpv_prearm_show') { fpvPreArmShowInput.value = parseInt(val) || 1000;", "} else if (key === 'fpv_prearm_show') { fpvPreArmShowInput.value = parseInt(val) || 1000; const d = document.getElementById('fpvCustomDurationSec'); if (d) d.value = (Math.min(2500, Math.max(100, fpvPreArmShowInput.value)) / 1000).toFixed(1);", 'custom duration parser')
 
-# Apply: permanently enable the state engine and fixed tested state/warning
-# presentation. The user only controls custom text/gating/duration and the two
-# numeric warning thresholds.
-must_replace("  await sendCommand(`set fpv_state_mode ${fpvStateModeToggle.checked ? 1 : 0}`);",
-             "  await sendCommand('set fpv_state_mode 1');",
-             'state mode apply')
-must_replace("  await sendCommand(`set fpv_error ${fpvErrorToggle.checked ? 1 : 0}`);",
-             "  await sendCommand('set fpv_error 1');",
-             'error enable apply')
-must_replace("  await sendCommand(`set fpv_err_text ${fpvErrorTextInput.value}`);",
-             "  await sendCommand('set fpv_err_text {state} {batt} {rectf}');",
-             'error text apply')
-must_replace("  await sendCommand(`set fpv_ready ${fpvReadyToggle.checked ? 1 : 0}`);",
-             "  await sendCommand('set fpv_ready 1');",
-             'ready enable apply')
-must_replace("  await sendCommand(`set fpv_ready_text ${fpvReadyTextInput.value}`);",
-             "  await sendCommand('set fpv_ready_text {state} {batt} {rectf}');",
-             'ready text apply')
-must_replace("  await sendCommand(`set fpv_record ${fpvRecordToggle.checked ? 1 : 0}`);",
-             "  await sendCommand('set fpv_record 1');",
-             'record enable apply')
-must_replace("  await sendCommand(`set fpv_record_text ${fpvRecordTextInput.value}`);",
-             "  await sendCommand('set fpv_record_text {state}');",
-             'record text apply')
-must_replace("  await sendCommand(`set fpv_flash ${fpvFlashToggle.checked ? 1 : 0}`);",
-             "  await sendCommand('set fpv_flash 1');",
-             'record flash apply')
+fixed_commands = [
+    ("  await sendCommand(`set fpv_state_mode ${fpvStateModeToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_state_mode 1');", 'state mode apply'),
+    ("  await sendCommand(`set fpv_error ${fpvErrorToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_error 1');", 'error enable apply'),
+    ("  await sendCommand(`set fpv_err_text ${fpvErrorTextInput.value}`);", "  await sendCommand('set fpv_err_text {state} {batt} {rectf}');", 'error text apply'),
+    ("  await sendCommand(`set fpv_ready ${fpvReadyToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_ready 1');", 'ready enable apply'),
+    ("  await sendCommand(`set fpv_ready_text ${fpvReadyTextInput.value}`);", "  await sendCommand('set fpv_ready_text {state} {batt} {rectf}');", 'ready text apply'),
+    ("  await sendCommand(`set fpv_record ${fpvRecordToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_record 1');", 'record enable apply'),
+    ("  await sendCommand(`set fpv_record_text ${fpvRecordTextInput.value}`);", "  await sendCommand('set fpv_record_text {state}');", 'record text apply'),
+    ("  await sendCommand(`set fpv_flash ${fpvFlashToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_flash 1');", 'record flash apply'),
+    ("  await sendCommand(`set fpv_low_rdyflash ${fpvLowRdyFlashToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_low_rdyflash 1');", 'low battery ready behavior'),
+    ("  await sendCommand(`set fpv_low_rectext ${fpvLowRecTextToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_low_rectext 1');", 'low battery record behavior'),
+    ("  await sendCommand(`set fpv_low_text ${fpvLowTextInput.value}`);", "  await sendCommand('set fpv_low_text BATT LOW');", 'low battery text'),
+    # Exact command names from the known-good configurator source.
+    ("  await sendCommand(`set fpv_rect_warn ${fpvRecLowToggle.checked ? 1 : 0}`);", "  await sendCommand(`set fpv_rect_warn ${fpvLowBattToggle.checked ? 1 : 0}`);", 'low record master'),
+    ("  await sendCommand(`set fpv_rect_ready ${fpvRecLowReadyToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_rect_ready 1');", 'low record ready behavior'),
+    ("  await sendCommand(`set fpv_rect_record ${fpvRecLowRecordingToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_rect_record 1');", 'low record record behavior'),
+    ("  await sendCommand(`set fpv_rect_text ${fpvRecLowTextInput.value}`);", "  await sendCommand('set fpv_rect_text REC LOW');", 'low record text'),
+    ("  await sendCommand(`set fpv_hot_warn ${fpvHotToggle.checked ? 1 : 0}`);", "  await sendCommand(`set fpv_hot_warn ${fpvLowBattToggle.checked ? 1 : 0}`);", 'hot warning master'),
+    ("  await sendCommand(`set fpv_hot_ready ${fpvHotReadyToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_hot_ready 1');", 'hot ready behavior'),
+    ("  await sendCommand(`set fpv_hot_record ${fpvHotRecordingToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_hot_record 1');", 'hot record behavior'),
+    ("  await sendCommand(`set fpv_hot_text ${fpvHotTextInput.value}`);", "  await sendCommand('set fpv_hot_text CAM HOT');", 'hot text'),
+]
+for old, new, label in fixed_commands:
+    must_replace(old, new, label)
 
-# Custom message is empty-by-default. Convert the visible seconds value directly
-# at Apply time so clicking Apply while the number box still has focus is safe.
-must_replace("  await sendCommand(`set fpv_prearm_show ${Math.max(100, parseInt(fpvPreArmShowInput.value) || 1000)}`);",
-             "  const customMsgSec = Math.min(2.5, Math.max(0.1, parseFloat(document.getElementById('fpvCustomDurationSec').value) || 1));\n  await sendCommand(`set fpv_prearm_show ${Math.round(customMsgSec * 1000)}`);",
-             'custom duration apply')
-must_replace("  await sendCommand(`set fpv_prearm_int ${Math.max(100, parseInt(fpvPreArmIntInput.value) || 3000)}`);",
-             "  await sendCommand('set fpv_prearm_int 3000');",
-             'custom interval apply')
+must_replace("  await sendCommand(`set fpv_prearm_show ${Math.max(100, parseInt(fpvPreArmShowInput.value) || 1000)}`);", "  const customMsgSec = Math.min(2.5, Math.max(0.1, parseFloat(document.getElementById('fpvCustomDurationSec').value) || 1));\n  await sendCommand(`set fpv_prearm_show ${Math.round(customMsgSec * 1000)}`);", 'custom duration apply')
+must_replace("  await sendCommand(`set fpv_prearm_int ${Math.max(100, parseInt(fpvPreArmIntInput.value) || 3000)}`);", "  await sendCommand('set fpv_prearm_int 3000');", 'custom interval apply')
 
-# One warning switch controls battery/time/hot. Keep warning wording and phase
-# behavior fixed to the known-good FPSteVe values.
-must_replace("  await sendCommand(`set fpv_low_rdyflash ${fpvLowRdyFlashToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_low_rdyflash 1');", 'low battery ready behavior')
-must_replace("  await sendCommand(`set fpv_low_rectext ${fpvLowRecTextToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_low_rectext 1');", 'low battery record behavior')
-must_replace("  await sendCommand(`set fpv_low_text ${fpvLowTextInput.value}`);", "  await sendCommand('set fpv_low_text BATT LOW');", 'low battery text')
-must_replace("  await sendCommand(`set fpv_rec_low ${fpvRecLowToggle.checked ? 1 : 0}`);", "  await sendCommand(`set fpv_rec_low ${fpvLowBattToggle.checked ? 1 : 0}`);", 'low record master')
-must_replace("  await sendCommand(`set fpv_rec_low_rdy ${fpvRecLowReadyToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_rec_low_rdy 1');", 'low record ready behavior')
-must_replace("  await sendCommand(`set fpv_rec_low_rec ${fpvRecLowRecordingToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_rec_low_rec 1');", 'low record record behavior')
-must_replace("  await sendCommand(`set fpv_rec_low_text ${fpvRecLowTextInput.value}`);", "  await sendCommand('set fpv_rec_low_text REC LOW');", 'low record text')
-must_replace("  await sendCommand(`set fpv_hot ${fpvHotToggle.checked ? 1 : 0}`);", "  await sendCommand(`set fpv_hot ${fpvLowBattToggle.checked ? 1 : 0}`);", 'hot warning master')
-must_replace("  await sendCommand(`set fpv_hot_rdy ${fpvHotReadyToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_hot_rdy 1');", 'hot ready behavior')
-must_replace("  await sendCommand(`set fpv_hot_rec ${fpvHotRecordingToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_hot_rec 1');", 'hot record behavior')
-must_replace("  await sendCommand(`set fpv_hot_text ${fpvHotTextInput.value}`);", "  await sendCommand('set fpv_hot_text CAM HOT');", 'hot text')
-
-# Threshold enable/disable follows the single warnings switch.
 s = s.replace('fpvRecLowMinInput.disabled = !connectedNow || !fpvRecLowToggle.checked;', 'fpvRecLowMinInput.disabled = !connectedNow || !fpvLowBattToggle.checked;')
 
-# Build-time sanity checks so Pages can never silently deploy the old controls.
 for marker in [
     'id="fpvCustomDurationSec"',
     'placeholder="e.g. CLEAN LENS"',
     'Only before first arm',
     "await sendCommand('set fpv_state_mode 1')",
+    'set fpv_rect_warn',
+    'set fpv_hot_warn',
     'Camera warnings',
 ]:
     if marker not in s:
