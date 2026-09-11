@@ -525,6 +525,10 @@ void BLECamera::handleCameraStatus(const uint8_t *payload, uint16_t len) {
 
     _camera.percent       = s->bat_percent;
     _camera.recording     = (s->camera_status == 0x03);
+    _camera.has_battery = true;
+    _camera.has_recording = true;
+    _camera.has_temperature = true;
+    _camera.has_remain_time = true;
     _camera.camera_mode   = s->camera_mode;
     _camera.temp_over     = s->temp_over;
     _camera.record_time   = s->record_time;

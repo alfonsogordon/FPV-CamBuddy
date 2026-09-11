@@ -98,6 +98,28 @@ void WebConfigServer::handleGetConfig() {
     doc["pilot_tpl"]      = c.pilotNameTpl;
     doc["craft_en"]       = c.craftNameEnabled;
     doc["craft_tpl"]      = c.craftNameTpl;
+    doc["fpv_state_mode"]  = c.fpvStateMode;
+    doc["fpv_error"]       = c.fpvErrorEnabled;
+    doc["fpv_err_text"]    = c.fpvErrorText;
+    doc["fpv_ready"]       = c.fpvReadyEnabled;
+    doc["fpv_ready_text"]  = c.fpvReadyText;
+    doc["fpv_record"]      = c.fpvRecordingEnabled;
+    doc["fpv_record_text"] = c.fpvRecordingText;
+    doc["fpv_flash"]       = c.fpvRecFlash;
+    doc["fpv_low_batt"]    = c.fpvLowBatteryEnabled;
+    doc["fpv_low_pct"]     = c.fpvLowBatteryPct;
+    doc["fpv_low_rdyflash"] = c.fpvLowBatteryReadyFlash;
+    doc["fpv_low_rectext"] = c.fpvLowBatteryRecText;
+    doc["fpv_low_text"]    = c.fpvLowBatteryText;
+    doc["fpv_rect_warn"]   = c.fpvLowRecTimeEnabled;
+    doc["fpv_rect_min"]    = c.fpvLowRecTimeMin;
+    doc["fpv_rect_ready"]  = c.fpvLowRecReadyWarning;
+    doc["fpv_rect_record"] = c.fpvLowRecRecordingWarning;
+    doc["fpv_rect_text"]   = c.fpvLowRecTimeText;
+    doc["fpv_hot_warn"]    = c.fpvHotWarningEnabled;
+    doc["fpv_hot_ready"]   = c.fpvHotReadyWarning;
+    doc["fpv_hot_record"]  = c.fpvHotRecordingWarning;
+    doc["fpv_hot_text"]    = c.fpvHotWarningText;
     String json;
     serializeJson(doc, json);
     _server.send(200, "application/json", json);
@@ -135,6 +157,28 @@ void WebConfigServer::handlePostConfig() {
     if (doc["pilot_tpl"].is<const char *>()) _cfg->setPilotNameTemplate(doc["pilot_tpl"].as<const char *>());
     if (doc["craft_en"].is<bool>())       _cfg->setCraftNameEnabled(doc["craft_en"].as<bool>());
     if (doc["craft_tpl"].is<const char *>()) _cfg->setCraftNameTemplate(doc["craft_tpl"].as<const char *>());
+    if (doc["fpv_state_mode"].is<bool>()) _cfg->setFpvStateMode(doc["fpv_state_mode"].as<bool>());
+    if (doc["fpv_error"].is<bool>())       _cfg->setFpvErrorEnabled(doc["fpv_error"].as<bool>());
+    if (doc["fpv_err_text"].is<const char *>()) _cfg->setFpvErrorText(doc["fpv_err_text"].as<const char *>());
+    if (doc["fpv_ready"].is<bool>())       _cfg->setFpvReadyEnabled(doc["fpv_ready"].as<bool>());
+    if (doc["fpv_ready_text"].is<const char *>()) _cfg->setFpvReadyText(doc["fpv_ready_text"].as<const char *>());
+    if (doc["fpv_record"].is<bool>())      _cfg->setFpvRecordingEnabled(doc["fpv_record"].as<bool>());
+    if (doc["fpv_record_text"].is<const char *>()) _cfg->setFpvRecordingText(doc["fpv_record_text"].as<const char *>());
+    if (doc["fpv_flash"].is<bool>())       _cfg->setFpvRecFlash(doc["fpv_flash"].as<bool>());
+    if (doc["fpv_low_batt"].is<bool>())    _cfg->setFpvLowBatteryEnabled(doc["fpv_low_batt"].as<bool>());
+    if (doc["fpv_low_pct"].is<unsigned int>()) _cfg->setFpvLowBatteryPct((uint8_t)doc["fpv_low_pct"].as<unsigned int>());
+    if (doc["fpv_low_rdyflash"].is<bool>()) _cfg->setFpvLowBatteryReadyFlash(doc["fpv_low_rdyflash"].as<bool>());
+    if (doc["fpv_low_rectext"].is<bool>()) _cfg->setFpvLowBatteryRecText(doc["fpv_low_rectext"].as<bool>());
+    if (doc["fpv_low_text"].is<const char *>()) _cfg->setFpvLowBatteryText(doc["fpv_low_text"].as<const char *>());
+    if (doc["fpv_rect_warn"].is<bool>()) _cfg->setFpvLowRecTimeEnabled(doc["fpv_rect_warn"].as<bool>());
+    if (doc["fpv_rect_min"].is<unsigned int>()) _cfg->setFpvLowRecTimeMin((uint16_t)doc["fpv_rect_min"].as<unsigned int>());
+    if (doc["fpv_rect_ready"].is<bool>()) _cfg->setFpvLowRecReadyWarning(doc["fpv_rect_ready"].as<bool>());
+    if (doc["fpv_rect_record"].is<bool>()) _cfg->setFpvLowRecRecordingWarning(doc["fpv_rect_record"].as<bool>());
+    if (doc["fpv_rect_text"].is<const char *>()) _cfg->setFpvLowRecTimeText(doc["fpv_rect_text"].as<const char *>());
+    if (doc["fpv_hot_warn"].is<bool>()) _cfg->setFpvHotWarningEnabled(doc["fpv_hot_warn"].as<bool>());
+    if (doc["fpv_hot_ready"].is<bool>()) _cfg->setFpvHotReadyWarning(doc["fpv_hot_ready"].as<bool>());
+    if (doc["fpv_hot_record"].is<bool>()) _cfg->setFpvHotRecordingWarning(doc["fpv_hot_record"].as<bool>());
+    if (doc["fpv_hot_text"].is<const char *>()) _cfg->setFpvHotWarningText(doc["fpv_hot_text"].as<const char *>());
 
     handleGetConfig();  // return the updated state
 }

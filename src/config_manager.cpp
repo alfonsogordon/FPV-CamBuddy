@@ -27,6 +27,32 @@ static constexpr const char *KEY_PILOT_EN = "pilot_en";
 static constexpr const char *KEY_PILOT = "pilot_tpl";
 static constexpr const char *KEY_CRAFT_EN = "craft_en";
 static constexpr const char *KEY_CRAFT = "craft_tpl";
+static constexpr const char *KEY_FPV_MODE = "fpv_state_mode";
+static constexpr const char *KEY_FPV_ERR = "fpv_error";
+static constexpr const char *KEY_FPV_ERR_TXT = "fpv_err_txt";
+static constexpr const char *KEY_FPV_RDY = "fpv_ready";
+static constexpr const char *KEY_FPV_RDY_TXT = "fpv_rdy_txt";
+static constexpr const char *KEY_FPV_REC = "fpv_record";
+static constexpr const char *KEY_FPV_REC_TXT = "fpv_rec_txt";
+static constexpr const char *KEY_FPV_FLASH = "fpv_flash";
+static constexpr const char *KEY_FPV_LOW_EN = "fpv_low_en";
+static constexpr const char *KEY_FPV_LOW_PCT = "fpv_low_pct";
+static constexpr const char *KEY_FPV_LOW_RDY = "fpv_low_rdy";
+static constexpr const char *KEY_FPV_LOW_REC = "fpv_low_rec";
+static constexpr const char *KEY_FPV_LOW_TXT = "fpv_low_txt";
+static constexpr const char *KEY_FPV_RECT_EN = "fpv_rect_en";
+static constexpr const char *KEY_FPV_RECT_MIN = "fpv_rect_min";
+static constexpr const char *KEY_FPV_RECT_RDY = "fpv_rect_rdy";
+static constexpr const char *KEY_FPV_RECT_REC = "fpv_rect_rec";
+static constexpr const char *KEY_FPV_RECT_TXT = "fpv_rect_txt";
+static constexpr const char *KEY_FPV_HOT_EN = "fpv_hot_en";
+static constexpr const char *KEY_FPV_HOT_RDY = "fpv_hot_rdy";
+static constexpr const char *KEY_FPV_HOT_REC = "fpv_hot_rec";
+static constexpr const char *KEY_FPV_HOT_TXT = "fpv_hot_txt";
+static constexpr const char *KEY_FPV_PREARM_EN = "fpv_prearm_en";
+static constexpr const char *KEY_FPV_PREARM_TXT = "fpv_prearm_txt";
+static constexpr const char *KEY_FPV_PREARM_SHOW = "fpv_prearm_show";
+static constexpr const char *KEY_FPV_PREARM_INT = "fpv_prearm_int";
 
 void ConfigManager::begin(Stream &serial) {
     _serial = &serial;
@@ -62,6 +88,61 @@ void ConfigManager::load() {
     loadStr(_prefs, KEY_PILOT, _cfg.pilotNameTpl, sizeof(_cfg.pilotNameTpl), DEFAULT_PILOT_NAME_TPL);
     _cfg.craftNameEnabled  = _prefs.getBool(KEY_CRAFT_EN, DEFAULT_CRAFT_NAME_ENABLED);
     loadStr(_prefs, KEY_CRAFT, _cfg.craftNameTpl, sizeof(_cfg.craftNameTpl), DEFAULT_CRAFT_NAME_TPL);
+    _cfg.fpvStateMode        = _prefs.getBool(KEY_FPV_MODE, DEFAULT_FPV_STATE_MODE);
+    _cfg.fpvErrorEnabled     = _prefs.getBool(KEY_FPV_ERR, DEFAULT_FPV_ERROR_ENABLED);
+    loadStr(_prefs, KEY_FPV_ERR_TXT, _cfg.fpvErrorText, sizeof(_cfg.fpvErrorText), DEFAULT_FPV_ERROR_TEXT);
+    _cfg.fpvReadyEnabled     = _prefs.getBool(KEY_FPV_RDY, DEFAULT_FPV_READY_ENABLED);
+    loadStr(_prefs, KEY_FPV_RDY_TXT, _cfg.fpvReadyText, sizeof(_cfg.fpvReadyText), DEFAULT_FPV_READY_TEXT);
+    _cfg.fpvRecordingEnabled = _prefs.getBool(KEY_FPV_REC, DEFAULT_FPV_RECORDING_ENABLED);
+    loadStr(_prefs, KEY_FPV_REC_TXT, _cfg.fpvRecordingText, sizeof(_cfg.fpvRecordingText), DEFAULT_FPV_RECORDING_TEXT);
+    _cfg.fpvRecFlash         = _prefs.getBool(KEY_FPV_FLASH, DEFAULT_FPV_REC_FLASH);
+    _cfg.fpvLowBatteryEnabled = _prefs.getBool(KEY_FPV_LOW_EN, DEFAULT_FPV_LOW_BATTERY_ENABLED);
+    _cfg.fpvLowBatteryPct     = static_cast<uint8_t>(_prefs.getUInt(KEY_FPV_LOW_PCT, DEFAULT_FPV_LOW_BATTERY_PCT));
+    if (_cfg.fpvLowBatteryPct > 100) _cfg.fpvLowBatteryPct = 100;
+    _cfg.fpvLowBatteryReadyFlash = _prefs.getBool(KEY_FPV_LOW_RDY, DEFAULT_FPV_LOW_BAT_READY_FLASH);
+    _cfg.fpvLowBatteryRecText = _prefs.getBool(KEY_FPV_LOW_REC, DEFAULT_FPV_LOW_BAT_REC_TEXT);
+    loadStr(_prefs, KEY_FPV_LOW_TXT, _cfg.fpvLowBatteryText, sizeof(_cfg.fpvLowBatteryText), DEFAULT_FPV_LOW_BATTERY_TEXT);
+    _cfg.fpvLowRecTimeEnabled = _prefs.getBool(KEY_FPV_RECT_EN, DEFAULT_FPV_LOW_REC_ENABLED);
+    _cfg.fpvLowRecTimeMin = static_cast<uint16_t>(_prefs.getUInt(KEY_FPV_RECT_MIN, DEFAULT_FPV_LOW_REC_MIN));
+    _cfg.fpvLowRecReadyWarning = _prefs.getBool(KEY_FPV_RECT_RDY, DEFAULT_FPV_LOW_REC_READY);
+    _cfg.fpvLowRecRecordingWarning = _prefs.getBool(KEY_FPV_RECT_REC, DEFAULT_FPV_LOW_REC_RECORDING);
+    loadStr(_prefs, KEY_FPV_RECT_TXT, _cfg.fpvLowRecTimeText, sizeof(_cfg.fpvLowRecTimeText), DEFAULT_FPV_LOW_REC_TEXT);
+    _cfg.fpvHotWarningEnabled = _prefs.getBool(KEY_FPV_HOT_EN, DEFAULT_FPV_HOT_ENABLED);
+    _cfg.fpvHotReadyWarning = _prefs.getBool(KEY_FPV_HOT_RDY, DEFAULT_FPV_HOT_READY);
+    _cfg.fpvHotRecordingWarning = _prefs.getBool(KEY_FPV_HOT_REC, DEFAULT_FPV_HOT_RECORDING);
+    loadStr(_prefs, KEY_FPV_HOT_TXT, _cfg.fpvHotWarningText, sizeof(_cfg.fpvHotWarningText), DEFAULT_FPV_HOT_TEXT);
+    _cfg.fpvPreArmReminderEnabled = _prefs.getBool(KEY_FPV_PREARM_EN, DEFAULT_FPV_PREARM_ENABLED);
+    loadStr(_prefs, KEY_FPV_PREARM_TXT, _cfg.fpvPreArmReminderText, sizeof(_cfg.fpvPreArmReminderText), DEFAULT_FPV_PREARM_TEXT);
+    _cfg.fpvPreArmReminderShowMs = (uint16_t)_prefs.getUInt(KEY_FPV_PREARM_SHOW, DEFAULT_FPV_PREARM_SHOW_MS);
+    _cfg.fpvPreArmReminderIntervalMs = (uint16_t)_prefs.getUInt(KEY_FPV_PREARM_INT, DEFAULT_FPV_PREARM_INTERVAL_MS);
+    if (_cfg.fpvPreArmReminderShowMs < 100) _cfg.fpvPreArmReminderShowMs = 100;
+    if (_cfg.fpvPreArmReminderIntervalMs < _cfg.fpvPreArmReminderShowMs) _cfg.fpvPreArmReminderIntervalMs = _cfg.fpvPreArmReminderShowMs;
+
+    // Migration from stock 0.0.11 and the earlier private {fpv} prototype.
+    // State-aware mode now owns per-state templates, while craft_tpl remains a
+    // normal fallback template when state-aware mode is disabled.
+    if (strcmp(_cfg.craftNameTpl, "{rec}{recdur}") == 0 ||
+        strcmp(_cfg.craftNameTpl, "{rec}") == 0 ||
+        strcmp(_cfg.craftNameTpl, "{fpv}") == 0) {
+        strlcpy(_cfg.craftNameTpl, DEFAULT_CRAFT_NAME_TPL, sizeof(_cfg.craftNameTpl));
+        _prefs.putString(KEY_CRAFT, _cfg.craftNameTpl);
+    }
+    // Migrate the previous hard-coded labels to public, composable templates.
+    if (strcmp(_cfg.fpvErrorText, "ERR") == 0 ||
+        strcmp(_cfg.fpvErrorText, "{state}") == 0) {
+        // Migrate the previous error-only template so ERR keeps the same
+        // useful battery / remaining-time context as RDY.
+        strlcpy(_cfg.fpvErrorText, DEFAULT_FPV_ERROR_TEXT, sizeof(_cfg.fpvErrorText));
+        _prefs.putString(KEY_FPV_ERR_TXT, _cfg.fpvErrorText);
+    }
+    if (strcmp(_cfg.fpvReadyText, "RDY") == 0) {
+        strlcpy(_cfg.fpvReadyText, DEFAULT_FPV_READY_TEXT, sizeof(_cfg.fpvReadyText));
+        _prefs.putString(KEY_FPV_RDY_TXT, _cfg.fpvReadyText);
+    }
+    if (strcmp(_cfg.fpvRecordingText, "REC") == 0) {
+        strlcpy(_cfg.fpvRecordingText, DEFAULT_FPV_RECORDING_TEXT, sizeof(_cfg.fpvRecordingText));
+        _prefs.putString(KEY_FPV_REC_TXT, _cfg.fpvRecordingText);
+    }
 }
 
 void ConfigManager::save() {
@@ -85,6 +166,32 @@ void ConfigManager::save() {
     _prefs.putString(KEY_PILOT, _cfg.pilotNameTpl);
     _prefs.putBool(KEY_CRAFT_EN, _cfg.craftNameEnabled);
     _prefs.putString(KEY_CRAFT, _cfg.craftNameTpl);
+    _prefs.putBool(KEY_FPV_MODE, _cfg.fpvStateMode);
+    _prefs.putBool(KEY_FPV_ERR, _cfg.fpvErrorEnabled);
+    _prefs.putString(KEY_FPV_ERR_TXT, _cfg.fpvErrorText);
+    _prefs.putBool(KEY_FPV_RDY, _cfg.fpvReadyEnabled);
+    _prefs.putString(KEY_FPV_RDY_TXT, _cfg.fpvReadyText);
+    _prefs.putBool(KEY_FPV_REC, _cfg.fpvRecordingEnabled);
+    _prefs.putString(KEY_FPV_REC_TXT, _cfg.fpvRecordingText);
+    _prefs.putBool(KEY_FPV_FLASH, _cfg.fpvRecFlash);
+    _prefs.putBool(KEY_FPV_LOW_EN, _cfg.fpvLowBatteryEnabled);
+    _prefs.putUInt(KEY_FPV_LOW_PCT, _cfg.fpvLowBatteryPct);
+    _prefs.putBool(KEY_FPV_LOW_RDY, _cfg.fpvLowBatteryReadyFlash);
+    _prefs.putBool(KEY_FPV_LOW_REC, _cfg.fpvLowBatteryRecText);
+    _prefs.putString(KEY_FPV_LOW_TXT, _cfg.fpvLowBatteryText);
+    _prefs.putBool(KEY_FPV_RECT_EN, _cfg.fpvLowRecTimeEnabled);
+    _prefs.putUInt(KEY_FPV_RECT_MIN, _cfg.fpvLowRecTimeMin);
+    _prefs.putBool(KEY_FPV_RECT_RDY, _cfg.fpvLowRecReadyWarning);
+    _prefs.putBool(KEY_FPV_RECT_REC, _cfg.fpvLowRecRecordingWarning);
+    _prefs.putString(KEY_FPV_RECT_TXT, _cfg.fpvLowRecTimeText);
+    _prefs.putBool(KEY_FPV_HOT_EN, _cfg.fpvHotWarningEnabled);
+    _prefs.putBool(KEY_FPV_HOT_RDY, _cfg.fpvHotReadyWarning);
+    _prefs.putBool(KEY_FPV_HOT_REC, _cfg.fpvHotRecordingWarning);
+    _prefs.putString(KEY_FPV_HOT_TXT, _cfg.fpvHotWarningText);
+    _prefs.putBool(KEY_FPV_PREARM_EN, _cfg.fpvPreArmReminderEnabled);
+    _prefs.putString(KEY_FPV_PREARM_TXT, _cfg.fpvPreArmReminderText);
+    _prefs.putUInt(KEY_FPV_PREARM_SHOW, _cfg.fpvPreArmReminderShowMs);
+    _prefs.putUInt(KEY_FPV_PREARM_INT, _cfg.fpvPreArmReminderIntervalMs);
 }
 
 static const char *cameraTypeName(uint8_t t) {
@@ -124,6 +231,32 @@ void ConfigManager::printAll(Stream &out) {
     out.printf("[cfg] pilot_tpl       = %s\n", _cfg.pilotNameTpl);
     out.printf("[cfg] craft_en        = %s\n", _cfg.craftNameEnabled ? "true" : "false");
     out.printf("[cfg] craft_tpl       = %s\n", _cfg.craftNameTpl);
+    out.printf("[cfg] fpv_state_mode  = %s\n", _cfg.fpvStateMode ? "true" : "false");
+    out.printf("[cfg] fpv_error       = %s\n", _cfg.fpvErrorEnabled ? "true" : "false");
+    out.printf("[cfg] fpv_err_text    = %s\n", _cfg.fpvErrorText);
+    out.printf("[cfg] fpv_ready       = %s\n", _cfg.fpvReadyEnabled ? "true" : "false");
+    out.printf("[cfg] fpv_ready_text  = %s\n", _cfg.fpvReadyText);
+    out.printf("[cfg] fpv_record      = %s\n", _cfg.fpvRecordingEnabled ? "true" : "false");
+    out.printf("[cfg] fpv_record_text = %s\n", _cfg.fpvRecordingText);
+    out.printf("[cfg] fpv_flash       = %s\n", _cfg.fpvRecFlash ? "true" : "false");
+    out.printf("[cfg] fpv_low_batt    = %s\n", _cfg.fpvLowBatteryEnabled ? "true" : "false");
+    out.printf("[cfg] fpv_low_pct     = %u\n", _cfg.fpvLowBatteryPct);
+    out.printf("[cfg] fpv_low_rdyflash= %s\n", _cfg.fpvLowBatteryReadyFlash ? "true" : "false");
+    out.printf("[cfg] fpv_low_rectext = %s\n", _cfg.fpvLowBatteryRecText ? "true" : "false");
+    out.printf("[cfg] fpv_low_text    = %s\n", _cfg.fpvLowBatteryText);
+    out.printf("[cfg] fpv_rect_warn   = %s\n", _cfg.fpvLowRecTimeEnabled ? "true" : "false");
+    out.printf("[cfg] fpv_rect_min    = %u\n", _cfg.fpvLowRecTimeMin);
+    out.printf("[cfg] fpv_rect_ready  = %s\n", _cfg.fpvLowRecReadyWarning ? "true" : "false");
+    out.printf("[cfg] fpv_rect_record = %s\n", _cfg.fpvLowRecRecordingWarning ? "true" : "false");
+    out.printf("[cfg] fpv_rect_text   = %s\n", _cfg.fpvLowRecTimeText);
+    out.printf("[cfg] fpv_hot_warn    = %s\n", _cfg.fpvHotWarningEnabled ? "true" : "false");
+    out.printf("[cfg] fpv_hot_ready   = %s\n", _cfg.fpvHotReadyWarning ? "true" : "false");
+    out.printf("[cfg] fpv_hot_record  = %s\n", _cfg.fpvHotRecordingWarning ? "true" : "false");
+    out.printf("[cfg] fpv_hot_text    = %s\n", _cfg.fpvHotWarningText);
+    out.printf("[cfg] fpv_prearm      = %s\n", _cfg.fpvPreArmReminderEnabled ? "true" : "false");
+    out.printf("[cfg] fpv_prearm_text = %s\n", _cfg.fpvPreArmReminderText);
+    out.printf("[cfg] fpv_prearm_show = %u ms\n", _cfg.fpvPreArmReminderShowMs);
+    out.printf("[cfg] fpv_prearm_int  = %u ms\n", _cfg.fpvPreArmReminderIntervalMs);
 
     CameraEntry ce;
     bool haveCaddx = _registry && _registry->preferredEntry(/*Caddx=*/2, ce);
@@ -159,12 +292,30 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
         out.println("  set osd2 <template>        - OSD Custom Message 2 template (default: recording)");
         out.println("  set osd3 <template>        - OSD Custom Message 3 template (default: settings)");
         out.println("  set osd4 <template>        - OSD Custom Message 4 template (default: storage)");
-        out.println("  Tokens: {bat} {rec} {recdur} {mode} {res} {fps} {eis} {rleft} {rcap}");
+        out.println("  Tokens: {state} {bat} {batn} {batt} {rect} {rectf} {rec} {recdur} {mode} {res} {fps} {eis} {rleft} {rcap}");
         out.println("  set bf45_compat <0|1>      - 1=target Betaflight 4.5: send pilot_tpl/craft_tpl to Pilot Name/Craft Name, stop sending osd1-4 (no Custom Message fields on 4.5)");
         out.println("  set pilot_en <0|1>         - enable (1, default) or disable (0) sending Pilot Name, when bf45_compat=1");
         out.println("  set pilot_tpl <template>   - Pilot Name template, used only when bf45_compat=1 and pilot_en=1 (default: battery)");
         out.println("  set craft_en <0|1>         - enable (1, default) or disable (0) sending Craft Name, when bf45_compat=1");
-        out.println("  set craft_tpl <template>   - Craft Name template, used only when bf45_compat=1 and craft_en=1 (default: recording state)");
+        out.println("  set craft_tpl <template>   - Craft Name template, used only when bf45_compat=1 and craft_en=1");
+        out.println("  set fpv_state_mode <0|1>   - state-aware Craft Name templates (error/ready/recording)");
+        out.println("  set fpv_error <0|1>        - enable error-state Craft Name template");
+        out.println("  set fpv_err_text <tpl>     - error-state template (default {state})");
+        out.println("  set fpv_ready <0|1>        - enable ready-state Craft Name template");
+        out.println("  set fpv_ready_text <tpl>   - ready template (default {state} {batt} {rectf})");
+        out.println("  set fpv_record <0|1>       - enable recording-state Craft Name template");
+        out.println("  set fpv_record_text <tpl>  - recording template (default {state})");
+        out.println("  set fpv_flash <0|1>        - flash {state} at 1 Hz while recording");
+        out.println("  set fpv_prearm <0|1>       - pre-arm reminder until first arm since boot");
+        out.println("  set fpv_prearm_text <text> - reminder text (FPSteVe default CLEAN LENS)");
+        out.println("  set fpv_prearm_show <ms>   - reminder visible duration (default 1000)");
+        out.println("  set fpv_prearm_int <ms>    - reminder repeat interval (default 3000)");
+        out.println("  set fpv_low_batt <0|1>     - enable low-battery warning behaviour");
+        out.println("  set fpv_low_pct <0-100>    - low-battery threshold, inclusive (default 10)");
+        out.println("  set fpv_low_rdyflash <0|1> - flash {bat}/{batn} only in READY when low");
+        out.println("  set fpv_low_rectext <0|1>  - show low-battery text instead of {state} on REC off phase");
+        out.println("  set fpv_low_text <text>    - low-battery label (default BATT LOW)");
+        out.println("  State tokens: {state} {bat} {batn} {rect} plus all normal OSD tokens");
         out.println("  set caddx_ssid <ssid>      - remember + select a Caddx Orca's Wi-Fi network (camera_type=2)");
         out.println("  set caddx_pass <password>  - password for the SSID above (tries factory default 12345678 first; reboot required)");
         out.println("  reset                      - restore defaults");
@@ -417,6 +568,84 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
             return;
         }
 
+        if (strncmp(rest, "fpv_state_mode ", 15) == 0) {
+            setFpvStateMode(strtoul(rest + 15, nullptr, 10) != 0);
+            out.printf("[cfg] fpv_state_mode = %s (saved)\n", _cfg.fpvStateMode ? "true" : "false");
+            return;
+        }
+
+        if (strncmp(rest, "fpv_error ", 10) == 0) {
+            const char *val = rest + 10; while (*val == ' ') val++;
+            setFpvErrorEnabled(strtoul(val, nullptr, 10) != 0);
+            out.printf("[cfg] fpv_error = %s (saved)\n", _cfg.fpvErrorEnabled ? "true" : "false");
+            return;
+        }
+        if (strncmp(rest, "fpv_err_text ", 13) == 0) {
+            setFpvErrorText(rest + 13); out.printf("[cfg] fpv_err_text = %s (saved)\n", _cfg.fpvErrorText); return;
+        }
+        if (strncmp(rest, "fpv_ready ", 10) == 0) {
+            const char *val = rest + 10;
+            while (*val == ' ') val++;
+            setFpvReadyEnabled(strtoul(val, nullptr, 10) != 0);
+            out.printf("[cfg] fpv_ready = %s (saved)\n", _cfg.fpvReadyEnabled ? "true" : "false");
+            return;
+        }
+
+        if (strncmp(rest, "fpv_ready_text ", 15) == 0) {
+            setFpvReadyText(rest + 15); out.printf("[cfg] fpv_ready_text = %s (saved)\n", _cfg.fpvReadyText); return;
+        }
+        if (strncmp(rest, "fpv_record ", 11) == 0) {
+            const char *val = rest + 11;
+            while (*val == ' ') val++;
+            setFpvRecordingEnabled(strtoul(val, nullptr, 10) != 0);
+            out.printf("[cfg] fpv_record = %s (saved)\n", _cfg.fpvRecordingEnabled ? "true" : "false");
+            return;
+        }
+
+        if (strncmp(rest, "fpv_record_text ", 16) == 0) {
+            setFpvRecordingText(rest + 16); out.printf("[cfg] fpv_record_text = %s (saved)\n", _cfg.fpvRecordingText); return;
+        }
+        if (strncmp(rest, "fpv_flash ", 10) == 0) {
+            const char *val = rest + 10;
+            while (*val == ' ') val++;
+            setFpvRecFlash(strtoul(val, nullptr, 10) != 0);
+            out.printf("[cfg] fpv_flash = %s (saved)\n", _cfg.fpvRecFlash ? "true" : "false");
+            return;
+        }
+
+        if (strncmp(rest, "fpv_low_batt ", 13) == 0) {
+            const char *val = rest + 13; while (*val == ' ') val++; setFpvLowBatteryEnabled(strtoul(val, nullptr, 10) != 0);
+            out.printf("[cfg] fpv_low_batt = %s (saved)\n", _cfg.fpvLowBatteryEnabled ? "true" : "false"); return;
+        }
+        if (strncmp(rest, "fpv_low_pct ", 12) == 0) {
+            const char *val = rest + 12; while (*val == ' ') val++; unsigned pct = strtoul(val, nullptr, 10); if (pct > 100) pct = 100; setFpvLowBatteryPct((uint8_t)pct);
+            out.printf("[cfg] fpv_low_pct = %u (saved)\n", _cfg.fpvLowBatteryPct); return;
+        }
+        if (strncmp(rest, "fpv_low_rdyflash ", 17) == 0) {
+            const char *val = rest + 17; while (*val == ' ') val++; setFpvLowBatteryReadyFlash(strtoul(val, nullptr, 10) != 0);
+            out.printf("[cfg] fpv_low_rdyflash = %s (saved)\n", _cfg.fpvLowBatteryReadyFlash ? "true" : "false"); return;
+        }
+        if (strncmp(rest, "fpv_low_rectext ", 16) == 0) {
+            const char *val = rest + 16; while (*val == ' ') val++; setFpvLowBatteryRecText(strtoul(val, nullptr, 10) != 0);
+            out.printf("[cfg] fpv_low_rectext = %s (saved)\n", _cfg.fpvLowBatteryRecText ? "true" : "false"); return;
+        }
+        if (strncmp(rest, "fpv_low_text ", 13) == 0) {
+            setFpvLowBatteryText(rest + 13); out.printf("[cfg] fpv_low_text = %s (saved)\n", _cfg.fpvLowBatteryText); return;
+        }
+        if (strncmp(rest, "fpv_rect_warn ", 14) == 0) { const char *v=rest+14; while(*v==' ')v++; setFpvLowRecTimeEnabled(strtoul(v,nullptr,10)!=0); out.printf("[cfg] fpv_rect_warn = %s (saved)\n", _cfg.fpvLowRecTimeEnabled?"true":"false"); return; }
+        if (strncmp(rest, "fpv_rect_min ", 13) == 0) { const char *v=rest+13; while(*v==' ')v++; setFpvLowRecTimeMin((uint16_t)strtoul(v,nullptr,10)); out.printf("[cfg] fpv_rect_min = %u (saved)\n", _cfg.fpvLowRecTimeMin); return; }
+        if (strncmp(rest, "fpv_rect_ready ", 15) == 0) { const char *v=rest+15; while(*v==' ')v++; setFpvLowRecReadyWarning(strtoul(v,nullptr,10)!=0); out.printf("[cfg] fpv_rect_ready = %s (saved)\n", _cfg.fpvLowRecReadyWarning?"true":"false"); return; }
+        if (strncmp(rest, "fpv_rect_record ", 16) == 0) { const char *v=rest+16; while(*v==' ')v++; setFpvLowRecRecordingWarning(strtoul(v,nullptr,10)!=0); out.printf("[cfg] fpv_rect_record = %s (saved)\n", _cfg.fpvLowRecRecordingWarning?"true":"false"); return; }
+        if (strncmp(rest, "fpv_rect_text ", 14) == 0) { setFpvLowRecTimeText(rest+14); out.printf("[cfg] fpv_rect_text = %s (saved)\n", _cfg.fpvLowRecTimeText); return; }
+        if (strncmp(rest, "fpv_hot_warn ", 13) == 0) { const char *v=rest+13; while(*v==' ')v++; setFpvHotWarningEnabled(strtoul(v,nullptr,10)!=0); out.printf("[cfg] fpv_hot_warn = %s (saved)\n", _cfg.fpvHotWarningEnabled?"true":"false"); return; }
+        if (strncmp(rest, "fpv_hot_ready ", 14) == 0) { const char *v=rest+14; while(*v==' ')v++; setFpvHotReadyWarning(strtoul(v,nullptr,10)!=0); out.printf("[cfg] fpv_hot_ready = %s (saved)\n", _cfg.fpvHotReadyWarning?"true":"false"); return; }
+        if (strncmp(rest, "fpv_hot_record ", 15) == 0) { const char *v=rest+15; while(*v==' ')v++; setFpvHotRecordingWarning(strtoul(v,nullptr,10)!=0); out.printf("[cfg] fpv_hot_record = %s (saved)\n", _cfg.fpvHotRecordingWarning?"true":"false"); return; }
+        if (strncmp(rest, "fpv_hot_text ", 13) == 0) { setFpvHotWarningText(rest+13); out.printf("[cfg] fpv_hot_text = %s (saved)\n", _cfg.fpvHotWarningText); return; }
+        if (strncmp(rest, "fpv_prearm ", 11) == 0) { setFpvPreArmReminderEnabled(atoi(rest+11)!=0); out.printf("[cfg] fpv_prearm = %s (saved)\n", _cfg.fpvPreArmReminderEnabled ? "true" : "false"); return; }
+        if (strncmp(rest, "fpv_prearm_text ", 16) == 0) { setFpvPreArmReminderText(rest+16); out.printf("[cfg] fpv_prearm_text = %s (saved)\n", _cfg.fpvPreArmReminderText); return; }
+        if (strncmp(rest, "fpv_prearm_show ", 16) == 0) { setFpvPreArmReminderShowMs((uint16_t)atoi(rest+16)); out.printf("[cfg] fpv_prearm_show = %u (saved)\n", _cfg.fpvPreArmReminderShowMs); return; }
+        if (strncmp(rest, "fpv_prearm_int ", 15) == 0) { setFpvPreArmReminderIntervalMs((uint16_t)atoi(rest+15)); out.printf("[cfg] fpv_prearm_int = %u (saved)\n", _cfg.fpvPreArmReminderIntervalMs); return; }
+
         if (strncmp(rest, "caddx_ssid ", 11) == 0) {
             if (setCaddxSsid(rest + 11))
                 out.printf("[cfg] caddx_ssid = %s (saved to camera list — reboot to apply)\n", rest + 11);
@@ -661,6 +890,33 @@ void ConfigManager::setCraftNameTemplate(const char *tpl) {
     strlcpy(_cfg.craftNameTpl, tpl, OSD_TPL_LEN);
     _prefs.putString(KEY_CRAFT, _cfg.craftNameTpl);
 }
+
+void ConfigManager::setFpvStateMode(bool v) { _cfg.fpvStateMode = v; _prefs.putBool(KEY_FPV_MODE, v); }
+void ConfigManager::setFpvErrorEnabled(bool v) { _cfg.fpvErrorEnabled = v; _prefs.putBool(KEY_FPV_ERR, v); }
+void ConfigManager::setFpvErrorText(const char *text) { strlcpy(_cfg.fpvErrorText, text, sizeof(_cfg.fpvErrorText)); _prefs.putString(KEY_FPV_ERR_TXT, _cfg.fpvErrorText); }
+void ConfigManager::setFpvReadyEnabled(bool v) { _cfg.fpvReadyEnabled = v; _prefs.putBool(KEY_FPV_RDY, v); }
+void ConfigManager::setFpvReadyText(const char *text) { strlcpy(_cfg.fpvReadyText, text, sizeof(_cfg.fpvReadyText)); _prefs.putString(KEY_FPV_RDY_TXT, _cfg.fpvReadyText); }
+void ConfigManager::setFpvRecordingEnabled(bool v) { _cfg.fpvRecordingEnabled = v; _prefs.putBool(KEY_FPV_REC, v); }
+void ConfigManager::setFpvRecordingText(const char *text) { strlcpy(_cfg.fpvRecordingText, text, sizeof(_cfg.fpvRecordingText)); _prefs.putString(KEY_FPV_REC_TXT, _cfg.fpvRecordingText); }
+void ConfigManager::setFpvRecFlash(bool v) { _cfg.fpvRecFlash = v; _prefs.putBool(KEY_FPV_FLASH, v); }
+void ConfigManager::setFpvLowBatteryEnabled(bool v) { _cfg.fpvLowBatteryEnabled = v; _prefs.putBool(KEY_FPV_LOW_EN, v); }
+void ConfigManager::setFpvLowBatteryPct(uint8_t pct) { if (pct > 100) pct = 100; _cfg.fpvLowBatteryPct = pct; _prefs.putUInt(KEY_FPV_LOW_PCT, pct); }
+void ConfigManager::setFpvLowBatteryReadyFlash(bool v) { _cfg.fpvLowBatteryReadyFlash = v; _prefs.putBool(KEY_FPV_LOW_RDY, v); }
+void ConfigManager::setFpvLowBatteryRecText(bool v) { _cfg.fpvLowBatteryRecText = v; _prefs.putBool(KEY_FPV_LOW_REC, v); }
+void ConfigManager::setFpvLowBatteryText(const char *text) { strlcpy(_cfg.fpvLowBatteryText, text, sizeof(_cfg.fpvLowBatteryText)); _prefs.putString(KEY_FPV_LOW_TXT, _cfg.fpvLowBatteryText); }
+void ConfigManager::setFpvLowRecTimeEnabled(bool v) { _cfg.fpvLowRecTimeEnabled=v; _prefs.putBool(KEY_FPV_RECT_EN,v); }
+void ConfigManager::setFpvLowRecTimeMin(uint16_t mins) { _cfg.fpvLowRecTimeMin=mins; _prefs.putUInt(KEY_FPV_RECT_MIN,mins); }
+void ConfigManager::setFpvLowRecReadyWarning(bool v) { _cfg.fpvLowRecReadyWarning=v; _prefs.putBool(KEY_FPV_RECT_RDY,v); }
+void ConfigManager::setFpvLowRecRecordingWarning(bool v) { _cfg.fpvLowRecRecordingWarning=v; _prefs.putBool(KEY_FPV_RECT_REC,v); }
+void ConfigManager::setFpvLowRecTimeText(const char *text) { strlcpy(_cfg.fpvLowRecTimeText,text,sizeof(_cfg.fpvLowRecTimeText)); _prefs.putString(KEY_FPV_RECT_TXT,_cfg.fpvLowRecTimeText); }
+void ConfigManager::setFpvHotWarningEnabled(bool v) { _cfg.fpvHotWarningEnabled=v; _prefs.putBool(KEY_FPV_HOT_EN,v); }
+void ConfigManager::setFpvHotReadyWarning(bool v) { _cfg.fpvHotReadyWarning=v; _prefs.putBool(KEY_FPV_HOT_RDY,v); }
+void ConfigManager::setFpvHotRecordingWarning(bool v) { _cfg.fpvHotRecordingWarning=v; _prefs.putBool(KEY_FPV_HOT_REC,v); }
+void ConfigManager::setFpvHotWarningText(const char *text) { strlcpy(_cfg.fpvHotWarningText,text,sizeof(_cfg.fpvHotWarningText)); _prefs.putString(KEY_FPV_HOT_TXT,_cfg.fpvHotWarningText); }
+void ConfigManager::setFpvPreArmReminderEnabled(bool v) { _cfg.fpvPreArmReminderEnabled=v; _prefs.putBool(KEY_FPV_PREARM_EN,v); }
+void ConfigManager::setFpvPreArmReminderText(const char *text) { strlcpy(_cfg.fpvPreArmReminderText,text,sizeof(_cfg.fpvPreArmReminderText)); _prefs.putString(KEY_FPV_PREARM_TXT,_cfg.fpvPreArmReminderText); }
+void ConfigManager::setFpvPreArmReminderShowMs(uint16_t ms) { if(ms<100)ms=100; _cfg.fpvPreArmReminderShowMs=ms; if(_cfg.fpvPreArmReminderIntervalMs<ms)setFpvPreArmReminderIntervalMs(ms); _prefs.putUInt(KEY_FPV_PREARM_SHOW,ms); }
+void ConfigManager::setFpvPreArmReminderIntervalMs(uint16_t ms) { if(ms<_cfg.fpvPreArmReminderShowMs)ms=_cfg.fpvPreArmReminderShowMs; _cfg.fpvPreArmReminderIntervalMs=ms; _prefs.putUInt(KEY_FPV_PREARM_INT,ms); }
 
 bool ConfigManager::setCaddxSsid(const char *ssid) {
     if (!_registry || !ssid || !ssid[0]) return false;

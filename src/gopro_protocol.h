@@ -61,7 +61,7 @@
 
 // ─── Query IDs (sent to GP_CHAR_QUERY_WRITE, response on GP_CHAR_QUERY_NOTIFY) ─
 
-#define GP_QUERY_GET_STATUS           0x12  // one-shot status read
+#define GP_QUERY_GET_STATUS           0x13  // one-shot status read (Open GoPro Get Status Values)
 #define GP_QUERY_REGISTER_SETTING     0x52  // register for setting value updates
 #define GP_QUERY_REGISTER_STATUS      0x53  // register for status value updates
 #define GP_QUERY_UNREGISTER_SETTING   0x72
@@ -74,6 +74,7 @@
 #define GP_STATUS_OVERHEATING    6    // uint8: 0=no, 1=yes
 #define GP_STATUS_ENCODING       10   // uint8: 0=idle, 1=recording
 #define GP_STATUS_ENC_DURATION   13   // uint32 big-endian, current recording seconds
+#define GP_STATUS_PRIMARY_STORAGE 33  // uint8 PrimaryStorage: 0=OK,1=full,2=removed,3=format error,4=busy
 #define GP_STATUS_REMAINING_TIME 35   // uint32 big-endian, seconds remaining on SD
 #define GP_STATUS_SD_REMAINING   54   // uint32 big-endian, MB remaining on SD
 #define GP_STATUS_BATTERY_PCT    70   // uint8: 0-100 %

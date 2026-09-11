@@ -60,7 +60,7 @@ public:
     void sendCameraStatus(const CameraData &data);
 
     // Expand `tpl` with telemetry tokens and push as Betaflight Custom Message N.
-    // Tokens: {bat}=battery%, {rec}=recording state, {recdur}=recording duration,
+    // Tokens include {state}, {bat}, {batn}, {rect}, {rec}, {recdur},
     //         {mode}/{res}/{fps}/{eis}=settings, {rleft}=remaining record time, {rcap}=SD free space.
     void sendCustomOSD1(const CameraData &data, const char *tpl);
     void sendCustomOSD2(const CameraData &data, const char *tpl);
@@ -68,11 +68,49 @@ public:
     void sendCustomOSD4(const CameraData &data, const char *tpl);
 
     // BF4.5 compatibility: Betaflight 4.5 has the Pilot Name and Craft Name
-    // fields but not the Custom Message 1-4 fields (added in 2025.12.1). Expand
+    // fields but not the Custom Message 1-4 fields (added in 4.6). Expand
     // `tpl` the same way as sendCustomOSD1-4 but write it into those fields
     // instead.
     void sendPilotName(const CameraData &data, const char *tpl);
     void sendCraftName(const CameraData &data, const char *tpl);
+    void setFpvDisplayOptions(bool stateMode,
+                              bool errorEnabled, const char *errorTpl,
+                              bool readyEnabled, const char *readyTpl,
+                              bool recordingEnabled, const char *recordingTpl,
+                              bool flashRec, bool lowBatteryEnabled,
+                              uint8_t lowBatteryPct, bool lowBatteryReadyFlash,
+                              bool lowBatteryRecText, const char *lowBatteryText,
+                              bool lowRecEnabled, uint16_t lowRecMinutes,
+                              bool lowRecReady, bool lowRecRecording, const char *lowRecText,
+                              bool hotEnabled, bool hotReady, bool hotRecording, const char *hotText,
+                              bool preArmEnabled, const char *preArmText, uint16_t preArmShowMs, uint16_t preArmIntervalMs) {
+        _fpvStateMode = stateMode;
+        _fpvErrorEnabled = errorEnabled;
+        strlcpy(_fpvErrorText, errorTpl ? errorTpl : "", sizeof(_fpvErrorText));
+        _fpvReadyEnabled = readyEnabled;
+        strlcpy(_fpvReadyText, readyTpl ? readyTpl : "", sizeof(_fpvReadyText));
+        _fpvRecordingEnabled = recordingEnabled;
+        strlcpy(_fpvRecordingText, recordingTpl ? recordingTpl : "", sizeof(_fpvRecordingText));
+        _fpvRecFlash = flashRec;
+        _fpvLowBatteryEnabled = lowBatteryEnabled;
+        _fpvLowBatteryPct = lowBatteryPct > 100 ? 100 : lowBatteryPct;
+        _fpvLowBatteryReadyFlash = lowBatteryReadyFlash;
+        _fpvLowBatteryRecText = lowBatteryRecText;
+        strlcpy(_fpvLowBatteryText, lowBatteryText ? lowBatteryText : "", sizeof(_fpvLowBatteryText));
+        _fpvLowRecEnabled = lowRecEnabled;
+        _fpvLowRecMinutes = lowRecMinutes;
+        _fpvLowRecReady = lowRecReady;
+        _fpvLowRecRecording = lowRecRecording;
+        strlcpy(_fpvLowRecText, lowRecText ? lowRecText : "", sizeof(_fpvLowRecText));
+        _fpvHotEnabled = hotEnabled;
+        _fpvHotReady = hotReady;
+        _fpvHotRecording = hotRecording;
+        strlcpy(_fpvHotText, hotText ? hotText : "", sizeof(_fpvHotText));
+        _fpvPreArmEnabled = preArmEnabled;
+        strlcpy(_fpvPreArmText, preArmText ? preArmText : "", sizeof(_fpvPreArmText));
+        _fpvPreArmShowMs = preArmShowMs < 100 ? 100 : preArmShowMs;
+        _fpvPreArmIntervalMs = preArmIntervalMs < _fpvPreArmShowMs ? _fpvPreArmShowMs : preArmIntervalMs;
+    }
 
     bool isArmed() const { return _armed; }
     void setArmCallback(ArmCallback cb) { _armCb = cb; }
@@ -91,7 +129,7 @@ private:
     // MSP2_SET_TEXT helper: type(1) + text bytes
     void sendCustomText(uint8_t textType, const char *text);
     // Expand template and send as the given custom OSD slot
-    void sendCustomOSD(uint8_t textType, const CameraData &data, const char *tpl);
+    void sendCustomOSD(uint8_t textType, const CameraData &data, const char *tpl, const char *stateOverride = nullptr);
 
     // ── RX parser ─────────────────────────────────────────────────────────
     void feedByte(uint8_t b);
@@ -125,4 +163,33 @@ private:
     uint8_t           _auxChannel   = 0;      // 0=disabled, 1=AUX1, …
     bool              _auxHigh      = false;  // last known state
     AuxSwitchCallback _auxSwitchCb  = nullptr;
+
+    // Options for state-aware BF4.5 Craft Name presentation.
+    bool _fpvStateMode = true;
+    bool _fpvErrorEnabled = true;
+    char _fpvErrorText[32] = "{state}";
+    bool _fpvReadyEnabled = true;
+    char _fpvReadyText[32] = "{state} B:{batn} T:{rect}";
+    bool _fpvRecordingEnabled = true;
+    char _fpvRecordingText[32] = "{state}";
+    bool _fpvRecFlash = true;
+    bool _fpvLowBatteryEnabled = true;
+    uint8_t _fpvLowBatteryPct = 10;
+    bool _fpvLowBatteryReadyFlash = true;
+    bool _fpvLowBatteryRecText = true;
+    char _fpvLowBatteryText[32] = "BATT LOW";
+    bool _fpvLowRecEnabled = true;
+    uint16_t _fpvLowRecMinutes = 5;
+    bool _fpvLowRecReady = true;
+    bool _fpvLowRecRecording = true;
+    char _fpvLowRecText[32] = "REC LOW";
+    bool _fpvHotEnabled = true;
+    bool _fpvHotReady = true;
+    bool _fpvHotRecording = true;
+    char _fpvHotText[32] = "CAM HOT";
+    bool _fpvPreArmEnabled = true;
+    char _fpvPreArmText[32] = "CLEAN LENS";
+    uint16_t _fpvPreArmShowMs = 1000;
+    uint16_t _fpvPreArmIntervalMs = 3000;
+    bool _hasArmedSinceBoot = false;
 };

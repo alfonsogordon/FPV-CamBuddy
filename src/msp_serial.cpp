@@ -113,6 +113,7 @@ void MSPSerial::handleStatusResponse() {
     uint32_t flags = 0;
     memcpy(&flags, _rxBuf + 6, sizeof(flags));
     const bool armed = (flags & 0x01) != 0;
+    if (armed) _hasArmedSinceBoot = true;
     if (armed != _armed) {
         _armed = armed;
         if (_armCb) _armCb(_armed);
@@ -186,7 +187,14 @@ void MSPSerial::sendCustomText(uint8_t textType, const char *text) {
 // ─── OSD template engine ─────────────────────────────────────────────────────
 
 static void resolveToken(const char *tok, const CameraData &data,
-                         char *val, size_t valLen) {
+                         char *val, size_t valLen,
+                         bool fpvErrorEnabled, const char *fpvErrorText,
+                         bool fpvReadyEnabled, const char *fpvReadyText,
+                         bool fpvRecordingEnabled, const char *fpvRecordingText,
+                         bool fpvRecFlash, bool fpvLowBatteryEnabled,
+                         uint8_t fpvLowBatteryPct, bool fpvLowBatteryReadyFlash,
+                         bool fpvLowBatteryRecText, const char *fpvLowBatteryText,
+                         const char *stateOverride) {
     static const char * const res_labels[] = {
         "480p", "720p", "1080", "1440", "2.7K", "4K", "4KW", "5.1K", "5.3K", "8K",
     };
@@ -199,9 +207,36 @@ static void resolveToken(const char *tok, const CameraData &data,
 
     val[0] = '\0';
 
-    if (strcmp(tok, "bat") == 0) {
-        if (data.valid) snprintf(val, valLen, "%3u%%", data.percent);
-        else            snprintf(val, valLen, "---");
+    const bool cameraError = !data.valid || data.temp_over != 0;
+    const bool cameraRecording = data.valid && data.temp_over == 0 && data.recording;
+    const bool cameraReady = data.valid && data.temp_over == 0 && !data.recording;
+    const bool flashOn = (((millis() / 500UL) & 1U) == 0U);
+    const unsigned pct = data.percent > 100 ? 100 : data.percent;
+    const bool lowBatt = fpvLowBatteryEnabled && data.valid && data.has_battery && pct <= fpvLowBatteryPct;
+
+    if (strcmp(tok, "state") == 0) {
+        // In state-aware Craft Name mode the caller can force the already-
+        // evaluated display state. This keeps {state} consistent with strict
+        // readiness gating (e.g. low battery / low record time / media fault
+        // must resolve to ERR rather than falling back to connected=RDY).
+        if (stateOverride && stateOverride[0] != '\0') snprintf(val, valLen, "%s", stateOverride);
+        else if (!data.valid || !data.has_recording || (data.has_temperature && data.temp_over >= 2)) snprintf(val, valLen, "ERR");
+        else if (data.recording) snprintf(val, valLen, "REC");
+        else snprintf(val, valLen, "RDY");
+    } else if (strcmp(tok, "bat") == 0) {
+        if (!data.valid || !data.has_battery) snprintf(val, valLen, "");
+        else snprintf(val, valLen, "%u%%", pct);
+    } else if (strcmp(tok, "batn") == 0) {
+        if (!data.valid || !data.has_battery) snprintf(val, valLen, "");
+        else snprintf(val, valLen, "%u", pct);
+    } else if (strcmp(tok, "rect") == 0) {
+        if (!data.valid || !data.has_remain_time) {
+            snprintf(val, valLen, "");
+        } else {
+            uint32_t mins = (data.remain_time + 59UL) / 60UL;
+            if (mins > 999UL) mins = 999UL;
+            snprintf(val, valLen, "%lum", (unsigned long)mins);
+        }
     } else if (strcmp(tok, "rec") == 0) {
         if (!data.valid) {
             snprintf(val, valLen, "NC");
@@ -212,11 +247,36 @@ static void resolveToken(const char *tok, const CameraData &data,
         } else {
             snprintf(val, valLen, "IDLE");
         }
+    } else if (strcmp(tok, "batt") == 0) {
+        if (data.valid && data.has_battery) snprintf(val, valLen, "B:%u", pct);
+    } else if (strcmp(tok, "rectf") == 0) {
+        if (data.valid && data.has_remain_time) {
+            uint32_t mins = (data.remain_time + 59UL) / 60UL;
+            if (mins > 999) mins = 999;
+            snprintf(val, valLen, "T:%lum", (unsigned long)mins);
+        }
     } else if (strcmp(tok, "recdur") == 0) {
         if (data.valid && data.temp_over < 2 && data.recording) {
             uint16_t mins = data.record_time / 60;
-            uint8_t  secs = data.record_time % 60;
+            uint8_t secs = data.record_time % 60;
             snprintf(val, valLen, "%3u:%02u", mins, secs);
+        }
+    } else if (strcmp(tok, "fpv") == 0) {
+        // Legacy alias retained for old saved templates. New public configs use
+        // state-aware per-state templates instead.
+        if (cameraError) snprintf(val, valLen, "ERR");
+        else if (cameraRecording) {
+            if (!fpvRecFlash || flashOn) snprintf(val, valLen, "REC");
+            else if (lowBatt && fpvLowBatteryRecText) snprintf(val, valLen, "%s", fpvLowBatteryText);
+            else snprintf(val, valLen, "                ");
+        } else {
+            char tmp[17] = {};
+            const bool hideBat = lowBatt && fpvLowBatteryReadyFlash && !flashOn;
+            uint32_t mins = (data.remain_time + 59UL) / 60UL;
+            if (mins > 999UL) mins = 999UL;
+            if (hideBat) snprintf(tmp, sizeof(tmp), "RDY B:    T:%lum", (unsigned long)mins);
+            else snprintf(tmp, sizeof(tmp), "RDY B:%u T:%lum", pct, (unsigned long)mins);
+            snprintf(val, valLen, "%s", tmp);
         }
     } else if (strcmp(tok, "mode") == 0) {
         if (!data.valid) { snprintf(val, valLen, "---"); return; }
@@ -245,8 +305,8 @@ static void resolveToken(const char *tok, const CameraData &data,
                       ? eis_labels[data.eis_mode] : "---";
         snprintf(val, valLen, "%s", e);
     } else if (strcmp(tok, "rleft") == 0) {
-        if (!data.valid || data.remain_time == 0) {
-            snprintf(val, valLen, "---");
+        if (!data.valid || !data.has_remain_time) {
+            snprintf(val, valLen, "");
         } else {
             uint32_t mins = data.remain_time / 60;
             if (mins >= 60) {
@@ -272,7 +332,14 @@ static void resolveToken(const char *tok, const CameraData &data,
 }
 
 static void expandTemplate(const char *tpl, const CameraData &data,
-                           char *out, size_t outLen) {
+                           char *out, size_t outLen,
+                           bool fpvErrorEnabled, const char *fpvErrorText,
+                           bool fpvReadyEnabled, const char *fpvReadyText,
+                           bool fpvRecordingEnabled, const char *fpvRecordingText,
+                           bool fpvRecFlash, bool fpvLowBatteryEnabled,
+                           uint8_t fpvLowBatteryPct, bool fpvLowBatteryReadyFlash,
+                           bool fpvLowBatteryRecText, const char *fpvLowBatteryText,
+                           const char *stateOverride = nullptr) {
     size_t outPos = 0;
     while (*tpl && outPos < outLen - 1) {
         if (*tpl == '{') {
@@ -284,7 +351,12 @@ static void expandTemplate(const char *tpl, const CameraData &data,
                 memcpy(tok, tpl + 1, tLen);
                 tok[tLen] = '\0';
                 char val[17] = {};
-                resolveToken(tok, data, val, sizeof(val));
+                resolveToken(tok, data, val, sizeof(val),
+                             fpvErrorEnabled, fpvErrorText,
+                             fpvReadyEnabled, fpvReadyText,
+                             fpvRecordingEnabled, fpvRecordingText, fpvRecFlash,
+                             fpvLowBatteryEnabled, fpvLowBatteryPct, fpvLowBatteryReadyFlash,
+                             fpvLowBatteryRecText, fpvLowBatteryText, stateOverride);
                 size_t vLen = strlen(val);
                 size_t copy = (vLen < outLen - 1 - outPos) ? vLen : (outLen - 1 - outPos);
                 memcpy(out + outPos, val, copy);
@@ -296,6 +368,23 @@ static void expandTemplate(const char *tpl, const CameraData &data,
         }
     }
     out[outPos] = '\0';
+
+    // Capability-dependent tokens may be blank. Collapse resulting whitespace
+    // so a single template remains tidy across camera families with different
+    // telemetry capabilities.
+    size_t r = 0, w = 0;
+    bool pendingSpace = false;
+    while (out[r] == ' ') r++;
+    for (; out[r] != '\0'; r++) {
+        if (out[r] == ' ') {
+            pendingSpace = (w > 0);
+        } else {
+            if (pendingSpace && w < outLen - 1) out[w++] = ' ';
+            pendingSpace = false;
+            if (w < outLen - 1) out[w++] = out[r];
+        }
+    }
+    out[w] = '\0';
 }
 
 // ─── OSD send functions ───────────────────────────────────────────────────────
@@ -306,11 +395,105 @@ void MSPSerial::sendCustomOSD3(const CameraData &data, const char *tpl) { sendCu
 void MSPSerial::sendCustomOSD4(const CameraData &data, const char *tpl) { sendCustomOSD(MSP_TEXT_CUSTOM_4, data, tpl); }
 
 void MSPSerial::sendPilotName(const CameraData &data, const char *tpl) { sendCustomOSD(MSP_TEXT_PILOT_NAME, data, tpl); }
-void MSPSerial::sendCraftName(const CameraData &data, const char *tpl) { sendCustomOSD(MSP_TEXT_CRAFT_NAME, data, tpl); }
+void MSPSerial::sendCraftName(const CameraData &data, const char *tpl) {
+    if (!_fpvStateMode) {
+        sendCustomOSD(MSP_TEXT_CRAFT_NAME, data, tpl);
+        return;
+    }
 
-void MSPSerial::sendCustomOSD(uint8_t textType, const CameraData &data, const char *tpl) {
+    constexpr const char *BLANK = "                ";
+    const bool flashOn = (((millis() / 500UL) & 1U) == 0U);
+    const bool valid = data.valid;
+    const bool recording = valid && data.has_recording && data.recording;
+    const bool criticalHot = valid && data.has_temperature && data.temp_over >= 2;
+    const bool mediaNotReady = valid && data.has_media_ready && !data.media_ready;
+
+    // Evaluate enabled warning thresholds before choosing the base state.
+    // RDY now has a strict meaning: connected AND all enabled readiness checks
+    // are healthy. Crossing any enabled threshold while not recording makes the
+    // base state ERR, even though BLE remains connected.
+    const unsigned pct = data.percent > 100 ? 100 : data.percent;
+    const bool lowBatt = _fpvLowBatteryEnabled && valid && data.has_battery &&
+                         pct <= _fpvLowBatteryPct;
+    const bool lowRec = _fpvLowRecEnabled && valid && data.has_remain_time &&
+                        data.remain_time <= ((uint32_t)_fpvLowRecMinutes * 60UL);
+    const bool hot = _fpvHotEnabled && valid && data.has_temperature && data.temp_over != 0;
+    const bool readinessWarning = !recording && (lowBatt || lowRec || hot);
+
+    const char *stateTpl = nullptr;
+    const char *forcedState = nullptr;
+    if (!valid || !data.has_recording || criticalHot || mediaNotReady || readinessWarning) {
+        forcedState = "ERR";
+        if (_fpvErrorEnabled) stateTpl = _fpvErrorText;
+    } else if (recording) {
+        forcedState = "REC";
+        if (_fpvRecordingEnabled) stateTpl = _fpvRecordingText;
+    } else {
+        forcedState = "RDY";
+        if (_fpvReadyEnabled) stateTpl = _fpvReadyText;
+    }
+
+    if (!stateTpl) {
+        sendCustomText(MSP_TEXT_CRAFT_NAME, BLANK);
+        return;
+    }
+
+    // Build the active warning list. These warnings explain why a connected
+    // camera is in ERR while idle, and occupy REC's alternate phase while
+    // recording. Missing/unsupported telemetry never creates a false warning.
+    const char *warnings[3] = {nullptr, nullptr, nullptr};
+    uint8_t warningCount = 0;
+
+    const bool warningContextRecording = recording;
+    const bool warningContextReady = !recording;
+
+    if (hot && ((warningContextRecording && _fpvHotRecording) ||
+                (warningContextReady && _fpvHotReady))) {
+        warnings[warningCount++] = _fpvHotText;
+    }
+    if (lowBatt && ((warningContextRecording && _fpvLowBatteryRecText) ||
+                    (warningContextReady && _fpvLowBatteryReadyFlash))) {
+        warnings[warningCount++] = _fpvLowBatteryText;
+    }
+    if (lowRec && ((warningContextRecording && _fpvLowRecRecording) ||
+                   (warningContextReady && _fpvLowRecReady))) {
+        warnings[warningCount++] = _fpvLowRecText;
+    }
+
+    // Phase A is the base state (RDY/REC/ERR). Phase B is the next active
+    // warning, or (while recording with flash enabled) a true blank. If several
+    // warnings are active, rotate one warning per second so none are hidden.
+    const bool reminderDue = _fpvPreArmEnabled && !_hasArmedSinceBoot && !recording &&
+                             forcedState && strcmp(forcedState, "RDY") == 0 && warningCount == 0 &&
+                             _fpvPreArmText[0] != '\0' &&
+                             ((millis() % _fpvPreArmIntervalMs) < _fpvPreArmShowMs);
+    if (reminderDue) {
+        sendCustomText(MSP_TEXT_CRAFT_NAME, _fpvPreArmText);
+        return;
+    }
+
+    const bool alternate = warningCount > 0 || (recording && _fpvRecFlash);
+    if (alternate && !flashOn) {
+        if (warningCount > 0) {
+            const uint8_t idx = (uint8_t)((millis() / 1000UL) % warningCount);
+            sendCustomText(MSP_TEXT_CRAFT_NAME, warnings[idx]);
+        } else {
+            sendCustomText(MSP_TEXT_CRAFT_NAME, BLANK);
+        }
+        return;
+    }
+
+    sendCustomOSD(MSP_TEXT_CRAFT_NAME, data, stateTpl, forcedState);
+}
+
+void MSPSerial::sendCustomOSD(uint8_t textType, const CameraData &data, const char *tpl, const char *stateOverride) {
     char text[17] = {};
-    expandTemplate(tpl, data, text, sizeof(text));
+    expandTemplate(tpl, data, text, sizeof(text),
+                   _fpvErrorEnabled, _fpvErrorText,
+                   _fpvReadyEnabled, _fpvReadyText,
+                   _fpvRecordingEnabled, _fpvRecordingText, _fpvRecFlash,
+                   _fpvLowBatteryEnabled, _fpvLowBatteryPct, _fpvLowBatteryReadyFlash,
+                   _fpvLowBatteryRecText, _fpvLowBatteryText, stateOverride);
     sendCustomText(textType, text);
 }
 

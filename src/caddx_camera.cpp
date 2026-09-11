@@ -206,7 +206,7 @@ void CaddxCamera::pollAllInfoSs(const String &body) {
     bool haveMode  = caddx_parse_var(body, "mode", mode);
     caddx_parse_var_int(body, "pasttime", pasttime);
 
-    if (haveState) _camera.recording = (state == CADDX_SS_STATE_WORKING);
+    if (haveState) { _camera.recording = (state == CADDX_SS_STATE_WORKING); _camera.has_recording = true; }
 
     // The "mode" field has been observed to occasionally come back as
     // non-ASCII garbage on real hardware (uninitialized firmware buffer?).
@@ -234,6 +234,7 @@ void CaddxCamera::pollAllInfoLegacy(const String &body) {
                              state == CADDX_WORK_STATE_VIDEO_LOOP ||
                              state == CADDX_WORK_STATE_VIDEO_TIMELAPSE ||
                              state == CADDX_WORK_STATE_VIDEO_BURST);
+        _camera.has_recording = true;
     }
     if (mode >= 0) _camera.camera_mode = mapWorkModeToDji(mode);
     if (pasttime >= 0) _camera.record_time = (uint16_t)(pasttime & 0xFFFF);
@@ -241,6 +242,7 @@ void CaddxCamera::pollAllInfoLegacy(const String &body) {
     // Common.EVENT_* thermal events → CameraData.temp_over (0=ok,1=warn,3=shutdown).
     // The temp_over 4-level scale is DJI's own convention (see
     // dji_protocol.h) reused here as the closest fit.
+    if (event >= 0) _camera.has_temperature = true;
     if (event == CADDX_EVENT_CHIP_TEMPERATURE_HIGH ||
         event == CADDX_EVENT_BATTERY_TEMPERATURE_HIGH) {
         _camera.temp_over = 1;
@@ -261,6 +263,7 @@ void CaddxCamera::pollBattery() {
     if (caddx_parse_var_int(body, "capacity", capacity) &&
         capacity >= 0 && capacity <= 100) {
         _camera.percent = (uint8_t)capacity;
+        _camera.has_battery = true;
         _camera.valid   = true;
         if (_cameraCb) _cameraCb(_camera);
     }

@@ -565,7 +565,7 @@
             <span class="track"><span class="thumb"></span></span>
           </label>
         </div>
-        <div class="cfg-field-desc">Default: battery percentage. Sent only when BF4.5 mode is on.</div>
+        <div class="cfg-field-desc">Disabled by default so Betaflight keeps your normal Pilot Name. Sent only when enabled and BF4.5 mode is on.</div>
         <input class="tpl-input" id="pilotTpl" type="text" maxlength="31" spellcheck="false" disabled>
       </div>
 
@@ -577,16 +577,88 @@
             <span class="track"><span class="thumb"></span></span>
           </label>
         </div>
-        <div class="cfg-field-desc">Default: recording state / elapsed time. Sent only when BF4.5 mode is on.</div>
+        <div class="cfg-field-desc">Fallback template used when state-aware mode is OFF. Sent only when BF4.5 mode is on.</div>
         <input class="tpl-input" id="craftTpl" type="text" maxlength="31" spellcheck="false" disabled>
       </div>
 
-      <div class="cfg-field" style="border-bottom:none;padding-top:4px;">
+      <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">
+        <div class="cfg-field-name">State-aware Craft Name</div>
+        <div class="cfg-field-desc">Select a separate template for error, ready and recording states. Templates use normal tokens; there is no required magic {fpv} token.</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:10px;">
+          <div>Enable state-aware Craft Name</div>
+          <label class="switch"><input type="checkbox" id="fpvStateMode"><span class="track"><span class="thumb"></span></span></label>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:14px;">
+          <div>Error state</div>
+          <label class="switch"><input type="checkbox" id="fpvError"><span class="track"><span class="thumb"></span></span></label>
+        </div>
+        <input class="tpl-input" id="fpvErrorText" type="text" maxlength="31" value="{state} {batt} {rectf}" placeholder="{state} {batt} {rectf}" spellcheck="false">
+
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:14px;">
+          <div>Ready state info</div>
+          <label class="switch"><input type="checkbox" id="fpvReady"><span class="track"><span class="thumb"></span></span></label>
+        </div>
+        <input class="tpl-input" id="fpvReadyText" type="text" maxlength="31" value="{state} {batt} {rectf}" placeholder="{state} {batt} {rectf}" spellcheck="false">
+
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:14px;">
+          <div>Recording state</div>
+          <label class="switch"><input type="checkbox" id="fpvRecord"><span class="track"><span class="thumb"></span></span></label>
+        </div>
+        <input class="tpl-input" id="fpvRecordText" type="text" maxlength="31" value="{state}" placeholder="{state}" spellcheck="false">
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:10px;">
+          <div>Flash recording state at 1 Hz</div>
+          <label class="switch"><input type="checkbox" id="fpvFlash"><span class="track"><span class="thumb"></span></span></label>
+        </div>
+
+        <div style="margin-top:16px;"><strong>Pre-arm reminder</strong></div>
+        <div class="cfg-field-desc">Shown periodically only before the first arm after power-up. Actual warnings take priority. FPSteVe build defaults ON; upstream/public recommendation is OFF.</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:10px;"><div>Enable reminder</div><label class="switch"><input type="checkbox" id="fpvPreArm"><span class="track"><span class="thumb"></span></span></label></div>
+        <input class="tpl-input" id="fpvPreArmText" type="text" maxlength="16" value="CLEAN LENS" placeholder="CLEAN LENS" spellcheck="false">
+        <div style="display:flex;gap:10px;width:100%;margin-top:10px;"><label>Show (ms) <input type="number" id="fpvPreArmShow" min="100" max="60000" step="100" value="1000" style="width:90px;"></label><label>Repeat (ms) <input type="number" id="fpvPreArmInt" min="100" max="60000" step="100" value="3000" style="width:90px;"></label></div>
+
+        <div style="margin-top:16px;"><strong>Warning slot (1 Hz)</strong></div>
+        <div class="cfg-field-desc">When a warning is active the Craft Name alternates between the normal state and the warning. Multiple warnings rotate once per second. ERR remains the fallback when camera telemetry is invalid. Warnings are capability-aware: unsupported battery/time/temperature telemetry never triggers false warnings.</div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:14px;">
+          <div><strong>Low battery</strong></div>
+          <label class="switch"><input type="checkbox" id="fpvLowBatt"><span class="track"><span class="thumb"></span></span></label>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;width:100%;margin-top:10px;">
+          <label for="fpvLowPct" style="min-width:120px;">Threshold (%)</label>
+          <input type="number" id="fpvLowPct" min="0" max="100" step="1" value="10" style="width:90px;">
+        </div>
+        <input class="tpl-input" id="fpvLowText" type="text" maxlength="16" value="BATT LOW" placeholder="BATT LOW" spellcheck="false">
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:10px;"><div>Show while READY</div><label class="switch"><input type="checkbox" id="fpvLowRdyFlash"><span class="track"><span class="thumb"></span></span></label></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:10px;"><div>Show while recording</div><label class="switch"><input type="checkbox" id="fpvLowRecText"><span class="track"><span class="thumb"></span></span></label></div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:18px;">
+          <div><strong>Low recording time</strong></div>
+          <label class="switch"><input type="checkbox" id="fpvRecLow"><span class="track"><span class="thumb"></span></span></label>
+        </div>
+        <div class="cfg-field-desc">Only triggers when remaining-time telemetry is known and greater than zero.</div>
+        <div style="display:flex;align-items:center;gap:10px;width:100%;margin-top:10px;">
+          <label for="fpvRecLowMin" style="min-width:120px;">Threshold (min)</label>
+          <input type="number" id="fpvRecLowMin" min="0" max="999" step="1" value="5" style="width:90px;">
+        </div>
+        <input class="tpl-input" id="fpvRecLowText" type="text" maxlength="16" value="REC LOW" placeholder="REC LOW" spellcheck="false">
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:10px;"><div>Show while READY</div><label class="switch"><input type="checkbox" id="fpvRecLowReady"><span class="track"><span class="thumb"></span></span></label></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:10px;"><div>Show while recording</div><label class="switch"><input type="checkbox" id="fpvRecLowRecording"><span class="track"><span class="thumb"></span></span></label></div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:18px;">
+          <div><strong>Camera temperature</strong></div>
+          <label class="switch"><input type="checkbox" id="fpvHot"><span class="track"><span class="thumb"></span></span></label>
+        </div>
+        <input class="tpl-input" id="fpvHotText" type="text" maxlength="16" value="CAM HOT" placeholder="CAM HOT" spellcheck="false">
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:10px;"><div>Show while READY/error</div><label class="switch"><input type="checkbox" id="fpvHotReady"><span class="track"><span class="thumb"></span></span></label></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:10px;"><div>Show while recording</div><label class="switch"><input type="checkbox" id="fpvHotRecording"><span class="track"><span class="thumb"></span></span></label></div>
+
         <div class="token-ref">
           Available tokens:
           <code>{bat}</code> battery % &nbsp;·&nbsp;
           <code>{rec}</code> recording state &nbsp;·&nbsp;
           <code>{recdur}</code> recording duration &nbsp;·&nbsp;
+          <code>{state}</code> ERR/RDY/REC &nbsp;·&nbsp; <code>{batn}</code> battery number &nbsp;·&nbsp; <code>{rect}</code> record time left in whole minutes &nbsp;·&nbsp;
           <code>{mode}</code> camera mode &nbsp;·&nbsp;
           <code>{res}</code> resolution &nbsp;·&nbsp;
           <code>{fps}</code> frame rate &nbsp;·&nbsp;
@@ -699,6 +771,32 @@ const pilotEnToggle   = document.getElementById('pilotEn');
 const pilotTplInput   = document.getElementById('pilotTpl');
 const craftEnToggle   = document.getElementById('craftEn');
 const craftTplInput   = document.getElementById('craftTpl');
+const fpvPreArmToggle = document.getElementById('fpvPreArm');
+const fpvPreArmTextInput = document.getElementById('fpvPreArmText');
+const fpvPreArmShowInput = document.getElementById('fpvPreArmShow');
+const fpvPreArmIntInput = document.getElementById('fpvPreArmInt');
+const fpvStateModeToggle = document.getElementById('fpvStateMode');
+const fpvErrorToggle = document.getElementById('fpvError');
+const fpvErrorTextInput = document.getElementById('fpvErrorText');
+const fpvReadyToggle = document.getElementById('fpvReady');
+const fpvReadyTextInput = document.getElementById('fpvReadyText');
+const fpvRecordToggle = document.getElementById('fpvRecord');
+const fpvRecordTextInput = document.getElementById('fpvRecordText');
+const fpvFlashToggle = document.getElementById('fpvFlash');
+const fpvLowBattToggle = document.getElementById('fpvLowBatt');
+const fpvLowPctInput = document.getElementById('fpvLowPct');
+const fpvLowTextInput = document.getElementById('fpvLowText');
+const fpvLowRdyFlashToggle = document.getElementById('fpvLowRdyFlash');
+const fpvLowRecTextToggle = document.getElementById('fpvLowRecText');
+const fpvRecLowToggle = document.getElementById('fpvRecLow');
+const fpvRecLowMinInput = document.getElementById('fpvRecLowMin');
+const fpvRecLowTextInput = document.getElementById('fpvRecLowText');
+const fpvRecLowReadyToggle = document.getElementById('fpvRecLowReady');
+const fpvRecLowRecordingToggle = document.getElementById('fpvRecLowRecording');
+const fpvHotToggle = document.getElementById('fpvHot');
+const fpvHotTextInput = document.getElementById('fpvHotText');
+const fpvHotReadyToggle = document.getElementById('fpvHotReady');
+const fpvHotRecordingToggle = document.getElementById('fpvHotRecording');
 const bf45ApplyBtn    = document.getElementById('bf45ApplyBtn');
 const bf45SavedMsg    = document.getElementById('bf45SavedMsg');
 const camTableWrap   = document.getElementById('camTableWrap');
@@ -810,6 +908,32 @@ function parseConfigLine(line) {
   } else if (key === 'craft_en') {
     craftEnToggle.checked = (val === 'true');
   } else if (key === 'craft_tpl') { craftTplInput.value = val;
+  } else if (key === 'fpv_state_mode') { fpvStateModeToggle.checked = (val === 'true');
+  } else if (key === 'fpv_error') { fpvErrorToggle.checked = (val === 'true');
+  } else if (key === 'fpv_err_text') { fpvErrorTextInput.value = val;
+  } else if (key === 'fpv_ready') { fpvReadyToggle.checked = (val === 'true');
+  } else if (key === 'fpv_ready_text') { fpvReadyTextInput.value = val;
+  } else if (key === 'fpv_record') { fpvRecordToggle.checked = (val === 'true');
+  } else if (key === 'fpv_record_text') { fpvRecordTextInput.value = val;
+  } else if (key === 'fpv_flash') { fpvFlashToggle.checked = (val === 'true');
+  } else if (key === 'fpv_prearm') { fpvPreArmToggle.checked = (val === 'true');
+  } else if (key === 'fpv_prearm_text') { fpvPreArmTextInput.value = val;
+  } else if (key === 'fpv_prearm_show') { fpvPreArmShowInput.value = parseInt(val) || 1000;
+  } else if (key === 'fpv_prearm_int') { fpvPreArmIntInput.value = parseInt(val) || 3000;
+  } else if (key === 'fpv_low_batt') { fpvLowBattToggle.checked = (val === 'true');
+  } else if (key === 'fpv_low_pct') { fpvLowPctInput.value = parseInt(val) || 0;
+  } else if (key === 'fpv_low_rdyflash') { fpvLowRdyFlashToggle.checked = (val === 'true');
+  } else if (key === 'fpv_low_rectext') { fpvLowRecTextToggle.checked = (val === 'true');
+  } else if (key === 'fpv_low_text') { fpvLowTextInput.value = val;
+  } else if (key === 'fpv_rect_warn') { fpvRecLowToggle.checked = (val === 'true');
+  } else if (key === 'fpv_rect_min') { fpvRecLowMinInput.value = parseInt(val) || 0;
+  } else if (key === 'fpv_rect_ready') { fpvRecLowReadyToggle.checked = (val === 'true');
+  } else if (key === 'fpv_rect_record') { fpvRecLowRecordingToggle.checked = (val === 'true');
+  } else if (key === 'fpv_rect_text') { fpvRecLowTextInput.value = val;
+  } else if (key === 'fpv_hot_warn') { fpvHotToggle.checked = (val === 'true');
+  } else if (key === 'fpv_hot_ready') { fpvHotReadyToggle.checked = (val === 'true');
+  } else if (key === 'fpv_hot_record') { fpvHotRecordingToggle.checked = (val === 'true');
+  } else if (key === 'fpv_hot_text') { fpvHotTextInput.value = val;
   }
 }
 
@@ -988,10 +1112,55 @@ bf45ApplyBtn.addEventListener('click', async () => {
   await sendCommand(`set pilot_tpl ${pilotTplInput.value}`);
   await sendCommand(`set craft_en ${craftEnToggle.checked ? 1 : 0}`);
   await sendCommand(`set craft_tpl ${craftTplInput.value}`);
+  await sendCommand(`set fpv_state_mode ${fpvStateModeToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_error ${fpvErrorToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_err_text ${fpvErrorTextInput.value}`);
+  await sendCommand(`set fpv_ready ${fpvReadyToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_ready_text ${fpvReadyTextInput.value}`);
+  await sendCommand(`set fpv_record ${fpvRecordToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_record_text ${fpvRecordTextInput.value}`);
+  await sendCommand(`set fpv_flash ${fpvFlashToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_prearm ${fpvPreArmToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_prearm_text ${fpvPreArmTextInput.value}`);
+  await sendCommand(`set fpv_prearm_show ${Math.max(100, parseInt(fpvPreArmShowInput.value) || 1000)}`);
+  await sendCommand(`set fpv_prearm_int ${Math.max(100, parseInt(fpvPreArmIntInput.value) || 3000)}`);
+  await sendCommand(`set fpv_low_batt ${fpvLowBattToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_low_pct ${Math.max(0, Math.min(100, parseInt(fpvLowPctInput.value) || 0))}`);
+  await sendCommand(`set fpv_low_rdyflash ${fpvLowRdyFlashToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_low_rectext ${fpvLowRecTextToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_low_text ${fpvLowTextInput.value}`);
+  await sendCommand(`set fpv_rect_warn ${fpvRecLowToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_rect_min ${Math.max(0, Math.min(999, parseInt(fpvRecLowMinInput.value) || 0))}`);
+  await sendCommand(`set fpv_rect_ready ${fpvRecLowReadyToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_rect_record ${fpvRecLowRecordingToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_rect_text ${fpvRecLowTextInput.value}`);
+  await sendCommand(`set fpv_hot_warn ${fpvHotToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_hot_ready ${fpvHotReadyToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_hot_record ${fpvHotRecordingToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_hot_text ${fpvHotTextInput.value}`);
   flashSaved(bf45SavedMsg);
 });
 
 auxChannelSel.addEventListener('change', updateAuxModeState);
+function updateFpvOptionState() {
+  const connectedNow = !!port;
+  fpvErrorTextInput.disabled = !connectedNow || !fpvErrorToggle.checked;
+  fpvReadyTextInput.disabled = !connectedNow || !fpvReadyToggle.checked;
+  fpvRecordTextInput.disabled = !connectedNow || !fpvRecordToggle.checked;
+  fpvFlashToggle.disabled = !connectedNow || !fpvRecordToggle.checked;
+  fpvLowPctInput.disabled = !connectedNow || !fpvLowBattToggle.checked;
+  fpvLowTextInput.disabled = !connectedNow || !fpvLowBattToggle.checked;
+  fpvLowRdyFlashToggle.disabled = !connectedNow || !fpvLowBattToggle.checked || !fpvReadyToggle.checked;
+  fpvLowRecTextToggle.disabled = !connectedNow || !fpvLowBattToggle.checked || !fpvRecordToggle.checked;
+  fpvRecLowMinInput.disabled = !connectedNow || !fpvRecLowToggle.checked;
+  fpvRecLowTextInput.disabled = !connectedNow || !fpvRecLowToggle.checked;
+  fpvRecLowReadyToggle.disabled = !connectedNow || !fpvRecLowToggle.checked || !fpvReadyToggle.checked;
+  fpvRecLowRecordingToggle.disabled = !connectedNow || !fpvRecLowToggle.checked || !fpvRecordToggle.checked;
+  fpvHotTextInput.disabled = !connectedNow || !fpvHotToggle.checked;
+  fpvHotReadyToggle.disabled = !connectedNow || !fpvHotToggle.checked;
+  fpvHotRecordingToggle.disabled = !connectedNow || !fpvHotToggle.checked || !fpvRecordToggle.checked;
+}
+[fpvStateModeToggle, fpvErrorToggle, fpvReadyToggle, fpvRecordToggle, fpvFlashToggle, fpvLowBattToggle, fpvRecLowToggle, fpvHotToggle].forEach(el => el.addEventListener('change', updateFpvOptionState));
 
 function updateAuxModeState() {
   auxModeSel.disabled = !port || parseInt(auxChannelSel.value) === 0;
@@ -1259,6 +1428,14 @@ function setConnected(connected) {
   pilotTplInput.disabled    = !connected;
   craftEnToggle.disabled    = !connected;
   craftTplInput.disabled    = !connected;
+  fpvStateModeToggle.disabled = !connected;
+  fpvErrorToggle.disabled   = !connected;
+  fpvReadyToggle.disabled   = !connected;
+  fpvRecordToggle.disabled  = !connected;
+  fpvLowBattToggle.disabled = !connected;
+  fpvRecLowToggle.disabled = !connected;
+  fpvHotToggle.disabled = !connected;
+  updateFpvOptionState();
   bf45ApplyBtn.disabled     = !connected;
   camRefreshBtn.disabled = !connected;
   camClearBtn.disabled   = !connected;

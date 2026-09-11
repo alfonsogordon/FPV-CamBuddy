@@ -52,6 +52,15 @@
 
 struct CameraData {
     bool     valid        = false;
+    // Per-field capability/validity flags. Different camera families expose
+    // different telemetry; these prevent unsupported values from looking like
+    // real zeroes (e.g. B:0 or REC LOW on a camera with no remaining-time API).
+    bool     has_battery  = false;
+    bool     has_recording = false;
+    bool     has_temperature = false;
+    bool     has_remain_time = false;
+    bool     has_media_ready = false;   // true when backend can report record-media readiness
+    bool     media_ready     = true;    // false = missing/full/busy/error media; only valid when has_media_ready
     uint8_t  percent      = 0;      // battery 0–100 %
     bool     recording    = false;  // true while actively recording
     uint8_t  camera_mode  = 0;      // DJI_MODE_* or mapped equivalent

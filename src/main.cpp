@@ -294,7 +294,29 @@ void loop() {
         MSP_BATTERY_KEEPALIVE_MS > 0 &&
         (now - lastBattMs) >= MSP_BATTERY_KEEPALIVE_MS;
 
-    if (hasCamera || battKeepalive) {
+    // State-aware Craft Name uses token-level animation. Force a refresh twice
+    // per second whenever this mode is active so REC and low-battery battery
+    // tokens animate independently of camera telemetry notification cadence.
+    const auto &liveCfg = configManager.config();
+    mspSerial.setFpvDisplayOptions(liveCfg.fpvStateMode,
+                                   liveCfg.fpvErrorEnabled, liveCfg.fpvErrorText,
+                                   liveCfg.fpvReadyEnabled, liveCfg.fpvReadyText,
+                                   liveCfg.fpvRecordingEnabled, liveCfg.fpvRecordingText,
+                                   liveCfg.fpvRecFlash, liveCfg.fpvLowBatteryEnabled,
+                                   liveCfg.fpvLowBatteryPct, liveCfg.fpvLowBatteryReadyFlash,
+                                   liveCfg.fpvLowBatteryRecText, liveCfg.fpvLowBatteryText,
+                                   liveCfg.fpvLowRecTimeEnabled, liveCfg.fpvLowRecTimeMin,
+                                   liveCfg.fpvLowRecReadyWarning, liveCfg.fpvLowRecRecordingWarning,
+                                   liveCfg.fpvLowRecTimeText,
+                                   liveCfg.fpvHotWarningEnabled, liveCfg.fpvHotReadyWarning,
+                                   liveCfg.fpvHotRecordingWarning, liveCfg.fpvHotWarningText,
+                                   liveCfg.fpvPreArmReminderEnabled, liveCfg.fpvPreArmReminderText,
+                                   liveCfg.fpvPreArmReminderShowMs, liveCfg.fpvPreArmReminderIntervalMs);
+    const bool craftFlashRefresh =
+        liveCfg.bf45Compat && liveCfg.craftNameEnabled && liveCfg.fpvStateMode &&
+        (now - lastBattMs) >= 500UL;
+
+    if (hasCamera || battKeepalive || craftFlashRefresh) {
         hasCamera  = false;
         const auto &cfg = configManager.config();
         mspSerial.sendCameraStatus(currentCamera);

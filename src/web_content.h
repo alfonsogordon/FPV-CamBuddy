@@ -5,8 +5,7 @@
 //   POST /api/config  — write settings patch (JSON), returns updated settings
 //   POST /api/cli     — send one CLI command (text/plain), returns response text
 
-static const char WEB_INDEX_HTML[] PROGMEM = R"HTML(
-<!DOCTYPE html>
+static const char WEB_INDEX_HTML[] PROGMEM = R"HTML(<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -14,97 +13,208 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"HTML(
   <title>FreeCLinker — Config</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      background: #f0f2f5; color: #111827;
+      background: #f0f2f5;
+      color: #111827;
       font: 14px/1.5 'Courier New', monospace;
-      height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
+
+    /* ── Header ─────────────────────────────────────────────────────────────── */
     header {
-      display: flex; align-items: center; gap: 12px;
-      padding: 10px 16px; background: #ffffff;
-      border-bottom: 1px solid #e5e7eb; flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: #ffffff;
+      border-bottom: 1px solid #e5e7eb;
+      flex-shrink: 0;
     }
+
     .brand { font-size: 13px; font-weight: bold; color: #2563eb; margin-right: auto; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: #16a34a;
-           box-shadow: 0 0 6px #16a34a88; flex-shrink: 0; }
-    .hdr-status { font-size: 12px; color: #16a34a; }
+
+    .nav-link { color: #2563eb; text-decoration: none; font-size: 12px; }
+    .nav-link:hover { text-decoration: underline; }
+
+    .hdr-label { font-size: 12px; color: #6b7280; display: flex; align-items: center; gap: 6px; }
+
     select {
-      background: #ffffff; color: #111827; border: 1px solid #d1d5db;
-      border-radius: 4px; padding: 3px 6px; font: inherit; font-size: 12px;
+      background: #ffffff;
+      color: #111827;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      padding: 3px 6px;
+      font: inherit;
+      font-size: 12px;
     }
+
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #d1d5db; flex-shrink: 0; }
+    .dot.connected { background: #16a34a; box-shadow: 0 0 6px #16a34a88; }
+
+    #statusText { font-size: 12px; color: #9ca3af; }
+    #statusText.connected { color: #16a34a; }
+
     button {
-      font: inherit; font-size: 12px; padding: 4px 12px; border-radius: 4px;
-      border: 1px solid #d1d5db; background: #ffffff; color: #374151;
-      cursor: pointer; transition: background 0.1s;
+      font: inherit;
+      font-size: 12px;
+      padding: 4px 12px;
+      border-radius: 4px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      color: #374151;
+      cursor: pointer;
+      transition: background 0.1s;
     }
     button:hover:not(:disabled) { background: #f9fafb; }
     button:disabled { opacity: 0.35; cursor: default; }
     button.primary { background: #2563eb; border-color: #1d4ed8; color: #fff; }
     button.primary:hover:not(:disabled) { background: #1d4ed8; }
+    button.danger  { background: #fef2f2; border-color: #fca5a5; color: #dc2626; }
+    button.danger:hover:not(:disabled)  { background: #fee2e2; }
+
+    /* ── Tab bar ─────────────────────────────────────────────────────────────── */
     .tab-bar {
-      display: flex; background: #f9fafb; border-bottom: 1px solid #e5e7eb;
-      padding: 0 12px; flex-shrink: 0;
-    }
-    .tab {
-      padding: 8px 16px; border: none; border-bottom: 2px solid transparent;
-      border-radius: 0; background: transparent; color: #6b7280;
-      cursor: pointer; font-size: 13px; margin-bottom: -1px; transition: color 0.1s;
-    }
-    .tab:hover { background: transparent; color: #374151; }
-    .tab.active { color: #2563eb; border-bottom-color: #2563eb; }
-    .panels { flex: 1; position: relative; overflow: hidden; }
-    .panel { position: absolute; inset: 0; display: none; flex-direction: column; overflow: hidden; }
-    .panel.active { display: flex; }
-    #panel-config { overflow-y: auto; align-items: center; padding: 28px 16px; }
-    .config-card {
-      width: 100%; max-width: 460px; background: #ffffff;
-      border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;
+      display: flex;
+      background: #f9fafb;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 0 12px;
       flex-shrink: 0;
     }
-    .card-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 14px 18px; border-bottom: 1px solid #e5e7eb;
+
+    .tab {
+      padding: 8px 16px;
+      border: none;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+      background: transparent;
+      color: #6b7280;
+      cursor: pointer;
+      font-size: 13px;
+      margin-bottom: -1px;
+      transition: color 0.1s;
     }
-    .card-header h2 { font-size: 13px; color: #9ca3af; font-weight: normal;
-                      letter-spacing: 0.05em; text-transform: uppercase; }
+    .tab:hover:not(:disabled) { background: transparent; color: #374151; }
+    .tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+
+    /* ── Panels ──────────────────────────────────────────────────────────────── */
+    .panels { flex: 1; position: relative; overflow: hidden; }
+
+    .panel {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .panel.active { display: flex; }
+
+    /* ── Easy Config panel ───────────────────────────────────────────────────── */
+    #panel-config { overflow-y: auto; align-items: center; padding: 28px 16px; }
+
+    .config-card {
+      width: 100%;
+      max-width: 460px;
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .card-header h2 { font-size: 13px; color: #9ca3af; font-weight: normal; letter-spacing: 0.05em; text-transform: uppercase; }
+
     .cfg-field {
-      display: flex; align-items: center; gap: 16px;
-      padding: 16px 18px; border-bottom: 1px solid #f3f4f6;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 18px;
+      border-bottom: 1px solid #f3f4f6;
     }
     .cfg-field:last-of-type { border-bottom: none; }
+
     .cfg-field-text { flex: 1; min-width: 0; }
     .cfg-field-name { font-size: 14px; color: #111827; margin-bottom: 2px; }
     .cfg-field-desc { font-size: 11px; color: #6b7280; line-height: 1.4; }
-    .cfg-field-desc strong { color: #dc2626; }
+
+    /* toggle switch */
     .switch { position: relative; display: inline-flex; width: 42px; height: 24px; flex-shrink: 0; cursor: pointer; }
     .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
-    .track { width: 42px; height: 24px; background: #d1d5db; border-radius: 12px;
-             transition: background 0.2s; position: relative; }
-    .thumb { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
-             background: #ffffff; border-radius: 50%; transition: transform 0.2s, background 0.2s; }
+    .track {
+      width: 42px; height: 24px;
+      background: #d1d5db;
+      border-radius: 12px;
+      transition: background 0.2s;
+      position: relative;
+    }
+    .thumb {
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 18px; height: 18px;
+      background: #ffffff;
+      border-radius: 50%;
+      transition: transform 0.2s, background 0.2s;
+    }
     .switch input:checked ~ .track { background: #2563eb; }
     .switch input:checked ~ .track .thumb { transform: translateX(18px); background: #fff; }
+    .switch input:disabled ~ .track { opacity: 0.35; cursor: default; }
+
+    /* number input */
     .num-wrap { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
     .num-wrap input[type=number] {
-      width: 90px; background: #f9fafb; border: 1px solid #d1d5db; border-radius: 4px;
-      color: #111827; font: inherit; font-size: 14px; padding: 4px 8px; text-align: right;
+      width: 90px;
+      background: #f9fafb;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      color: #111827;
+      font: inherit;
+      font-size: 14px;
+      padding: 4px 8px;
+      text-align: right;
     }
     .num-wrap input[type=number]:focus { outline: none; border-color: #2563eb; }
+    .num-wrap input[type=number]:disabled { opacity: 0.35; }
+    .num-unit  { color: #6b7280; font-size: 12px; }
+    .num-equiv { color: #9ca3af; font-size: 11px; margin-left: 4px; }
     .tpl-input {
       width: 100%; background: #f9fafb; border: 1px solid #d1d5db; border-radius: 4px;
       color: #111827; font: inherit; font-size: 13px; padding: 4px 8px; margin-top: 6px;
     }
     .tpl-input:focus { outline: none; border-color: #2563eb; }
+    .tpl-input:disabled { opacity: 0.35; }
     .token-ref { font-size: 11px; color: #6b7280; margin-top: 14px; line-height: 1.6; }
     .token-ref code { color: #2563eb; }
-    .num-unit { color: #6b7280; font-size: 12px; }
-    .num-equiv { color: #9ca3af; font-size: 11px; margin-left: 4px; }
+
     .card-footer {
-      display: flex; align-items: center; justify-content: flex-end;
-      gap: 10px; padding: 12px 18px; border-top: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 12px 18px;
+      border-top: 1px solid #e5e7eb;
     }
-    .saved-msg { font-size: 12px; color: #16a34a; opacity: 0; transition: opacity 0.4s; margin-right: auto; }
+
+    .saved-msg {
+      font-size: 12px;
+      color: #16a34a;
+      opacity: 0;
+      transition: opacity 0.4s;
+      margin-right: auto;
+    }
+
+    /* ── Cameras panel ──────────────────────────────────────────────────────── */
     #panel-cameras { overflow-y: auto; align-items: center; padding: 28px 16px; }
+    .cam-toolbar { width: 100%; max-width: 560px; display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 10px; }
     .cam-table { width: 100%; max-width: 560px; border-collapse: collapse; background: #fff;
                  border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
     .cam-table th { background: #f9fafb; font-size: 11px; color: #6b7280; font-weight: normal;
@@ -116,12 +226,10 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"HTML(
     .cam-table tr:hover td { background: #f9fafb; }
     .cam-badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 9px;
                  background: #dbeafe; color: #1d4ed8; margin-left: 4px; }
-    .cam-badge.last  { background: #dcfce7; color: #15803d; }
-    .cam-badge.sel   { background: #fef9c3; color: #854d0e; }
+    .cam-badge.last { background: #dcfce7; color: #15803d; }
+    .cam-badge.sel  { background: #fef9c3; color: #854d0e; }
     .cam-actions { display: flex; gap: 6px; }
     .cam-empty { color: #6b7280; font-size: 13px; padding: 24px; text-align: center; }
-    .cam-toolbar { width: 100%; max-width: 560px; display: flex; justify-content: flex-end;
-                   gap: 8px; margin-bottom: 10px; }
     .wifi-results { width: 100%; margin-top: 6px; border: 1px solid #e5e7eb; border-radius: 4px;
                      max-height: 160px; overflow-y: auto; background: #f9fafb; }
     .wifi-results:empty { display: none; border: none; }
@@ -133,48 +241,99 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"HTML(
     .wifi-net-rssi { color: #9ca3af; font-size: 11px; }
     .wifi-net-lock { color: #9ca3af; font-size: 11px; }
     .wifi-scan-msg { color: #6b7280; font-size: 12px; padding: 8px 10px; }
-    #terminal { flex: 1; overflow-y: auto; padding: 12px 16px; background: #1a1a1a; color: #d4d4d4; }
-    .line { white-space: pre-wrap; word-break: break-all; line-height: 1.55; }
-    .line.sys { color: #6b7280; }
-    .line.cmd { color: #60a5fa; }
-    .line.err { color: #f87171; }
-    .input-bar {
-      display: flex; align-items: center; gap: 8px;
-      padding: 8px 16px; border-top: 1px solid #e5e7eb;
-      background: #f9fafb; flex-shrink: 0;
+
+    /* ── CLI panel ───────────────────────────────────────────────────────────── */
+    #terminal {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 16px;
+      background: #1a1a1a;
+      color: #d4d4d4;
     }
+
+    .line { white-space: pre-wrap; word-break: break-all; line-height: 1.55; }
+    .line.sys  { color: #6b7280; }
+    .line.cmd  { color: #60a5fa; }
+    .line.err  { color: #f87171; }
+
+    .input-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-top: 1px solid #e5e7eb;
+      background: #f9fafb;
+      flex-shrink: 0;
+    }
+
     .prompt { color: #9ca3af; user-select: none; }
+
     #cmdInput {
-      flex: 1; background: transparent; border: none; outline: none;
-      color: #2563eb; font: inherit; caret-color: #2563eb;
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #2563eb;
+      font: inherit;
+      caret-color: #2563eb;
     }
     #cmdInput::placeholder { color: #d1d5db; }
+    #cmdInput:disabled { opacity: 0.3; }
+
+    /* ── No-serial overlay ───────────────────────────────────────────────────── */
+    #noSerial {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #f0f2f5ee;
+      place-items: center;
+      font-size: 15px;
+      color: #dc2626;
+      text-align: center;
+      line-height: 2;
+    }
+    #noSerial.show { display: grid; }
   </style>
 </head>
 <body>
 
+<!-- ── Header ── -->
 <header>
   <span class="brand">FreeCLinker</span>
-  <div class="dot"></div>
-  <span class="hdr-status">WiFi AP</span>
+  <a class="nav-link" href="index.html">Home</a>
+  <a class="nav-link" href="flash.html">Flash</a>
+
+  <label class="hdr-label">Baud
+    <select id="baudRate">
+      <option value="115200" selected>115200</option>
+      <option value="57600">57600</option>
+      <option value="9600">9600</option>
+    </select>
+  </label>
+
+  <div class="dot" id="dot"></div>
+  <span id="statusText">Disconnected</span>
+
+  <button class="primary" id="connectBtn">Connect</button>
+  <button class="danger"  id="disconnectBtn" disabled>Disconnect</button>
 </header>
 
+<!-- ── Tab bar ── -->
 <div class="tab-bar">
   <button class="tab active" data-tab="config">Easy Config</button>
   <button class="tab"        data-tab="cameras">Cameras</button>
   <button class="tab"        data-tab="cli">CLI</button>
 </div>
 
+<!-- ── Panels ── -->
 <div class="panels">
 
   <!-- Easy Config -->
   <div id="panel-config" class="panel active">
-
-    <!-- Camera & Recording card -->
     <div class="config-card">
       <div class="card-header">
-        <h2>Camera &amp; Recording</h2>
-        <button id="readBtn">Refresh</button>
+        <h2>Recording Control</h2>
+        <button id="readBtn" disabled>Read from device</button>
       </div>
 
       <!-- Camera type -->
@@ -183,7 +342,7 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"HTML(
           <div class="cfg-field-name">Camera type</div>
           <div class="cfg-field-desc">Select the camera protocol. <strong>Reboot required to apply.</strong></div>
         </div>
-        <select id="cameraType">
+        <select id="cameraType" disabled>
           <option value="0">DJI Action</option>
           <option value="1">GoPro</option>
           <option value="2">Caddx Orca</option>
@@ -199,7 +358,7 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"HTML(
           <div class="cfg-field-name">Camera matching</div>
           <div class="cfg-field-desc">How to pick a camera when the preferred (last-connected) one isn't the only one found during scan.</div>
         </div>
-        <select id="cameraMatch">
+        <select id="cameraMatch" disabled>
           <option value="0">Fallback to any camera</option>
           <option value="1">Strict — preferred only</option>
           <option value="2">Strongest signal</option>
@@ -213,7 +372,31 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"HTML(
           <div class="cfg-field-desc">GoPro only. Don't connect to a camera whose advertisement shows it's asleep/powered-down — a BLE connection attempt would otherwise wake it. A manually selected camera below still connects regardless.</div>
         </div>
         <label class="switch" title="Prevent camera wake-up">
-          <input type="checkbox" id="wakeGuard" checked>
+          <input type="checkbox" id="wakeGuard" checked disabled>
+          <span class="track"><span class="thumb"></span></span>
+        </label>
+      </div>
+
+      <!-- Stop on disarm -->
+      <div class="cfg-field">
+        <div class="cfg-field-text">
+          <div class="cfg-field-name">Stop recording on disarm</div>
+          <div class="cfg-field-desc">When off, the camera keeps recording regardless of FC arm state.</div>
+        </div>
+        <label class="switch" title="Stop on disarm">
+          <input type="checkbox" id="stopOnDisarm" checked disabled>
+          <span class="track"><span class="thumb"></span></span>
+        </label>
+      </div>
+
+      <!-- Debug BLE -->
+      <div class="cfg-field">
+        <div class="cfg-field-text">
+          <div class="cfg-field-name">BLE debug logging</div>
+          <div class="cfg-field-desc">Log raw BLE TX/RX packets to the serial console (DJI/GoPro only). Verbose — leave off unless debugging.</div>
+        </div>
+        <label class="switch" title="BLE debug logging">
+          <input type="checkbox" id="debugBle" disabled>
           <span class="track"><span class="thumb"></span></span>
         </label>
       </div>
@@ -225,7 +408,7 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"HTML(
           <div class="cfg-field-desc">Minimum BLE TX power (Wi-Fi TX power too, for Caddx Orca) — shorter range, but less RF interference with the flight controller's RC receiver. On by default. Reboot required to apply.</div>
         </div>
         <label class="switch" title="Low power mode">
-          <input type="checkbox" id="lowPower" checked>
+          <input type="checkbox" id="lowPower" checked disabled>
           <span class="track"><span class="thumb"></span></span>
         </label>
       </div>
@@ -235,35 +418,23 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"HTML(
         <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
           <div class="cfg-field-name">WiFi config AP</div>
           <label class="switch" title="WiFi config AP">
-            <input type="checkbox" id="wifiApEnabled" checked>
+            <input type="checkbox" id="wifiApEnabled" checked disabled>
             <span class="track"><span class="thumb"></span></span>
           </label>
         </div>
         <div class="cfg-field-desc">Auto-start this configuration access point when no camera is connected. Off = never auto-start (holding the BOOT button still forces it on).</div>
         <div class="num-wrap">
-          <input type="number" id="wifiApDelay" min="0" max="3600" step="5" value="30">
+          <input type="number" id="wifiApDelay" min="0" max="3600" step="5" value="30" disabled>
           <span class="num-unit">s start delay</span>
         </div>
       </div>
 
-      <!-- Stop on disarm -->
-      <div class="cfg-field">
-        <div class="cfg-field-text">
-          <div class="cfg-field-name">Stop recording on disarm</div>
-          <div class="cfg-field-desc">When off, the camera keeps recording regardless of FC arm state.</div>
-        </div>
-        <label class="switch" title="Stop on disarm">
-          <input type="checkbox" id="stopOnDisarm" checked>
-          <span class="track"><span class="thumb"></span></span>
-        </label>
-      </div>
-
       <!-- Disarm delay -->
-      <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">
+      <div class="cfg-field" style="flex-direction:column; align-items:flex-start;">
         <div class="cfg-field-name">Disarm delay</div>
         <div class="cfg-field-desc">Delay between FC disarm and stopping the recording. 0 = stop immediately.</div>
         <div class="num-wrap">
-          <input type="number" id="disarmDelay" min="0" max="60000" step="500" value="0">
+          <input type="number" id="disarmDelay" min="0" max="60000" step="500" value="0" disabled>
           <span class="num-unit">ms</span>
           <span class="num-equiv" id="delayEquiv"></span>
         </div>
@@ -271,12 +442,12 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"HTML(
 
       <div class="card-footer">
         <span class="saved-msg" id="savedMsg"></span>
-        <button id="applyBtn" class="primary">Apply</button>
+        <button id="applyBtn" class="primary" disabled>Apply</button>
       </div>
     </div>
 
     <!-- Camera Mode Switch card -->
-    <div class="config-card" style="margin-top:16px;">
+    <div class="config-card" style="margin-top: 16px;">
       <div class="card-header">
         <h2>Camera Mode Switch</h2>
       </div>
@@ -287,7 +458,7 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"HTML(
           <div class="cfg-field-name">AUX Channel</div>
           <div class="cfg-field-desc">RC channel monitored for camera mode switching. Set to Disabled if not used.</div>
         </div>
-        <select id="auxChannel">
+        <select id="auxChannel" disabled>
           <option value="0">Disabled</option>
           <option value="1">AUX 1</option>
           <option value="2">AUX 2</option>
@@ -310,23 +481,23 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"HTML(
           <div class="cfg-field-name">Mode when high (&gt; 1500 µs)</div>
           <div class="cfg-field-desc">Camera mode to activate when the AUX channel goes high. Returns to Video when low.</div>
         </div>
-        <select id="auxMode">
+        <select id="auxMode" disabled>
           <option value="0">Slow Motion</option>
           <option value="1">Video</option>
           <option value="2">Timelapse</option>
           <option value="5">Photo</option>
-          <option value="10">Hyperlapse</option>
+          <option value="10" selected>Hyperlapse</option>
         </select>
       </div>
 
       <div class="card-footer">
         <span class="saved-msg" id="auxSavedMsg"></span>
-        <button id="auxApplyBtn" class="primary">Apply</button>
+        <button id="auxApplyBtn" class="primary" disabled>Apply</button>
       </div>
     </div>
 
     <!-- OSD Templates card -->
-    <div class="config-card" style="margin-top:16px;">
+    <div class="config-card" style="margin-top: 16px;">
       <div class="card-header">
         <h2>OSD Templates</h2>
       </div>
@@ -334,25 +505,25 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"HTML(
       <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">
         <div class="cfg-field-name">Custom Message 1</div>
         <div class="cfg-field-desc">Default: battery percentage</div>
-        <input class="tpl-input" id="osd1" type="text" maxlength="31" spellcheck="false">
+        <input class="tpl-input" id="osd1" type="text" maxlength="31" spellcheck="false" disabled>
       </div>
 
       <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">
         <div class="cfg-field-name">Custom Message 2</div>
         <div class="cfg-field-desc">Default: recording state / elapsed time</div>
-        <input class="tpl-input" id="osd2" type="text" maxlength="31" spellcheck="false">
+        <input class="tpl-input" id="osd2" type="text" maxlength="31" spellcheck="false" disabled>
       </div>
 
       <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">
         <div class="cfg-field-name">Custom Message 3</div>
         <div class="cfg-field-desc">Default: camera mode, resolution, FPS, stabilization</div>
-        <input class="tpl-input" id="osd3" type="text" maxlength="31" spellcheck="false">
+        <input class="tpl-input" id="osd3" type="text" maxlength="31" spellcheck="false" disabled>
       </div>
 
       <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">
         <div class="cfg-field-name">Custom Message 4</div>
         <div class="cfg-field-desc">Default: remaining record time and SD free space</div>
-        <input class="tpl-input" id="osd4" type="text" maxlength="31" spellcheck="false">
+        <input class="tpl-input" id="osd4" type="text" maxlength="31" spellcheck="false" disabled>
       </div>
 
       <div class="cfg-field" style="border-bottom:none;padding-top:4px;">
@@ -372,12 +543,12 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"HTML(
 
       <div class="card-footer">
         <span class="saved-msg" id="osdSavedMsg"></span>
-        <button id="osdApplyBtn" class="primary">Apply</button>
+        <button id="osdApplyBtn" class="primary" disabled>Apply</button>
       </div>
     </div>
 
     <!-- BF4.5 Compatibility card -->
-    <div class="config-card" style="margin-top:16px;">
+    <div class="config-card" style="margin-top: 16px;">
       <div class="card-header">
         <h2>Betaflight 4.5 Compatibility</h2>
       </div>
@@ -388,7 +559,7 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"HTML(
           <div class="cfg-field-desc">Betaflight 4.5 has no Custom Message 1-4 OSD fields. When on, the OSD Templates above stop being sent and Pilot Name / Craft Name are used instead.</div>
         </div>
         <label class="switch" title="BF4.5 mode">
-          <input type="checkbox" id="bf45Compat">
+          <input type="checkbox" id="bf45Compat" disabled>
           <span class="track"><span class="thumb"></span></span>
         </label>
       </div>
@@ -397,32 +568,104 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"HTML(
         <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
           <div class="cfg-field-name">Pilot Name</div>
           <label class="switch" title="Send Pilot Name">
-            <input type="checkbox" id="pilotEn">
+            <input type="checkbox" id="pilotEn" disabled>
             <span class="track"><span class="thumb"></span></span>
           </label>
         </div>
-        <div class="cfg-field-desc">Default: battery percentage. Sent only when BF4.5 mode is on.</div>
-        <input class="tpl-input" id="pilotTpl" type="text" maxlength="31" spellcheck="false">
+        <div class="cfg-field-desc">Disabled by default so Betaflight keeps your normal Pilot Name. Sent only when enabled and BF4.5 mode is on.</div>
+        <input class="tpl-input" id="pilotTpl" type="text" maxlength="31" spellcheck="false" disabled>
       </div>
 
       <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">
         <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
           <div class="cfg-field-name">Craft Name</div>
           <label class="switch" title="Send Craft Name">
-            <input type="checkbox" id="craftEn">
+            <input type="checkbox" id="craftEn" disabled>
             <span class="track"><span class="thumb"></span></span>
           </label>
         </div>
-        <div class="cfg-field-desc">Default: recording state / elapsed time. Sent only when BF4.5 mode is on.</div>
-        <input class="tpl-input" id="craftTpl" type="text" maxlength="31" spellcheck="false">
+        <div class="cfg-field-desc">Fallback template used when state-aware mode is OFF. Sent only when BF4.5 mode is on.</div>
+        <input class="tpl-input" id="craftTpl" type="text" maxlength="31" spellcheck="false" disabled>
       </div>
 
-      <div class="cfg-field" style="border-bottom:none;padding-top:4px;">
+      <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">
+        <div class="cfg-field-name">State-aware Craft Name</div>
+        <div class="cfg-field-desc">Select a separate template for error, ready and recording states. Templates use normal tokens; there is no required magic {fpv} token.</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:10px;">
+          <div>Enable state-aware Craft Name</div>
+          <label class="switch"><input type="checkbox" id="fpvStateMode"><span class="track"><span class="thumb"></span></span></label>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:14px;">
+          <div>Error state</div>
+          <label class="switch"><input type="checkbox" id="fpvError"><span class="track"><span class="thumb"></span></span></label>
+        </div>
+        <input class="tpl-input" id="fpvErrorText" type="text" maxlength="31" value="{state}" placeholder="{state}" spellcheck="false">
+
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:14px;">
+          <div>Ready state info</div>
+          <label class="switch"><input type="checkbox" id="fpvReady"><span class="track"><span class="thumb"></span></span></label>
+        </div>
+        <input class="tpl-input" id="fpvReadyText" type="text" maxlength="31" value="{state} {batt} {rectf}" placeholder="{state} {batt} {rectf}" spellcheck="false">
+
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:14px;">
+          <div>Recording state</div>
+          <label class="switch"><input type="checkbox" id="fpvRecord"><span class="track"><span class="thumb"></span></span></label>
+        </div>
+        <input class="tpl-input" id="fpvRecordText" type="text" maxlength="31" value="{state}" placeholder="{state}" spellcheck="false">
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:10px;">
+          <div>Flash recording state at 1 Hz</div>
+          <label class="switch"><input type="checkbox" id="fpvFlash"><span class="track"><span class="thumb"></span></span></label>
+        </div>
+
+        <div style="margin-top:16px;"><strong>Pre-arm reminder</strong></div>
+        <div class="cfg-field-desc">Shown periodically only before the first arm after power-up. Actual warnings take priority. FPSteVe build defaults ON; upstream/public recommendation is OFF.</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:10px;"><div>Enable reminder</div><label class="switch"><input type="checkbox" id="fpvPreArm"><span class="track"><span class="thumb"></span></span></label></div>
+        <input class="tpl-input" id="fpvPreArmText" type="text" maxlength="16" value="CLEAN LENS" placeholder="CLEAN LENS" spellcheck="false">
+        <div style="display:flex;gap:10px;width:100%;margin-top:10px;"><label>Show (ms) <input type="number" id="fpvPreArmShow" min="100" max="60000" step="100" value="1000" style="width:90px;"></label><label>Repeat (ms) <input type="number" id="fpvPreArmInt" min="100" max="60000" step="100" value="3000" style="width:90px;"></label></div>
+
+        <div style="margin-top:16px;"><strong>Warning slot (1 Hz)</strong></div>
+        <div class="cfg-field-desc">When a warning is active the Craft Name alternates between the normal state and the warning. Multiple warnings rotate once per second. ERR remains the fallback when camera telemetry is invalid. Warnings are capability-aware: unsupported battery/time/temperature telemetry never triggers false warnings.</div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:14px;">
+          <div><strong>Low battery</strong></div>
+          <label class="switch"><input type="checkbox" id="fpvLowBatt"><span class="track"><span class="thumb"></span></span></label>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;width:100%;margin-top:10px;">
+          <label for="fpvLowPct" style="min-width:120px;">Threshold (%)</label>
+          <input type="number" id="fpvLowPct" min="0" max="100" step="1" value="10" style="width:90px;">
+        </div>
+        <input class="tpl-input" id="fpvLowText" type="text" maxlength="16" value="BATT LOW" placeholder="BATT LOW" spellcheck="false">
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:10px;"><div>Show while READY</div><label class="switch"><input type="checkbox" id="fpvLowRdyFlash"><span class="track"><span class="thumb"></span></span></label></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:10px;"><div>Show while recording</div><label class="switch"><input type="checkbox" id="fpvLowRecText"><span class="track"><span class="thumb"></span></span></label></div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:18px;">
+          <div><strong>Low recording time</strong></div>
+          <label class="switch"><input type="checkbox" id="fpvRecLow"><span class="track"><span class="thumb"></span></span></label>
+        </div>
+        <div class="cfg-field-desc">Only triggers when remaining-time telemetry is known and greater than zero.</div>
+        <div style="display:flex;align-items:center;gap:10px;width:100%;margin-top:10px;">
+          <label for="fpvRecLowMin" style="min-width:120px;">Threshold (min)</label>
+          <input type="number" id="fpvRecLowMin" min="0" max="999" step="1" value="5" style="width:90px;">
+        </div>
+        <input class="tpl-input" id="fpvRecLowText" type="text" maxlength="16" value="REC LOW" placeholder="REC LOW" spellcheck="false">
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:10px;"><div>Show while READY</div><label class="switch"><input type="checkbox" id="fpvRecLowReady"><span class="track"><span class="thumb"></span></span></label></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:10px;"><div>Show while recording</div><label class="switch"><input type="checkbox" id="fpvRecLowRecording"><span class="track"><span class="thumb"></span></span></label></div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:18px;">
+          <div><strong>Camera temperature</strong></div>
+          <label class="switch"><input type="checkbox" id="fpvHot"><span class="track"><span class="thumb"></span></span></label>
+        </div>
+        <input class="tpl-input" id="fpvHotText" type="text" maxlength="16" value="CAM HOT" placeholder="CAM HOT" spellcheck="false">
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:10px;"><div>Show while READY/error</div><label class="switch"><input type="checkbox" id="fpvHotReady"><span class="track"><span class="thumb"></span></span></label></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:10px;"><div>Show while recording</div><label class="switch"><input type="checkbox" id="fpvHotRecording"><span class="track"><span class="thumb"></span></span></label></div>
+
         <div class="token-ref">
           Available tokens:
           <code>{bat}</code> battery % &nbsp;·&nbsp;
           <code>{rec}</code> recording state &nbsp;·&nbsp;
           <code>{recdur}</code> recording duration &nbsp;·&nbsp;
+          <code>{state}</code> ERR/RDY/REC &nbsp;·&nbsp; <code>{batn}</code> battery number &nbsp;·&nbsp; <code>{rect}</code> record time left in whole minutes &nbsp;·&nbsp;
           <code>{mode}</code> camera mode &nbsp;·&nbsp;
           <code>{res}</code> resolution &nbsp;·&nbsp;
           <code>{fps}</code> frame rate &nbsp;·&nbsp;
@@ -434,11 +677,10 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"HTML(
 
       <div class="card-footer">
         <span class="saved-msg" id="bf45SavedMsg"></span>
-        <button id="bf45ApplyBtn" class="primary">Apply</button>
+        <button id="bf45ApplyBtn" class="primary" disabled>Apply</button>
       </div>
     </div>
-
-  </div><!-- /panel-config -->
+  </div>
 
   <!-- Cameras -->
   <div id="panel-cameras" class="panel">
@@ -448,59 +690,62 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"HTML(
       <div class="card-header">
         <h2>Caddx Wi-Fi Network</h2>
       </div>
-      <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">
+      <div class="cfg-field" style="flex-direction:column; align-items:flex-start;">
         <div class="cfg-field-desc">The camera's own Wi-Fi SSID/password (same network you'd join from the phone's Wi-Fi settings for the CaddxFPV app). Saving adds it to the list below. <strong>Reboot required to apply.</strong></div>
         <div class="num-wrap" style="width:100%;">
-          <input class="tpl-input" id="caddxSsid" type="text" placeholder="SSID" maxlength="32" spellcheck="false" style="margin-top:0;flex:1;width:auto;">
-          <button id="caddxScanBtn" type="button">Scan</button>
+          <input class="tpl-input" id="caddxSsid" type="text" placeholder="SSID" maxlength="32" spellcheck="false" disabled style="margin-top:0;flex:1;width:auto;">
+          <button id="caddxScanBtn" type="button" disabled>Scan</button>
         </div>
         <div id="caddxScanResults" class="wifi-results"></div>
-        <input class="tpl-input" id="caddxPass" type="text" placeholder="Password (default: 12345678)" maxlength="63" spellcheck="false">
+        <input class="tpl-input" id="caddxPass" type="text" placeholder="Password" maxlength="63" spellcheck="false" disabled>
       </div>
       <div class="card-footer">
         <span class="saved-msg" id="caddxSavedMsg"></span>
-        <button id="caddxApplyBtn" class="primary">Save</button>
+        <button id="caddxApplyBtn" class="primary" disabled>Save</button>
       </div>
     </div>
 
     <div class="cam-toolbar">
-      <button id="camRefreshBtn">Refresh</button>
-      <button id="camClearBtn">Clear All</button>
+      <button id="camRefreshBtn" disabled>Refresh</button>
+      <button id="camClearBtn"   disabled>Clear All</button>
     </div>
     <div id="camTableWrap"></div>
-  </div><!-- /panel-cameras -->
+  </div>
 
   <!-- CLI -->
   <div id="panel-cli" class="panel">
     <div id="terminal"></div>
     <div class="input-bar">
       <span class="prompt">&gt;</span>
-      <input id="cmdInput" type="text" placeholder="type a command and press Enter…" autocomplete="off" spellcheck="false">
-      <button id="sendBtn">Send</button>
+      <input id="cmdInput" type="text" placeholder="type a command and press Enter…" disabled autocomplete="off" spellcheck="false">
+      <button id="sendBtn" disabled>Send</button>
     </div>
   </div>
 
-</div><!-- /panels -->
+</div>
+
+<div id="noSerial">
+  <div>
+    Web Serial API is not available.<br>
+    Please use <strong>Chrome</strong> or <strong>Edge</strong> (desktop).
+  </div>
+</div>
 
 <script>
 'use strict';
 
-const terminal     = document.getElementById('terminal');
-const cmdInput     = document.getElementById('cmdInput');
-const sendBtn      = document.getElementById('sendBtn');
-const readBtn      = document.getElementById('readBtn');
-const applyBtn     = document.getElementById('applyBtn');
-const auxApplyBtn  = document.getElementById('auxApplyBtn');
-const osdApplyBtn  = document.getElementById('osdApplyBtn');
-const stopToggle   = document.getElementById('stopOnDisarm');
-const delayInput   = document.getElementById('disarmDelay');
-const delayEquiv   = document.getElementById('delayEquiv');
-const savedMsg     = document.getElementById('savedMsg');
-const auxChannelSel = document.getElementById('auxChannel');
-const auxModeSel   = document.getElementById('auxMode');
-const auxSavedMsg  = document.getElementById('auxSavedMsg');
-const osdSavedMsg  = document.getElementById('osdSavedMsg');
-const cameraTypeSel = document.getElementById('cameraType');
+// ── DOM refs ──────────────────────────────────────────────────────────────────
+const terminal      = document.getElementById('terminal');
+const cmdInput      = document.getElementById('cmdInput');
+const connectBtn    = document.getElementById('connectBtn');
+const disconnectBtn = document.getElementById('disconnectBtn');
+const sendBtn       = document.getElementById('sendBtn');
+const statusText    = document.getElementById('statusText');
+const dot           = document.getElementById('dot');
+const baudSelect    = document.getElementById('baudRate');
+const readBtn        = document.getElementById('readBtn');
+const applyBtn       = document.getElementById('applyBtn');
+const cameraTypeSel  = document.getElementById('cameraType');
 const caddxWifiCard     = document.getElementById('caddxWifiCard');
 const caddxSsidInput    = document.getElementById('caddxSsid');
 const caddxPassInput    = document.getElementById('caddxPass');
@@ -508,25 +753,83 @@ const caddxScanBtn      = document.getElementById('caddxScanBtn');
 const caddxScanResults  = document.getElementById('caddxScanResults');
 const caddxApplyBtn     = document.getElementById('caddxApplyBtn');
 const caddxSavedMsg     = document.getElementById('caddxSavedMsg');
-const osd1Input    = document.getElementById('osd1');
-const osd2Input    = document.getElementById('osd2');
-const osd3Input    = document.getElementById('osd3');
-const osd4Input    = document.getElementById('osd4');
-const cameraMatchSel = document.getElementById('cameraMatch');
-const wakeGuardToggle = document.getElementById('wakeGuard');
-const lowPowerToggle = document.getElementById('lowPower');
+const stopToggle          = document.getElementById('stopOnDisarm');
+const cameraMatchSel      = document.getElementById('cameraMatch');
+const wakeGuardToggle     = document.getElementById('wakeGuard');
+const debugBleToggle      = document.getElementById('debugBle');
+const lowPowerToggle      = document.getElementById('lowPower');
 const wifiApEnabledToggle = document.getElementById('wifiApEnabled');
-const wifiApDelayInput = document.getElementById('wifiApDelay');
-const bf45ApplyBtn = document.getElementById('bf45ApplyBtn');
-const bf45SavedMsg = document.getElementById('bf45SavedMsg');
+const wifiApDelayInput    = document.getElementById('wifiApDelay');
+const delayInput     = document.getElementById('disarmDelay');
+const delayEquiv     = document.getElementById('delayEquiv');
+const savedMsg       = document.getElementById('savedMsg');
+const auxChannelSel  = document.getElementById('auxChannel');
+const auxModeSel     = document.getElementById('auxMode');
+const auxApplyBtn    = document.getElementById('auxApplyBtn');
+const auxSavedMsg    = document.getElementById('auxSavedMsg');
+const osd1Input      = document.getElementById('osd1');
+const osd2Input      = document.getElementById('osd2');
+const osd3Input      = document.getElementById('osd3');
+const osd4Input      = document.getElementById('osd4');
+const osdApplyBtn    = document.getElementById('osdApplyBtn');
+const osdSavedMsg    = document.getElementById('osdSavedMsg');
 const bf45CompatToggle = document.getElementById('bf45Compat');
-const pilotEnToggle = document.getElementById('pilotEn');
-const pilotTplInput = document.getElementById('pilotTpl');
-const craftEnToggle = document.getElementById('craftEn');
-const craftTplInput = document.getElementById('craftTpl');
+const pilotEnToggle   = document.getElementById('pilotEn');
+const pilotTplInput   = document.getElementById('pilotTpl');
+const craftEnToggle   = document.getElementById('craftEn');
+const craftTplInput   = document.getElementById('craftTpl');
+const fpvPreArmToggle = document.getElementById('fpvPreArm');
+const fpvPreArmTextInput = document.getElementById('fpvPreArmText');
+const fpvPreArmShowInput = document.getElementById('fpvPreArmShow');
+const fpvPreArmIntInput = document.getElementById('fpvPreArmInt');
+const fpvStateModeToggle = document.getElementById('fpvStateMode');
+const fpvErrorToggle = document.getElementById('fpvError');
+const fpvErrorTextInput = document.getElementById('fpvErrorText');
+const fpvReadyToggle = document.getElementById('fpvReady');
+const fpvReadyTextInput = document.getElementById('fpvReadyText');
+const fpvRecordToggle = document.getElementById('fpvRecord');
+const fpvRecordTextInput = document.getElementById('fpvRecordText');
+const fpvFlashToggle = document.getElementById('fpvFlash');
+const fpvLowBattToggle = document.getElementById('fpvLowBatt');
+const fpvLowPctInput = document.getElementById('fpvLowPct');
+const fpvLowTextInput = document.getElementById('fpvLowText');
+const fpvLowRdyFlashToggle = document.getElementById('fpvLowRdyFlash');
+const fpvLowRecTextToggle = document.getElementById('fpvLowRecText');
+const fpvRecLowToggle = document.getElementById('fpvRecLow');
+const fpvRecLowMinInput = document.getElementById('fpvRecLowMin');
+const fpvRecLowTextInput = document.getElementById('fpvRecLowText');
+const fpvRecLowReadyToggle = document.getElementById('fpvRecLowReady');
+const fpvRecLowRecordingToggle = document.getElementById('fpvRecLowRecording');
+const fpvHotToggle = document.getElementById('fpvHot');
+const fpvHotTextInput = document.getElementById('fpvHotText');
+const fpvHotReadyToggle = document.getElementById('fpvHotReady');
+const fpvHotRecordingToggle = document.getElementById('fpvHotRecording');
+const bf45ApplyBtn    = document.getElementById('bf45ApplyBtn');
+const bf45SavedMsg    = document.getElementById('bf45SavedMsg');
+const camTableWrap   = document.getElementById('camTableWrap');
+const camRefreshBtn  = document.getElementById('camRefreshBtn');
+const camClearBtn    = document.getElementById('camClearBtn');
+
+// ── Serial state ──────────────────────────────────────────────────────────────
+let port        = null;
+let writer      = null;
+let reader      = null;
+let keepReading = false;
+let lineBuf     = '';
+
+// ── Camera list capture ───────────────────────────────────────────────────────
+let collectingCams = false;
+let camLines       = [];
+let camTimer       = null;
+
+// ── CLI history ───────────────────────────────────────────────────────────────
+const history = [];
+let histIdx   = -1;
+let histDraft = '';
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 let activeTab = 'config';
+
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     const target = tab.dataset.tab;
@@ -534,13 +837,13 @@ document.querySelectorAll('.tab').forEach(tab => {
     activeTab = target;
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
     document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + target));
-    if (target === 'config')  loadConfig();
-    if (target === 'cameras') loadCameras();
-    if (target === 'cli')     setTimeout(() => cmdInput.focus(), 0);
+    if (target === 'config'  && port) sendCommand('show');
+    if (target === 'cameras' && port) { startCamCapture(); sendCommand('cameras list'); }
+    if (target === 'cli')    setTimeout(() => cmdInput.focus(), 0);
   });
 });
 
-// ── Terminal log ──────────────────────────────────────────────────────────────
+// ── Logging (CLI terminal) ────────────────────────────────────────────────────
 function log(text, cls = '') {
   const lines = text.split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
@@ -554,69 +857,177 @@ function log(text, cls = '') {
   terminal.scrollTop = terminal.scrollHeight;
 }
 
-// ── Config API ────────────────────────────────────────────────────────────────
-async function loadConfig() {
-  try {
-    const r = await fetch('/api/config');
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const j = await r.json();
-    cameraTypeSel.value  = j.camera_type   ?? 0;
-    caddxSsidInput.value = j.caddx_ssid    ?? '';  // caddx_pass is write-only, never returned
-    stopToggle.checked   = j.stop_on_disarm ?? true;
-    delayInput.value     = j.disarm_delay  ?? 0;
-    auxChannelSel.value  = j.aux_channel   ?? 0;
-    auxModeSel.value     = j.aux_mode      ?? 0;
-    cameraMatchSel.value = j.camera_match  ?? 0;
-    wakeGuardToggle.checked = j.wake_guard ?? true;
-    lowPowerToggle.checked = j.low_power ?? true;
-    wifiApEnabledToggle.checked = j.wifi_ap_enabled ?? true;
-    wifiApDelayInput.value = j.wifi_ap_delay ?? 30;
-    osd1Input.value      = j.osd1 ?? '';
-    osd2Input.value      = j.osd2 ?? '';
-    osd3Input.value      = j.osd3 ?? '';
-    osd4Input.value      = j.osd4 ?? '';
-    bf45CompatToggle.checked = j.bf45_compat ?? false;
-    pilotEnToggle.checked = j.pilot_en ?? true;
-    pilotTplInput.value  = j.pilot_tpl ?? '';
-    craftEnToggle.checked = j.craft_en ?? true;
-    craftTplInput.value  = j.craft_tpl ?? '';
-    updateDelayEquiv();
-    updateAuxModeState();
+// ── Config line parser ────────────────────────────────────────────────────────
+function parseConfigLine(line) {
+  // "[cfg] disarm_delay    = 5000 ms"  or  "[cfg] stop_on_disarm  = true"
+  // set-command responses append " (saved…)" — strip it before matching
+  const m = line.match(/^\[cfg\]\s+(\w+)\s*=\s*(.+)/);
+  if (!m) return;
+  const key = m[1];
+  const val = m[2].trim().replace(/\s*\(saved.*/, '');
+
+  if (key === 'camera_type') {
+    const CAMERA_TYPE_VALUES = { DJI: '0', GoPro: '1', Caddx: '2', Sony: '3', Blackmagic: '4', Insta360: '5' };
+    cameraTypeSel.value = CAMERA_TYPE_VALUES[val] ?? '0';
     updateCameraTypeState();
+  } else if (key === 'caddx_ssid') {
+    caddxSsidInput.value = val;
+  } else if (key === 'disarm_delay') {
+    delayInput.value = parseInt(val) || 0;
+    updateDelayEquiv();
+  } else if (key === 'stop_on_disarm') {
+    stopToggle.checked = (val === 'true');
+  } else if (key === 'aux_channel') {
+    // "disabled" or "AUX5"
+    if (val === 'disabled') {
+      auxChannelSel.value = '0';
+    } else {
+      const ch = val.match(/AUX(\d+)/);
+      if (ch) auxChannelSel.value = ch[1];
+    }
+    updateAuxModeState();
+  } else if (key === 'aux_mode') {
+    // "0x0A" — parseInt auto-detects 0x prefix
+    auxModeSel.value = parseInt(val).toString();
+  } else if (key === 'camera_match') {
+    const CAMERA_MATCH_VALUES = { fallback: '0', strict: '1', best_signal: '2' };
+    cameraMatchSel.value = CAMERA_MATCH_VALUES[val] ?? '0';
+  } else if (key === 'wake_guard') {
+    wakeGuardToggle.checked = (val === 'true');
+  } else if (key === 'debug_ble') {
+    debugBleToggle.checked = (val === 'true');
+  } else if (key === 'low_power') {
+    lowPowerToggle.checked = (val === 'true');
+  } else if (key === 'wifi_ap_enabled') {
+    wifiApEnabledToggle.checked = (val === 'true');
     updateWifiApState();
-  } catch (e) {
-    console.error('loadConfig:', e);
+  } else if (key === 'wifi_ap_delay') {
+    wifiApDelayInput.value = parseInt(val) || 0;
+  } else if (key === 'osd1') { osd1Input.value = val;
+  } else if (key === 'osd2') { osd2Input.value = val;
+  } else if (key === 'osd3') { osd3Input.value = val;
+  } else if (key === 'osd4') { osd4Input.value = val;
+  } else if (key === 'bf45_compat') {
+    bf45CompatToggle.checked = (val === 'true');
+  } else if (key === 'pilot_en') {
+    pilotEnToggle.checked = (val === 'true');
+  } else if (key === 'pilot_tpl') { pilotTplInput.value = val;
+  } else if (key === 'craft_en') {
+    craftEnToggle.checked = (val === 'true');
+  } else if (key === 'craft_tpl') { craftTplInput.value = val;
+  } else if (key === 'fpv_state_mode') { fpvStateModeToggle.checked = (val === 'true');
+  } else if (key === 'fpv_error') { fpvErrorToggle.checked = (val === 'true');
+  } else if (key === 'fpv_err_text') { fpvErrorTextInput.value = val;
+  } else if (key === 'fpv_ready') { fpvReadyToggle.checked = (val === 'true');
+  } else if (key === 'fpv_ready_text') { fpvReadyTextInput.value = val;
+  } else if (key === 'fpv_record') { fpvRecordToggle.checked = (val === 'true');
+  } else if (key === 'fpv_record_text') { fpvRecordTextInput.value = val;
+  } else if (key === 'fpv_flash') { fpvFlashToggle.checked = (val === 'true');
+  } else if (key === 'fpv_prearm') { fpvPreArmToggle.checked = (val === 'true');
+  } else if (key === 'fpv_prearm_text') { fpvPreArmTextInput.value = val;
+  } else if (key === 'fpv_prearm_show') { fpvPreArmShowInput.value = parseInt(val) || 1000;
+  } else if (key === 'fpv_prearm_int') { fpvPreArmIntInput.value = parseInt(val) || 3000;
+  } else if (key === 'fpv_low_batt') { fpvLowBattToggle.checked = (val === 'true');
+  } else if (key === 'fpv_low_pct') { fpvLowPctInput.value = parseInt(val) || 0;
+  } else if (key === 'fpv_low_rdyflash') { fpvLowRdyFlashToggle.checked = (val === 'true');
+  } else if (key === 'fpv_low_rectext') { fpvLowRecTextToggle.checked = (val === 'true');
+  } else if (key === 'fpv_low_text') { fpvLowTextInput.value = val;
+  } else if (key === 'fpv_rect_warn') { fpvRecLowToggle.checked = (val === 'true');
+  } else if (key === 'fpv_rect_min') { fpvRecLowMinInput.value = parseInt(val) || 0;
+  } else if (key === 'fpv_rect_ready') { fpvRecLowReadyToggle.checked = (val === 'true');
+  } else if (key === 'fpv_rect_record') { fpvRecLowRecordingToggle.checked = (val === 'true');
+  } else if (key === 'fpv_rect_text') { fpvRecLowTextInput.value = val;
+  } else if (key === 'fpv_hot_warn') { fpvHotToggle.checked = (val === 'true');
+  } else if (key === 'fpv_hot_ready') { fpvHotReadyToggle.checked = (val === 'true');
+  } else if (key === 'fpv_hot_record') { fpvHotRecordingToggle.checked = (val === 'true');
+  } else if (key === 'fpv_hot_text') { fpvHotTextInput.value = val;
   }
 }
 
-async function saveConfig(data) {
-  const r = await fetch('/api/config', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
-  if (!r.ok) throw new Error('Save failed: HTTP ' + r.status);
+// ── Connect / disconnect ──────────────────────────────────────────────────────
+async function connect() {
+  try {
+    port = await navigator.serial.requestPort();
+  } catch (e) {
+    if (e.name !== 'NotFoundError') log('Error: ' + e.message, 'err');
+    return;
+  }
+  try {
+    await port.open({ baudRate: parseInt(baudSelect.value) });
+  } catch (e) {
+    log('Failed to open port: ' + e.message, 'err');
+    port = null;
+    return;
+  }
+
+  writer = port.writable.getWriter();
+  setConnected(true);
+  log(`Connected at ${baudSelect.value} baud`, 'sys');
+  startReading();
+  // Populate Easy Config fields after a brief settle time
+  setTimeout(() => sendCommand('show'), 300);
 }
 
-// ── CLI API ───────────────────────────────────────────────────────────────────
-const history = [];
-let histIdx = -1, histDraft = '';
+async function disconnect() {
+  keepReading = false;
+  try { await reader?.cancel(); } catch {}
+  try { writer?.releaseLock(); }  catch {}
+  try { await port?.close(); }    catch {}
+  port = writer = reader = null;
+  setConnected(false);
+  log('Disconnected', 'sys');
+}
+
+// ── Read loop ─────────────────────────────────────────────────────────────────
+async function startReading() {
+  keepReading = true;
+  const decoder     = new TextDecoderStream();
+  const pipePromise = port.readable.pipeTo(decoder.writable);
+  reader            = decoder.readable.getReader();
+  lineBuf           = '';
+
+  try {
+    while (keepReading) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      lineBuf += value;
+      const parts = lineBuf.split('\n');
+      lineBuf = parts.pop();
+      for (const line of parts) {
+        const clean = line.replace(/\r$/, '');
+        log(clean);
+        parseConfigLine(clean);
+        collectCameraLine(clean);
+        collectWifiScanLine(clean);
+      }
+    }
+  } catch {
+    // cancelled or port unplugged
+  } finally {
+    reader.releaseLock();
+    await pipePromise.catch(() => {});
+    if (keepReading) {
+      port = writer = reader = null;
+      setConnected(false);
+      log('Connection lost', 'err');
+    }
+  }
+}
+
+// ── Write ─────────────────────────────────────────────────────────────────────
+const encoder = new TextEncoder();
 
 async function sendCommand(cmd) {
+  if (!writer) return;
   log('> ' + cmd, 'cmd');
   try {
-    const r = await fetch('/api/cli', {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: cmd
-    });
-    const text = await r.text();
-    if (text.trim()) log(text.trimEnd());
+    await writer.write(encoder.encode(cmd + '\r\n'));
   } catch (e) {
-    log('Error: ' + e.message, 'err');
+    log('Write error: ' + e.message, 'err');
   }
 }
 
+// ── CLI input ─────────────────────────────────────────────────────────────────
 async function sendCurrent() {
   const cmd = cmdInput.value.trim();
   if (!cmd) return;
@@ -646,23 +1057,24 @@ cmdInput.addEventListener('keydown', e => {
 });
 
 // ── Easy Config actions ───────────────────────────────────────────────────────
-readBtn.addEventListener('click', loadConfig);
+readBtn.addEventListener('click', () => sendCommand('show'));
 
 applyBtn.addEventListener('click', async () => {
-  try {
-    const data = {
-      camera_type:    parseInt(cameraTypeSel.value),
-      camera_match:   parseInt(cameraMatchSel.value),
-      wake_guard:     wakeGuardToggle.checked,
-      low_power:      lowPowerToggle.checked,
-      wifi_ap_enabled: wifiApEnabledToggle.checked,
-      wifi_ap_delay:  parseInt(wifiApDelayInput.value) || 0,
-      stop_on_disarm: stopToggle.checked,
-      disarm_delay:   parseInt(delayInput.value) || 0
-    };
-    await saveConfig(data);
-    flashSaved(savedMsg);
-  } catch (e) { console.error(e); }
+  const delay      = parseInt(delayInput.value) || 0;
+  const stop       = stopToggle.checked ? 1 : 0;
+  const wakeGuard  = wakeGuardToggle.checked ? 1 : 0;
+  await sendCommand(`set camera_type ${cameraTypeSel.value}`);
+  const debugBle = debugBleToggle.checked ? 1 : 0;
+  const lowPower = lowPowerToggle.checked ? 1 : 0;
+  await sendCommand(`set camera_match ${cameraMatchSel.value}`);
+  await sendCommand(`set wake_guard ${wakeGuard}`);
+  await sendCommand(`set debug_ble ${debugBle}`);
+  await sendCommand(`set low_power ${lowPower}`);
+  await sendCommand(`set wifi_ap_enabled ${wifiApEnabledToggle.checked ? 1 : 0}`);
+  await sendCommand(`set wifi_ap_delay ${parseInt(wifiApDelayInput.value) || 0}`);
+  await sendCommand(`set disarm_delay ${delay}`);
+  await sendCommand(`set stop_on_disarm ${stop}`);
+  flashSaved(savedMsg);
 });
 
 cameraTypeSel.addEventListener('change', updateCameraTypeState);
@@ -671,111 +1083,100 @@ function updateCameraTypeState() {
 }
 
 caddxApplyBtn.addEventListener('click', async () => {
-  try {
-    const data = { caddx_ssid: caddxSsidInput.value };
-    if (caddxPassInput.value) data.caddx_pass = caddxPassInput.value;
-    await saveConfig(data);
+  if (caddxSsidInput.value) await sendCommand(`set caddx_ssid ${caddxSsidInput.value}`);
+  // Password is write-only (never read back from the device) — only send it
+  // if the user actually typed something, so a blank field doesn't wipe a
+  // previously saved password on every Save click.
+  if (caddxPassInput.value) {
+    await sendCommand(`set caddx_pass ${caddxPassInput.value}`);
     caddxPassInput.value = '';
-    flashSaved(caddxSavedMsg);
-    loadCameras();
-  } catch (e) { console.error(e); }
+  }
+  flashSaved(caddxSavedMsg);
+  startCamCapture();
+  sendCommand('cameras list');
 });
-
-caddxScanBtn.addEventListener('click', async () => {
-  caddxScanBtn.disabled = true;
-  caddxScanBtn.textContent = 'Scanning…';
-  caddxScanResults.innerHTML = '<div class="wifi-scan-msg">Scanning…</div>';
-  try {
-    const r = await fetch('/api/wifi_scan');
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const nets = await r.json();
-    renderWifiResults(nets);
-  } catch (e) {
-    caddxScanResults.innerHTML = '<div class="wifi-scan-msg">Scan failed.</div>';
-  } finally {
-    caddxScanBtn.disabled = false;
-    caddxScanBtn.textContent = 'Scan';
-  }
-});
-
-function renderWifiResults(nets) {
-  caddxScanResults.innerHTML = '';
-  if (!nets || nets.length === 0) {
-    caddxScanResults.innerHTML = '<div class="wifi-scan-msg">No networks found.</div>';
-    return;
-  }
-  // Built with textContent/closures rather than innerHTML+onclick — SSIDs
-  // come from nearby radio broadcasts (untrusted input) and could contain
-  // quote/angle-bracket characters.
-  for (const n of [...nets].sort((a, b) => b.rssi - a.rssi)) {
-    const row = document.createElement('div');
-    row.className = 'wifi-net';
-    const ssidSpan = document.createElement('span');
-    ssidSpan.className = 'wifi-net-ssid';
-    ssidSpan.textContent = n.ssid || '(hidden)';
-    const lockSpan = document.createElement('span');
-    lockSpan.className = 'wifi-net-lock';
-    lockSpan.textContent = n.open ? '' : '🔒';
-    const rssiSpan = document.createElement('span');
-    rssiSpan.className = 'wifi-net-rssi';
-    rssiSpan.textContent = n.rssi + ' dBm';
-    row.append(ssidSpan, lockSpan, rssiSpan);
-    row.addEventListener('click', () => selectWifiNet(n.ssid));
-    caddxScanResults.appendChild(row);
-  }
-}
-
-function selectWifiNet(ssid) {
-  caddxSsidInput.value = ssid;
-  caddxScanResults.innerHTML = '';
-}
 
 auxApplyBtn.addEventListener('click', async () => {
-  try {
-    await saveConfig({
-      aux_channel: parseInt(auxChannelSel.value),
-      aux_mode:    parseInt(auxModeSel.value)
-    });
-    flashSaved(auxSavedMsg);
-  } catch (e) { console.error(e); }
+  const ch   = auxChannelSel.value;
+  const mode = '0x' + parseInt(auxModeSel.value).toString(16).padStart(2, '0').toUpperCase();
+  await sendCommand(`set aux_channel ${ch}`);
+  await sendCommand(`set aux_mode ${mode}`);
+  flashSaved(auxSavedMsg);
 });
 
-auxChannelSel.addEventListener('change', updateAuxModeState);
-
 osdApplyBtn.addEventListener('click', async () => {
-  try {
-    await saveConfig({
-      osd1: osd1Input.value,
-      osd2: osd2Input.value,
-      osd3: osd3Input.value,
-      osd4: osd4Input.value
-    });
-    flashSaved(osdSavedMsg);
-  } catch (e) { console.error(e); }
+  await sendCommand(`set osd1 ${osd1Input.value}`);
+  await sendCommand(`set osd2 ${osd2Input.value}`);
+  await sendCommand(`set osd3 ${osd3Input.value}`);
+  await sendCommand(`set osd4 ${osd4Input.value}`);
+  flashSaved(osdSavedMsg);
 });
 
 bf45ApplyBtn.addEventListener('click', async () => {
-  try {
-    await saveConfig({
-      bf45_compat: bf45CompatToggle.checked,
-      pilot_en:    pilotEnToggle.checked,
-      pilot_tpl:   pilotTplInput.value,
-      craft_en:    craftEnToggle.checked,
-      craft_tpl:   craftTplInput.value
-    });
-    flashSaved(bf45SavedMsg);
-  } catch (e) { console.error(e); }
+  const bf45 = bf45CompatToggle.checked ? 1 : 0;
+  await sendCommand(`set bf45_compat ${bf45}`);
+  await sendCommand(`set pilot_en ${pilotEnToggle.checked ? 1 : 0}`);
+  await sendCommand(`set pilot_tpl ${pilotTplInput.value}`);
+  await sendCommand(`set craft_en ${craftEnToggle.checked ? 1 : 0}`);
+  await sendCommand(`set craft_tpl ${craftTplInput.value}`);
+  await sendCommand(`set fpv_state_mode ${fpvStateModeToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_error ${fpvErrorToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_err_text ${fpvErrorTextInput.value}`);
+  await sendCommand(`set fpv_ready ${fpvReadyToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_ready_text ${fpvReadyTextInput.value}`);
+  await sendCommand(`set fpv_record ${fpvRecordToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_record_text ${fpvRecordTextInput.value}`);
+  await sendCommand(`set fpv_flash ${fpvFlashToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_prearm ${fpvPreArmToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_prearm_text ${fpvPreArmTextInput.value}`);
+  await sendCommand(`set fpv_prearm_show ${Math.max(100, parseInt(fpvPreArmShowInput.value) || 1000)}`);
+  await sendCommand(`set fpv_prearm_int ${Math.max(100, parseInt(fpvPreArmIntInput.value) || 3000)}`);
+  await sendCommand(`set fpv_low_batt ${fpvLowBattToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_low_pct ${Math.max(0, Math.min(100, parseInt(fpvLowPctInput.value) || 0))}`);
+  await sendCommand(`set fpv_low_rdyflash ${fpvLowRdyFlashToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_low_rectext ${fpvLowRecTextToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_low_text ${fpvLowTextInput.value}`);
+  await sendCommand(`set fpv_rect_warn ${fpvRecLowToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_rect_min ${Math.max(0, Math.min(999, parseInt(fpvRecLowMinInput.value) || 0))}`);
+  await sendCommand(`set fpv_rect_ready ${fpvRecLowReadyToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_rect_record ${fpvRecLowRecordingToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_rect_text ${fpvRecLowTextInput.value}`);
+  await sendCommand(`set fpv_hot_warn ${fpvHotToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_hot_ready ${fpvHotReadyToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_hot_record ${fpvHotRecordingToggle.checked ? 1 : 0}`);
+  await sendCommand(`set fpv_hot_text ${fpvHotTextInput.value}`);
+  flashSaved(bf45SavedMsg);
 });
 
-sendBtn.addEventListener('click', sendCurrent);
+auxChannelSel.addEventListener('change', updateAuxModeState);
+function updateFpvOptionState() {
+  const connectedNow = !!port;
+  fpvErrorTextInput.disabled = !connectedNow || !fpvErrorToggle.checked;
+  fpvReadyTextInput.disabled = !connectedNow || !fpvReadyToggle.checked;
+  fpvRecordTextInput.disabled = !connectedNow || !fpvRecordToggle.checked;
+  fpvFlashToggle.disabled = !connectedNow || !fpvRecordToggle.checked;
+  fpvLowPctInput.disabled = !connectedNow || !fpvLowBattToggle.checked;
+  fpvLowTextInput.disabled = !connectedNow || !fpvLowBattToggle.checked;
+  fpvLowRdyFlashToggle.disabled = !connectedNow || !fpvLowBattToggle.checked || !fpvReadyToggle.checked;
+  fpvLowRecTextToggle.disabled = !connectedNow || !fpvLowBattToggle.checked || !fpvRecordToggle.checked;
+  fpvRecLowMinInput.disabled = !connectedNow || !fpvRecLowToggle.checked;
+  fpvRecLowTextInput.disabled = !connectedNow || !fpvRecLowToggle.checked;
+  fpvRecLowReadyToggle.disabled = !connectedNow || !fpvRecLowToggle.checked || !fpvReadyToggle.checked;
+  fpvRecLowRecordingToggle.disabled = !connectedNow || !fpvRecLowToggle.checked || !fpvRecordToggle.checked;
+  fpvHotTextInput.disabled = !connectedNow || !fpvHotToggle.checked;
+  fpvHotReadyToggle.disabled = !connectedNow || !fpvHotToggle.checked;
+  fpvHotRecordingToggle.disabled = !connectedNow || !fpvHotToggle.checked || !fpvRecordToggle.checked;
+}
+[fpvStateModeToggle, fpvErrorToggle, fpvReadyToggle, fpvRecordToggle, fpvFlashToggle, fpvLowBattToggle, fpvRecLowToggle, fpvHotToggle].forEach(el => el.addEventListener('change', updateFpvOptionState));
 
 function updateAuxModeState() {
-  auxModeSel.disabled = parseInt(auxChannelSel.value) === 0;
+  auxModeSel.disabled = !port || parseInt(auxChannelSel.value) === 0;
 }
 
 wifiApEnabledToggle.addEventListener('change', updateWifiApState);
+
 function updateWifiApState() {
-  wifiApDelayInput.disabled = !wifiApEnabledToggle.checked;
+  wifiApDelayInput.disabled = !port || !wifiApEnabledToggle.checked;
 }
 
 function flashSaved(el) {
@@ -785,42 +1186,82 @@ function flashSaved(el) {
 }
 
 delayInput.addEventListener('input', updateDelayEquiv);
+
 function updateDelayEquiv() {
   const ms = parseInt(delayInput.value) || 0;
-  delayEquiv.textContent = ms === 0 ? '(immediate)' : `= ${(ms/1000).toFixed(ms%1000===0?0:1)} s`;
+  delayEquiv.textContent = ms === 0 ? '(immediate)' : `= ${(ms / 1000).toFixed(ms % 1000 === 0 ? 0 : 1)} s`;
 }
 
-// ── Cameras tab ───────────────────────────────────────────────────────────────
-const camTableWrap  = document.getElementById('camTableWrap');
-const camRefreshBtn = document.getElementById('camRefreshBtn');
-const camClearBtn   = document.getElementById('camClearBtn');
+// ── Cameras ───────────────────────────────────────────────────────────────────
+function startCamCapture() {
+  collectingCams = true;
+  camLines = [];
+  clearTimeout(camTimer);
+  // Fallback: render after 600 ms even if stream didn't close cleanly
+  camTimer = setTimeout(finalizeCamCapture, 600);
+}
 
-async function loadCameras() {
-  try {
-    const r = await fetch('/api/cameras');
-    const list = await r.json();
-    renderCameraTable(list);
-  } catch (e) {
-    camTableWrap.innerHTML = '<div class="cam-empty">Failed to load camera list.</div>';
+function finalizeCamCapture() {
+  if (!collectingCams) return;
+  collectingCams = false;
+  clearTimeout(camTimer);
+  renderCameraTable(parseCameraLines(camLines));
+}
+
+function collectCameraLine(line) {
+  if (!collectingCams) return;
+  if (line.startsWith('[reg]')) {
+    camLines.push(line);
+    // Reset the fallback timer on each arriving line
+    clearTimeout(camTimer);
+    camTimer = setTimeout(finalizeCamCapture, 200);
+  } else if (line.trim() && camLines.length > 0) {
+    // A non-[reg] line after [reg] lines means the list is done
+    finalizeCamCapture();
   }
 }
 
-function renderCameraTable(list) {
-  if (!list || list.length === 0) {
-    camTableWrap.innerHTML = '<div class="cam-empty">No cameras saved yet.<br>Cameras are added automatically when you connect to them (Caddx included, once it successfully joins a network).</div>';
+function parseCameraLines(lines) {
+  const cameras = [];
+  for (const line of lines) {
+    // [reg]   N: NAME(28 padded chars)  ADDR(MAC or Caddx SSID)  DJI/GoPro/Caddx  [tag]
+    // ADDR isn't fixed-format — Caddx entries store a Wi-Fi SSID there
+    // instead of a MAC — so it's delimited the same way NAME is: lazily,
+    // up to the next 2+-space run.
+    const m = line.match(/^\[reg\]\s+(\d+):\s(.+?)\s{2,}(.+?)\s{2,}(DJI|GoPro|Caddx|Sony|Blackmagic|Insta360)(.*)/);
+    if (m) cameras.push({
+      idx:  parseInt(m[1]),
+      name: m[2].trim(),
+      addr: m[3].trim(),
+      type: m[4].trim(),
+      tags: m[5].trim()
+    });
+  }
+  return cameras;
+}
+
+function renderCameraTable(cameras) {
+  if (!cameras.length) {
+    const empty = camLines.some(l => l.includes('No cameras'));
+    camTableWrap.innerHTML = `<div class="cam-empty">${
+      empty ? 'No cameras saved yet.<br>Cameras are added automatically when you connect to them.'
+            : 'No response — try Refresh.'
+    }</div>`;
     return;
   }
   let html = '<table class="cam-table"><thead><tr>'
     + '<th>#</th><th>Name</th><th>Address</th><th>Type</th><th></th>'
     + '</tr></thead><tbody>';
-  for (const c of list) {
-    const badges = (c.last ? '<span class="cam-badge last">last</span>' : '')
-                 + (c.sel  ? '<span class="cam-badge sel">selected</span>' : '');
+  for (const c of cameras) {
+    const isLast = c.tags.includes('last');
+    const isSel  = c.tags.includes('sel');
+    const badges = (isLast ? '<span class="cam-badge last">last</span>' : '')
+                 + (isSel  ? '<span class="cam-badge sel">selected</span>' : '');
     html += `<tr>
       <td>${c.idx}</td>
       <td>${escHtml(c.name)}${badges}</td>
-      <td style="font-family:monospace">${escHtml(c.addr)}</td>
-      <td>${c.type === 1 ? 'GoPro' : c.type === 2 ? 'Caddx' : 'DJI'}</td>
+      <td style="font-family:monospace;font-size:11px">${escHtml(c.addr)}</td>
+      <td>${c.type}</td>
       <td class="cam-actions">
         <button onclick="camConnect(${c.idx})">Connect</button>
         <button onclick="camRemove(${c.idx})">Remove</button>
@@ -835,37 +1276,192 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-async function camCliCmd(cmd) {
-  try {
-    await fetch('/api/cli', {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: cmd
-    });
-  } catch (e) { /* ignore */ }
-}
-
 async function camConnect(idx) {
-  await camCliCmd('cameras connect ' + idx);
-  await loadCameras();
+  await sendCommand(`cameras connect ${idx}`);
+  setTimeout(() => { startCamCapture(); sendCommand('cameras list'); }, 150);
 }
 
 async function camRemove(idx) {
-  if (!confirm('Remove camera ' + idx + ' from the list?')) return;
-  await camCliCmd('cameras remove ' + idx);
-  await loadCameras();
+  if (!confirm(`Remove camera ${idx} from the list?`)) return;
+  await sendCommand(`cameras remove ${idx}`);
+  setTimeout(() => { startCamCapture(); sendCommand('cameras list'); }, 150);
 }
 
-camRefreshBtn.addEventListener('click', loadCameras);
-camClearBtn.addEventListener('click', async () => {
-  if (!confirm('Remove all saved cameras?')) return;
-  await camCliCmd('cameras clear');
-  await loadCameras();
+camRefreshBtn.addEventListener('click', () => {
+  if (!port) return;
+  startCamCapture();
+  sendCommand('cameras list');
 });
+
+camClearBtn.addEventListener('click', async () => {
+  if (!port || !confirm('Remove all saved cameras?')) return;
+  await sendCommand('cameras clear');
+  setTimeout(() => { startCamCapture(); sendCommand('cameras list'); }, 150);
+});
+
+// ── Wi-Fi scan (Caddx SSID picker) ──────────────────────────────────────────────
+let collectingWifi  = false;
+let wifiLines        = [];
+let wifiTimer        = null;
+let wifiExpectedRows = null; // set once "[wifi] N network(s) found:" arrives
+
+function startWifiCapture() {
+  collectingWifi  = true;
+  wifiLines       = [];
+  wifiExpectedRows = null;
+  clearTimeout(wifiTimer);
+  caddxScanResults.innerHTML = '<div class="wifi-scan-msg">Scanning…</div>';
+  // WiFi.scanNetworks() on the device blocks for several seconds with no
+  // output in between, so this fallback has to be generous — it's only a
+  // safety net for a malformed/missing response, not the primary signal.
+  wifiTimer = setTimeout(finalizeWifiCapture, 10000);
+}
+
+function finalizeWifiCapture() {
+  if (!collectingWifi) return;
+  collectingWifi = false;
+  clearTimeout(wifiTimer);
+  renderWifiResults(parseWifiLines(wifiLines));
+}
+
+function collectWifiScanLine(line) {
+  if (!collectingWifi) return;
+  if (!line.startsWith('[wifi]')) {
+    if (line.trim() && wifiLines.length > 0) finalizeWifiCapture();
+    return;
+  }
+  wifiLines.push(line);
+
+  if (/^\[wifi\] No networks found/.test(line)) {
+    finalizeWifiCapture();
+    return;
+  }
+  const header = line.match(/^\[wifi\]\s+(\d+)\s+network\(s\) found:/);
+  if (header) {
+    wifiExpectedRows = parseInt(header[1]);
+    return;
+  }
+  // A numbered network row — once we've seen as many as the header
+  // promised, we know the scan is fully drained and can finalize right
+  // away instead of waiting on a fixed timeout (the "Scanning..." line
+  // that precedes all of this is followed by a multi-second gap while
+  // the blocking scan runs, so a short quiet-timer here would finalize —
+  // and stop collecting — long before the real results ever arrive).
+  if (/^\[wifi\]\s+\d+:/.test(line) && wifiExpectedRows !== null) {
+    const rows = wifiLines.filter(l => /^\[wifi\]\s+\d+:/.test(l)).length;
+    if (rows >= wifiExpectedRows) finalizeWifiCapture();
+  }
+}
+
+function parseWifiLines(lines) {
+  const nets = [];
+  for (const line of lines) {
+    // [wifi]   0: SSID_NAME(32 padded chars)  RSSI=-45   OPEN
+    const m = line.match(/^\[wifi\]\s+(\d+):\s(.+?)\s+RSSI=(-?\d+)\s+(OPEN|SEC)/);
+    if (m) nets.push({ ssid: m[2].trim(), rssi: parseInt(m[3]), open: m[4] === 'OPEN' });
+  }
+  return nets;
+}
+
+function renderWifiResults(nets) {
+  caddxScanResults.innerHTML = '';
+  if (!nets || nets.length === 0) {
+    caddxScanResults.innerHTML = '<div class="wifi-scan-msg">No networks found.</div>';
+    return;
+  }
+  // Built with textContent/closures rather than innerHTML — SSIDs come from
+  // nearby radio broadcasts (untrusted input) and could contain
+  // quote/angle-bracket characters.
+  for (const n of [...nets].sort((a, b) => b.rssi - a.rssi)) {
+    const row = document.createElement('div');
+    row.className = 'wifi-net';
+    const ssidSpan = document.createElement('span');
+    ssidSpan.className = 'wifi-net-ssid';
+    ssidSpan.textContent = n.ssid || '(hidden)';
+    const lockSpan = document.createElement('span');
+    lockSpan.className = 'wifi-net-lock';
+    lockSpan.textContent = n.open ? '' : '🔒';
+    const rssiSpan = document.createElement('span');
+    rssiSpan.className = 'wifi-net-rssi';
+    rssiSpan.textContent = n.rssi + ' dBm';
+    row.append(ssidSpan, lockSpan, rssiSpan);
+    row.addEventListener('click', () => {
+      caddxSsidInput.value = n.ssid;
+      caddxScanResults.innerHTML = '';
+    });
+    caddxScanResults.appendChild(row);
+  }
+}
+
+caddxScanBtn.addEventListener('click', () => {
+  if (!port) return;
+  startWifiCapture();
+  sendCommand('wifi scan');
+});
+
+// ── UI state ──────────────────────────────────────────────────────────────────
+function setConnected(connected) {
+  dot.className          = 'dot' + (connected ? ' connected' : '');
+  statusText.textContent = connected ? 'Connected' : 'Disconnected';
+  statusText.className   = connected ? 'connected' : '';
+  connectBtn.disabled    = connected;
+  disconnectBtn.disabled = !connected;
+  baudSelect.disabled    = connected;
+  cmdInput.disabled      = !connected;
+  sendBtn.disabled       = !connected;
+  readBtn.disabled       = !connected;
+  applyBtn.disabled      = !connected;
+  cameraTypeSel.disabled = !connected;
+  caddxSsidInput.disabled = !connected;
+  caddxPassInput.disabled = !connected;
+  caddxScanBtn.disabled   = !connected;
+  caddxApplyBtn.disabled  = !connected;
+  stopToggle.disabled         = !connected;
+  cameraMatchSel.disabled     = !connected;
+  wakeGuardToggle.disabled    = !connected;
+  debugBleToggle.disabled     = !connected;
+  lowPowerToggle.disabled     = !connected;
+  wifiApEnabledToggle.disabled = !connected;
+  delayInput.disabled    = !connected;
+  auxChannelSel.disabled = !connected;
+  auxApplyBtn.disabled   = !connected;
+  osd1Input.disabled     = !connected;
+  osd2Input.disabled     = !connected;
+  osd3Input.disabled     = !connected;
+  osd4Input.disabled     = !connected;
+  osdApplyBtn.disabled   = !connected;
+  bf45CompatToggle.disabled = !connected;
+  pilotEnToggle.disabled    = !connected;
+  pilotTplInput.disabled    = !connected;
+  craftEnToggle.disabled    = !connected;
+  craftTplInput.disabled    = !connected;
+  fpvStateModeToggle.disabled = !connected;
+  fpvErrorToggle.disabled   = !connected;
+  fpvReadyToggle.disabled   = !connected;
+  fpvRecordToggle.disabled  = !connected;
+  fpvLowBattToggle.disabled = !connected;
+  fpvRecLowToggle.disabled = !connected;
+  fpvHotToggle.disabled = !connected;
+  updateFpvOptionState();
+  bf45ApplyBtn.disabled     = !connected;
+  camRefreshBtn.disabled = !connected;
+  camClearBtn.disabled   = !connected;
+  updateAuxModeState();
+  updateWifiApState();
+}
+
+connectBtn.addEventListener('click', connect);
+disconnectBtn.addEventListener('click', disconnect);
+sendBtn.addEventListener('click', sendCurrent);
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 updateDelayEquiv();
-loadConfig();
+
+if (!('serial' in navigator)) {
+  document.getElementById('noSerial').classList.add('show');
+} else {
+  log('Connect to a device to begin.', 'sys');
+}
 </script>
 </body>
 </html>

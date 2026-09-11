@@ -359,6 +359,7 @@ void Insta360Camera::handleNotification(uint8_t *data, size_t len) {
     }
 
     _camera.recording = _pendingRecordTarget;
+    _camera.has_recording = true;
     _camera.valid      = true;
     DBG_SERIAL.printf("[Insta360] Recording %s\n", _camera.recording ? "started" : "stopped");
     if (_cameraCb) _cameraCb(_camera);
@@ -370,6 +371,7 @@ void Insta360Camera::handleBatteryNotification(uint8_t *data, size_t len) {
     if (len < 1 || data[0] > 100) return;
 
     _camera.percent = data[0];
+    _camera.has_battery = true;
     _camera.valid   = true;
     DBG_SERIAL.printf("[Insta360] Battery: %u%%\n", _camera.percent);
     if (_cameraCb) _cameraCb(_camera);

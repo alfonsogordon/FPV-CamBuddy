@@ -30,39 +30,96 @@ public:
         char osd3Tpl[OSD_TPL_LEN];  // Custom Message 3 (default: camera settings)
         char osd4Tpl[OSD_TPL_LEN];  // Custom Message 4 (default: storage)
         // Betaflight 4.5 has Pilot Name and Craft Name but not the Custom
-        // Message 1-4 fields (added in 2025.12.1). When enabled, the four osdN
+        // Message 1-4 fields (added in 4.6). When enabled, the four osdN
         // templates above are not sent at all and pilotNameTpl/craftNameTpl
         // are sent to Pilot Name/Craft Name instead.
         bool     bf45Compat;
         bool     pilotNameEnabled;  // false = skip sending Pilot Name even when bf45Compat is on
         char     pilotNameTpl[OSD_TPL_LEN];  // Pilot Name (default: battery)
         bool     craftNameEnabled;  // false = skip sending Craft Name even when bf45Compat is on
-        char     craftNameTpl[OSD_TPL_LEN];  // Craft Name (default: recording state)
+        char     craftNameTpl[OSD_TPL_LEN];  // Craft Name template
+        // BF4.5 state-aware Craft Name presentation. Each state has its own
+        // normal template, using the same token engine as the other OSD fields.
+        // This is intentionally composable for public use rather than hidden
+        // behind one magic {fpv} token.
+        bool     fpvStateMode;          // select error/ready/recording template from camera state
+        bool     fpvErrorEnabled;
+        char     fpvErrorText[OSD_TPL_LEN];      // error-state template
+        bool     fpvReadyEnabled;
+        char     fpvReadyText[OSD_TPL_LEN];      // ready-state template
+        bool     fpvRecordingEnabled;
+        char     fpvRecordingText[OSD_TPL_LEN];  // recording-state template
+        bool     fpvRecFlash;           // {state} flashes at 1 Hz while recording
+        bool     fpvLowBatteryEnabled;
+        uint8_t  fpvLowBatteryPct;
+        bool     fpvLowBatteryReadyFlash; // low-battery warning alternates with READY state
+        bool     fpvLowBatteryRecText;  // low-battery warning uses REC off-phase
+        char     fpvLowBatteryText[OSD_TPL_LEN];
+        bool     fpvLowRecTimeEnabled;  // warn when known recording time remaining is low
+        uint16_t fpvLowRecTimeMin;      // inclusive threshold in minutes
+        bool     fpvLowRecReadyWarning;
+        bool     fpvLowRecRecordingWarning;
+        char     fpvLowRecTimeText[OSD_TPL_LEN];
+        bool     fpvHotWarningEnabled;  // camera thermal telemetry -> CAM HOT warning
+        bool     fpvHotReadyWarning;
+        bool     fpvHotRecordingWarning;
+        char     fpvHotWarningText[OSD_TPL_LEN];
+        bool     fpvPreArmReminderEnabled;
+        char     fpvPreArmReminderText[OSD_TPL_LEN];
+        uint16_t fpvPreArmReminderShowMs;
+        uint16_t fpvPreArmReminderIntervalMs;
         // No Caddx SSID/password here — those live in CameraRegistry
         // (see setCaddxSsid()/setCaddxPass()), same storage every other
         // camera's connection identity uses.
     };
 
-    static constexpr uint32_t DEFAULT_DISARM_STOP_DELAY_MS = 0;
+    static constexpr uint32_t DEFAULT_DISARM_STOP_DELAY_MS = 5000;
     static constexpr bool     DEFAULT_STOP_ON_DISARM       = true;
     static constexpr uint8_t  DEFAULT_AUX_CHANNEL          = 0;
     static constexpr uint8_t  DEFAULT_AUX_MODE             = 0x00;  // slow motion
-    static constexpr uint8_t  DEFAULT_CAMERA_TYPE          = 0;     // DJI
+    static constexpr uint8_t  DEFAULT_CAMERA_TYPE          = 1;     // GoPro
     static constexpr uint8_t  DEFAULT_CAMERA_MATCH_MODE    = 0;     // CAM_MATCH_FALLBACK
     static constexpr bool     DEFAULT_CAMERA_WAKE_GUARD    = true;
     static constexpr bool     DEFAULT_DEBUG_BLE            = false;
     static constexpr bool     DEFAULT_LOW_POWER_MODE       = true;
     static constexpr uint32_t DEFAULT_WIFI_AP_START_DELAY_SEC = 30;
-    static constexpr bool     DEFAULT_WIFI_AP_ENABLED      = true;
-    static constexpr const char *DEFAULT_OSD1_TPL = "CAM:{bat}";
-    static constexpr const char *DEFAULT_OSD2_TPL = "{rec}{recdur}";
-    static constexpr const char *DEFAULT_OSD3_TPL = "{mode} {res}/{fps} {eis}";
-    static constexpr const char *DEFAULT_OSD4_TPL = "{rleft} {rcap}";
-    static constexpr bool     DEFAULT_BF45_COMPAT      = false;
-    static constexpr bool     DEFAULT_PILOT_NAME_ENABLED = true;
-    static constexpr const char *DEFAULT_PILOT_NAME_TPL = "CAM:{bat}";
+    static constexpr bool     DEFAULT_WIFI_AP_ENABLED      = false;
+    static constexpr const char *DEFAULT_OSD1_TPL = "";
+    static constexpr const char *DEFAULT_OSD2_TPL = "";
+    static constexpr const char *DEFAULT_OSD3_TPL = "";
+    static constexpr const char *DEFAULT_OSD4_TPL = "";
+    static constexpr bool     DEFAULT_BF45_COMPAT      = true;
+    static constexpr bool     DEFAULT_PILOT_NAME_ENABLED = false;
+    static constexpr const char *DEFAULT_PILOT_NAME_TPL = "";
     static constexpr bool     DEFAULT_CRAFT_NAME_ENABLED = true;
-    static constexpr const char *DEFAULT_CRAFT_NAME_TPL = "{rec}{recdur}";
+    static constexpr const char *DEFAULT_CRAFT_NAME_TPL = "{state}";
+    static constexpr bool     DEFAULT_FPV_STATE_MODE          = true;
+    static constexpr bool     DEFAULT_FPV_ERROR_ENABLED       = true;
+    static constexpr const char *DEFAULT_FPV_ERROR_TEXT       = "{state} {batt} {rectf}";
+    static constexpr bool     DEFAULT_FPV_READY_ENABLED       = true;
+    static constexpr const char *DEFAULT_FPV_READY_TEXT       = "{state} {batt} {rectf}";
+    static constexpr bool     DEFAULT_FPV_RECORDING_ENABLED   = true;
+    static constexpr const char *DEFAULT_FPV_RECORDING_TEXT   = "{state}";
+    static constexpr bool     DEFAULT_FPV_REC_FLASH           = true;
+    static constexpr bool     DEFAULT_FPV_LOW_BATTERY_ENABLED = true;
+    static constexpr uint8_t  DEFAULT_FPV_LOW_BATTERY_PCT     = 10;
+    static constexpr bool     DEFAULT_FPV_LOW_BAT_READY_FLASH = true;
+    static constexpr bool     DEFAULT_FPV_LOW_BAT_REC_TEXT    = true;
+    static constexpr const char *DEFAULT_FPV_LOW_BATTERY_TEXT = "BATT LOW";
+    static constexpr bool     DEFAULT_FPV_LOW_REC_ENABLED      = true;
+    static constexpr uint16_t DEFAULT_FPV_LOW_REC_MIN          = 5;
+    static constexpr bool     DEFAULT_FPV_LOW_REC_READY        = true;
+    static constexpr bool     DEFAULT_FPV_LOW_REC_RECORDING    = true;
+    static constexpr const char *DEFAULT_FPV_LOW_REC_TEXT      = "REC LOW";
+    static constexpr bool     DEFAULT_FPV_HOT_ENABLED          = true;
+    static constexpr bool     DEFAULT_FPV_HOT_READY            = true;
+    static constexpr bool     DEFAULT_FPV_HOT_RECORDING        = true;
+    static constexpr const char *DEFAULT_FPV_HOT_TEXT          = "CAM HOT";
+    // FPSteVe build preference: enabled here for testing/use. Upstream/public recommendation: default OFF.
+    static constexpr bool     DEFAULT_FPV_PREARM_ENABLED       = true;
+    static constexpr const char *DEFAULT_FPV_PREARM_TEXT       = "CLEAN LENS";
+    static constexpr uint16_t DEFAULT_FPV_PREARM_SHOW_MS       = 1000;
+    static constexpr uint16_t DEFAULT_FPV_PREARM_INTERVAL_MS   = 3000;
 
     void begin(Stream &serial);
     void update();
@@ -94,6 +151,32 @@ public:
     void setPilotNameTemplate(const char *tpl);
     void setCraftNameEnabled(bool v);
     void setCraftNameTemplate(const char *tpl);
+    void setFpvStateMode(bool v);
+    void setFpvErrorEnabled(bool v);
+    void setFpvErrorText(const char *text);
+    void setFpvReadyEnabled(bool v);
+    void setFpvReadyText(const char *text);
+    void setFpvRecordingEnabled(bool v);
+    void setFpvRecordingText(const char *text);
+    void setFpvRecFlash(bool v);
+    void setFpvLowBatteryEnabled(bool v);
+    void setFpvLowBatteryPct(uint8_t pct);
+    void setFpvLowBatteryReadyFlash(bool v);
+    void setFpvLowBatteryRecText(bool v);
+    void setFpvLowBatteryText(const char *text);
+    void setFpvLowRecTimeEnabled(bool v);
+    void setFpvLowRecTimeMin(uint16_t mins);
+    void setFpvLowRecReadyWarning(bool v);
+    void setFpvLowRecRecordingWarning(bool v);
+    void setFpvLowRecTimeText(const char *text);
+    void setFpvHotWarningEnabled(bool v);
+    void setFpvHotReadyWarning(bool v);
+    void setFpvHotRecordingWarning(bool v);
+    void setFpvHotWarningText(const char *text);
+    void setFpvPreArmReminderEnabled(bool v);
+    void setFpvPreArmReminderText(const char *text);
+    void setFpvPreArmReminderShowMs(uint16_t ms);
+    void setFpvPreArmReminderIntervalMs(uint16_t ms);
     // Both write into the registry's preferred/newest Caddx entry, not NVS
     // (see CameraEntry) — return false if there's nothing to write to yet
     // (setCaddxPass before any setCaddxSsid) or ssid is empty.

@@ -347,6 +347,7 @@ void BlackmagicCamera::handleControlNotification(uint8_t *data, size_t len) {
     if (_camera.valid && _camera.recording == recording) return;
 
     _camera.recording = recording;
+    _camera.has_recording = true;
     _camera.valid     = true;
     DBG_SERIAL.printf("[Blackmagic] Recording %s\n", recording ? "started" : "stopped");
     if (_cameraCb) _cameraCb(_camera);

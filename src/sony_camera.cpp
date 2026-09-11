@@ -408,6 +408,7 @@ void SonyCamera::handleNotification(uint8_t *data, size_t len) {
     switch (tag) {
     case SONY_NOTIFY_TAG_RECORDING:
         _camera.recording = (value == SONY_NOTIFY_VALUE_ACTIVE);
+        _camera.has_recording = true;
         _camera.valid     = true;
         DBG_SERIAL.printf("[Sony] Recording %s\n", _camera.recording ? "started" : "stopped");
         if (_cameraCb) _cameraCb(_camera);
@@ -452,6 +453,7 @@ void SonyCamera::handleBatteryNotification(uint8_t *data, size_t len) {
                            ((uint32_t)data[offset + 5] <<  8) |  (uint32_t)data[offset + 6];
             if (pct <= 100) {
                 _camera.percent = (uint8_t)pct;
+                _camera.has_battery = true;
                 _camera.valid   = true;
                 DBG_SERIAL.printf("[Sony] Battery: %u%%\n", _camera.percent);
                 if (_cameraCb) _cameraCb(_camera);

@@ -51,7 +51,20 @@ void GoProCamera::update() {
         return;
     }
 
-    if (_gpConnected || _bleConnected || _scanning) return;
+    // Some GoPros (confirmed on HERO11 Black Mini) do not push a Primary
+    // Storage notification when the SD card is physically removed. Poll the
+    // relevant statuses while connected so media readiness and remaining time
+    // cannot remain stuck at their last-good values.
+    if (_gpConnected && _queryChar) {
+        const uint32_t now = millis();
+        if (now - _lastStatusPollMs >= 1000) {
+            _lastStatusPollMs = now;
+            sendStatusPoll();
+        }
+        return;
+    }
+
+    if (_bleConnected || _scanning) return;
 
     if (_targetFound) {
         connectAndSetup();
@@ -263,6 +276,7 @@ bool GoProCamera::connectAndSetup() {
         DBG_SERIAL.println("[BLE] Connection failed");
         _targetFound   = false;
         _lastAttemptMs = millis();
+    _lastStatusPollMs = 0;
         return false;
     }
 
@@ -501,6 +515,7 @@ void GoProCamera::sendRegisterStatus() {
             GP_STATUS_ENCODING,
             GP_STATUS_LEGACY_RECORDING,
             GP_STATUS_ENC_DURATION,
+            GP_STATUS_PRIMARY_STORAGE,
             GP_STATUS_REMAINING_TIME,
             GP_STATUS_LEGACY_MODE,
             GP_STATUS_SD_REMAINING,
@@ -517,6 +532,30 @@ void GoProCamera::sendRegisterStatus() {
     _queryChar->writeValue(buf, 1 + payload_len, false);
     DBG_SERIAL.printf("[GP] Register for status updates sent (%s)\n",
                        _legacyProtocol ? "legacy" : "modern");
+}
+
+// One-shot status refresh. Open GoPro Query ID 0x13 is Get Status Values.
+// We poll media state because some cameras do not emit a 0x93 notification when
+// an SD card is physically removed. Querying remaining time/capacity at the
+// same time also prevents stale values from remaining in the OSD.
+void GoProCamera::sendStatusPoll() {
+    if (!_queryChar || _legacyProtocol) return;
+
+    const uint8_t ids[] = {
+        GP_STATUS_PRIMARY_STORAGE,
+        GP_STATUS_REMAINING_TIME,
+        GP_STATUS_SD_REMAINING,
+    };
+
+    const uint8_t payload_len = 1 + (uint8_t)sizeof(ids);
+    uint8_t buf[2 + sizeof(ids)];
+    buf[0] = payload_len & 0x1F;
+    buf[1] = GP_QUERY_GET_STATUS;
+    memcpy(buf + 2, ids, sizeof(ids));
+
+    if (_debugBle)
+        bleDebugDump(DBG_SERIAL, "TX", "GP-0076 STATUS POLL", buf, 1 + payload_len);
+    _queryChar->writeValue(buf, 1 + payload_len, false);
 }
 
 // ─── Recording & mode commands ────────────────────────────────────────────────
@@ -718,6 +757,18 @@ void GoProCamera::handleQueryMessage(const uint8_t *msg, size_t len) {
             if (_camera.valid && _gpConnected && _cameraCb)
                 _cameraCb(_camera);
         }
+    } else if (query_id == GP_QUERY_GET_STATUS) {
+        // One-shot Get Status Values response: [0x13, status, TLVs...].
+        if (len < 2) return;
+        if (msg[1] != 0) {
+            DBG_SERIAL.printf("[GP] Status poll rejected: 0x%02X\n", msg[1]);
+            return;
+        }
+        if (len > 2) {
+            parseStatusTlv(msg + 2, len - 2);
+            if (_camera.valid && _gpConnected && _cameraCb)
+                _cameraCb(_camera);
+        }
     } else if (query_id == GP_NOTIFY_SETTING_UPDATE || query_id == GP_NOTIFY_STATUS_UPDATE) {
         if (len > 2) {
             parseStatusTlv(msg + 2, len - 2);
@@ -748,11 +799,11 @@ void GoProCamera::parseStatusTlv(const uint8_t *tlv, size_t len) {
 
         // ── Status IDs ───────────────────────────────────────────────────────
         case GP_STATUS_BATTERY_PCT:
-            if (vlen >= 1) { _camera.percent = v[0]; updated = true; }
+            if (vlen >= 1) { _camera.percent = v[0]; _camera.has_battery = true; updated = true; }
             break;
 
         case GP_STATUS_ENCODING:
-            if (vlen >= 1) { _camera.recording = (v[0] != 0); updated = true; }
+            if (vlen >= 1) { _camera.recording = (v[0] != 0); _camera.has_recording = true; updated = true; }
             break;
 
         case GP_STATUS_ENC_DURATION:
@@ -764,10 +815,29 @@ void GoProCamera::parseStatusTlv(const uint8_t *tlv, size_t len) {
             }
             break;
 
+        case GP_STATUS_PRIMARY_STORAGE:
+            if (vlen >= 1) {
+                // Open GoPro PrimaryStorage: 0=OK, 1=FULL, 2=REMOVED,
+                // 3=FORMAT_ERROR, 4=BUSY. Only OK is record-ready.
+                _camera.has_media_ready = true;
+                _camera.media_ready = (v[0] == 0);
+                if (!_camera.media_ready) {
+                    // Do not keep showing the last SD card's stale capacity/time.
+                    _camera.has_remain_time = false;
+                    _camera.remain_time = 0;
+                    _camera.remain_cap_mb = 0;
+                }
+                DBG_SERIAL.printf("[GP] Primary storage: raw=%u -> %s\n",
+                                  v[0], _camera.media_ready ? "READY" : "NOT READY");
+                updated = true;
+            }
+            break;
+
         case GP_STATUS_REMAINING_TIME:
             if (vlen >= 4) {
                 _camera.remain_time = ((uint32_t)v[0] << 24) | ((uint32_t)v[1] << 16) |
                                       ((uint32_t)v[2] <<  8) |  (uint32_t)v[3];
+                _camera.has_remain_time = true;
                 updated = true;
             }
             break;
@@ -788,7 +858,7 @@ void GoProCamera::parseStatusTlv(const uint8_t *tlv, size_t len) {
             break;
 
         case GP_STATUS_OVERHEATING:
-            if (vlen >= 1) { _camera.temp_over = v[0] ? 1 : 0; updated = true; }
+            if (vlen >= 1) { _camera.temp_over = v[0] ? 1 : 0; _camera.has_temperature = true; updated = true; }
             break;
 
         case GP_STATUS_PRESET_GROUP:
@@ -804,7 +874,7 @@ void GoProCamera::parseStatusTlv(const uint8_t *tlv, size_t len) {
 
         // ── Legacy status IDs (HERO4/5-Session era) ─────────────────────────────
         case GP_STATUS_LEGACY_RECORDING:
-            if (vlen >= 1) { _camera.recording = (v[0] != 0); updated = true; }
+            if (vlen >= 1) { _camera.recording = (v[0] != 0); _camera.has_recording = true; updated = true; }
             break;
 
         case GP_STATUS_LEGACY_MODE:
@@ -893,6 +963,7 @@ void GoProCamera::handleBatteryNotification(uint8_t *data, size_t len) {
     if (len < 1) return;
 
     _camera.percent = data[0];
+    _camera.has_battery = true;
     _camera.valid   = true;
     DBG_SERIAL.printf("[GP] Battery: %u%%\n", _camera.percent);
 
