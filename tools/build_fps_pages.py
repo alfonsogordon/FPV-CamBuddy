@@ -25,11 +25,9 @@ if start == -1 or end == -1:
 
 lines = [
     '      <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">',
-    '        <div class="cfg-field-name">FPSteVe Camera OSD</div>',
-    '        <div class="cfg-field-desc">Camera status (ERR / RDY / REC) is always enabled. Configure an optional custom message and camera warnings below.</div>',
     '        <div style="display:none"><input type="checkbox" id="fpvStateMode" checked></div>',
     '',
-    '        <div style="width:100%;margin-top:16px;"><strong>Custom Message</strong><div class="cfg-field-desc">Optional message shown periodically, e.g. CLEAN LENS. Leave blank to disable.</div></div>',
+    '        <div style="width:100%;"><strong>Custom Message</strong><div class="cfg-field-desc">Optional message shown periodically, e.g. CLEAN LENS. Leave blank to disable.</div></div>',
     '        <div style="display:flex;align-items:center;gap:10px;width:100%;margin-top:10px;"><label for="fpvPreArmText" style="min-width:185px;">Message</label><input class="tpl-input" type="text" id="fpvPreArmText" maxlength="16" placeholder="e.g. CLEAN LENS" spellcheck="false" style="margin-top:0;flex:1;min-width:0;"></div>',
     '        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:12px;"><div><strong>Only before first arm</strong><div class="cfg-field-desc">Stop showing the message after the first arm until the next power cycle.</div></div><label class="switch"><input type="checkbox" id="fpvPreArm"><span class="track"><span class="thumb"></span></span></label></div>',
     '        <div style="display:flex;align-items:center;gap:10px;width:100%;margin-top:12px;"><label for="fpvCustomDurationSec" style="min-width:185px;">Display duration</label><input type="number" id="fpvCustomDurationSec" min="0.1" max="2.5" step="0.1" value="1.0" style="width:90px;"><span class="num-unit">sec</span></div>',
@@ -93,7 +91,7 @@ s = s.replace('fpvRecLowMinInput.disabled = !connectedNow || !fpvRecLowToggle.ch
 for marker in ['id="fpvCustomDurationSec"','placeholder="e.g. CLEAN LENS"','Only before first arm',"await sendCommand('set fpv_state_mode 1')",'set fpv_rect_warn','set fpv_hot_warn','Camera warnings','freeclinkerC3Config','href="test.html"']:
     if marker not in s:
         raise SystemExit(f'Generated configurator missing expected marker: {marker}')
-if '<strong>CLEAN LENS reminder</strong>' in s or '<div>Camera status (ERR / RDY / REC)</div>' in s:
+if '<strong>CLEAN LENS reminder</strong>' in s or '<div>Camera status (ERR / RDY / REC)</div>' in s or 'FPSteVe Camera OSD' in s:
     raise SystemExit('Generated configurator still contains obsolete FPSteVe controls')
 
 p.write_text(s, encoding='utf-8')
