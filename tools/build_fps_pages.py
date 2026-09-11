@@ -2,10 +2,23 @@ from pathlib import Path
 
 p = Path('web/config.html')
 s = p.read_text(encoding='utf-8')
-s = s.replace('<title>FreeCLinker — Config</title>', '<title>FreeCLinker — FPSteVe Edition Config</title>')
-s = s.replace('<span class="brand">FreeCLinker</span>', '<span class="brand">FreeCLinker — FPSteVe Edition</span>')
-s = s.replace('</head>', '  <link rel="stylesheet" href="fps-theme.css">\n</head>', 1)
 
+
+def must_replace(old, new, label):
+    global s
+    if old not in s:
+        raise SystemExit(f'Could not locate {label}')
+    s = s.replace(old, new, 1)
+
+
+# FPSteVe branding / dark theme.
+must_replace('<title>FreeCLinker — Config</title>', '<title>FreeCLinker — FPSteVe Edition Config</title>', 'page title')
+must_replace('<span class="brand">FreeCLinker</span>', '<span class="brand">FreeCLinker — FPSteVe Edition</span>', 'brand')
+must_replace('</head>', '  <link rel="stylesheet" href="fps-theme.css">\n</head>', 'head close')
+
+# Replace the advanced state/warning editor with the intentionally small
+# FPSteVe controls. Existing element IDs are preserved for the upstream JS/CLI
+# contract, while advanced values remain hidden and fixed to our tested values.
 start_marker = '      <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">\n        <div class="cfg-field-name">State-aware Craft Name</div>'
 end_marker = '      <div class="card-footer">'
 start = s.find(start_marker)
@@ -16,17 +29,20 @@ if start == -1 or end == -1:
 lines = [
     '      <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">',
     '        <div class="cfg-field-name">FPSteVe Camera OSD</div>',
-    '        <div class="cfg-field-desc">Camera status (ERR / RDY / REC) is always enabled. Optional custom message and camera warnings can be configured below.</div>',
+    '        <div class="cfg-field-desc">Camera status (ERR / RDY / REC) is always enabled. Configure an optional custom message and camera warnings below.</div>',
     '        <div style="display:none"><input type="checkbox" id="fpvStateMode" checked></div>',
+    '',
     '        <div style="width:100%;margin-top:16px;"><strong>Custom Message</strong><div class="cfg-field-desc">Optional message shown periodically, e.g. CLEAN LENS. Leave blank to disable.</div></div>',
-    '        <div style="display:flex;align-items:center;gap:10px;width:100%;margin-top:10px;"><label for="fpvPreArmText" style="min-width:185px;">Message</label><input type="text" id="fpvPreArmText" maxlength="16" placeholder="e.g. CLEAN LENS" style="flex:1;min-width:0;"></div>',
+    '        <div style="display:flex;align-items:center;gap:10px;width:100%;margin-top:10px;"><label for="fpvPreArmText" style="min-width:185px;">Message</label><input class="tpl-input" type="text" id="fpvPreArmText" maxlength="16" placeholder="e.g. CLEAN LENS" spellcheck="false" style="margin-top:0;flex:1;min-width:0;"></div>',
     '        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:12px;"><div><strong>Only before first arm</strong><div class="cfg-field-desc">Stop showing the message after the first arm until the next power cycle.</div></div><label class="switch"><input type="checkbox" id="fpvPreArm"><span class="track"><span class="thumb"></span></span></label></div>',
     '        <div style="display:flex;align-items:center;gap:10px;width:100%;margin-top:12px;"><label for="fpvCustomDurationSec" style="min-width:185px;">Display duration</label><input type="number" id="fpvCustomDurationSec" min="0.1" max="2.5" step="0.1" value="1.0" style="width:90px;"><span class="num-unit">sec</span></div>',
     '        <div style="display:none"><input type="number" id="fpvPreArmShow" value="1000"><input type="number" id="fpvPreArmInt" value="3000"></div>',
+    '',
     '        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:20px;"><div><strong>Camera warnings</strong><div class="cfg-field-desc">Low battery, low recording-time and camera-hot warnings.</div></div><label class="switch"><input type="checkbox" id="fpvLowBatt"><span class="track"><span class="thumb"></span></span></label></div>',
     '        <div style="display:flex;align-items:center;gap:10px;width:100%;margin-top:14px;"><label for="fpvLowPct" style="min-width:185px;">Low battery threshold</label><input type="number" id="fpvLowPct" min="0" max="100" step="1" value="10" style="width:90px;"><span class="num-unit">%</span></div>',
     '        <div style="display:flex;align-items:center;gap:10px;width:100%;margin-top:12px;"><label for="fpvRecLowMin" style="min-width:185px;">Low recording-time threshold</label><input type="number" id="fpvRecLowMin" min="0" max="999" step="1" value="5" style="width:90px;"><span class="num-unit">min</span></div>',
     '        <div class="cfg-field-desc" style="margin-top:8px;">Camera-hot uses the camera over-temperature status, so it needs no threshold.</div>',
+    '',
     '        <div style="display:none">',
     '          <input type="checkbox" id="fpvError" checked><input id="fpvErrorText" value="{state} {batt} {rectf}">',
     '          <input type="checkbox" id="fpvReady" checked><input id="fpvReadyText" value="{state} {batt} {rectf}">',
@@ -40,24 +56,86 @@ lines = [
 ]
 s = s[:start] + '\n'.join(lines) + s[end:]
 
+# Master warning switch drives all three warning families in the UI.
 hook = "[fpvStateModeToggle, fpvErrorToggle, fpvReadyToggle, fpvRecordToggle, fpvFlashToggle, fpvLowBattToggle, fpvRecLowToggle, fpvHotToggle].forEach(el => el.addEventListener('change', updateFpvOptionState));"
-replacement = hook + "\n\n// One simple warning switch controls all tested warning types.\nfpvLowBattToggle.addEventListener('change', () => {\n  fpvRecLowToggle.checked = fpvLowBattToggle.checked;\n  fpvHotToggle.checked = fpvLowBattToggle.checked;\n  updateFpvOptionState();\n});\n\nconst customDurationInput = document.getElementById('fpvCustomDurationSec');\ncustomDurationInput?.addEventListener('change', () => {\n  const sec = Math.min(2.5, Math.max(0.1, parseFloat(customDurationInput.value) || 1));\n  customDurationInput.value = sec.toFixed(1);\n  document.getElementById('fpvPreArmShow').value = Math.round(sec * 1000);\n});"
-if hook not in s:
-    raise SystemExit('Could not locate FPS warning event hook')
-s = s.replace(hook, replacement, 1)
+replacement = hook + "\n\n// FPSteVe simplified controls.\nfpvLowBattToggle.addEventListener('change', () => {\n  fpvRecLowToggle.checked = fpvLowBattToggle.checked;\n  fpvHotToggle.checked = fpvLowBattToggle.checked;\n  updateFpvOptionState();\n});\n\nconst customDurationInput = document.getElementById('fpvCustomDurationSec');\ncustomDurationInput.addEventListener('input', () => {\n  const sec = Math.min(2.5, Math.max(0.1, parseFloat(customDurationInput.value) || 1));\n  fpvPreArmShowInput.value = Math.round(sec * 1000);\n});"
+must_replace(hook, replacement, 'FPS option event hook')
 
-apply_hook = "  await sendCommand(`set fpv_low_batt ${fpvLowBattToggle.checked ? 1 : 0}`);"
-forced = "  // FPSteVe simple UI: state is permanent and warning text/behaviour is fixed.\n  fpvStateModeToggle.checked = true;\n  fpvErrorToggle.checked = true;\n  fpvReadyToggle.checked = true;\n  fpvRecordToggle.checked = true;\n  fpvFlashToggle.checked = true;\n  fpvErrorTextInput.value = '{state} {batt} {rectf}';\n  fpvReadyTextInput.value = '{state} {batt} {rectf}';\n  fpvRecordTextInput.value = '{state}';\n  const durationSec = Math.min(2.5, Math.max(0.1, parseFloat(document.getElementById('fpvCustomDurationSec').value) || 1));\n  document.getElementById('fpvPreArmShow').value = Math.round(durationSec * 1000);\n  document.getElementById('fpvPreArmInt').value = 3000;\n  fpvRecLowToggle.checked = fpvLowBattToggle.checked;\n  fpvHotToggle.checked = fpvLowBattToggle.checked;\n  fpvLowTextInput.value = 'BATT LOW';\n  fpvRecLowTextInput.value = 'REC LOW';\n  fpvHotTextInput.value = 'CAM HOT';\n  fpvLowRdyFlashToggle.checked = true;\n  fpvLowRecTextToggle.checked = true;\n  fpvRecLowReadyToggle.checked = true;\n  fpvRecLowRecordingToggle.checked = true;\n  fpvHotReadyToggle.checked = true;\n  fpvHotRecordingToggle.checked = true;\n" + apply_hook
-if apply_hook not in s:
-    raise SystemExit('Could not locate warning apply hook')
-s = s.replace(apply_hook, forced, 1)
+# Loading from an existing device: state mode is always on in FPSteVe Edition,
+# while the stored custom-message duration is mirrored to the visible seconds box.
+must_replace("} else if (key === 'fpv_state_mode') { fpvStateModeToggle.checked = (val === 'true');",
+             "} else if (key === 'fpv_state_mode') { fpvStateModeToggle.checked = true;",
+             'fpv_state_mode parser')
+must_replace("} else if (key === 'fpv_prearm_show') { fpvPreArmShowInput.value = parseInt(val) || 1000;",
+             "} else if (key === 'fpv_prearm_show') { fpvPreArmShowInput.value = parseInt(val) || 1000; const d = document.getElementById('fpvCustomDurationSec'); if (d) d.value = (Math.min(2500, Math.max(100, fpvPreArmShowInput.value)) / 1000).toFixed(1);",
+             'custom duration parser')
+
+# Apply: permanently enable the state engine and fixed tested state/warning
+# presentation. The user only controls custom text/gating/duration and the two
+# numeric warning thresholds.
+must_replace("  await sendCommand(`set fpv_state_mode ${fpvStateModeToggle.checked ? 1 : 0}`);",
+             "  await sendCommand('set fpv_state_mode 1');",
+             'state mode apply')
+must_replace("  await sendCommand(`set fpv_error ${fpvErrorToggle.checked ? 1 : 0}`);",
+             "  await sendCommand('set fpv_error 1');",
+             'error enable apply')
+must_replace("  await sendCommand(`set fpv_err_text ${fpvErrorTextInput.value}`);",
+             "  await sendCommand('set fpv_err_text {state} {batt} {rectf}');",
+             'error text apply')
+must_replace("  await sendCommand(`set fpv_ready ${fpvReadyToggle.checked ? 1 : 0}`);",
+             "  await sendCommand('set fpv_ready 1');",
+             'ready enable apply')
+must_replace("  await sendCommand(`set fpv_ready_text ${fpvReadyTextInput.value}`);",
+             "  await sendCommand('set fpv_ready_text {state} {batt} {rectf}');",
+             'ready text apply')
+must_replace("  await sendCommand(`set fpv_record ${fpvRecordToggle.checked ? 1 : 0}`);",
+             "  await sendCommand('set fpv_record 1');",
+             'record enable apply')
+must_replace("  await sendCommand(`set fpv_record_text ${fpvRecordTextInput.value}`);",
+             "  await sendCommand('set fpv_record_text {state}');",
+             'record text apply')
+must_replace("  await sendCommand(`set fpv_flash ${fpvFlashToggle.checked ? 1 : 0}`);",
+             "  await sendCommand('set fpv_flash 1');",
+             'record flash apply')
+
+# Custom message is empty-by-default. Convert the visible seconds value directly
+# at Apply time so clicking Apply while the number box still has focus is safe.
+must_replace("  await sendCommand(`set fpv_prearm_show ${Math.max(100, parseInt(fpvPreArmShowInput.value) || 1000)}`);",
+             "  const customMsgSec = Math.min(2.5, Math.max(0.1, parseFloat(document.getElementById('fpvCustomDurationSec').value) || 1));\n  await sendCommand(`set fpv_prearm_show ${Math.round(customMsgSec * 1000)}`);",
+             'custom duration apply')
+must_replace("  await sendCommand(`set fpv_prearm_int ${Math.max(100, parseInt(fpvPreArmIntInput.value) || 3000)}`);",
+             "  await sendCommand('set fpv_prearm_int 3000');",
+             'custom interval apply')
+
+# One warning switch controls battery/time/hot. Keep warning wording and phase
+# behavior fixed to the known-good FPSteVe values.
+must_replace("  await sendCommand(`set fpv_low_rdyflash ${fpvLowRdyFlashToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_low_rdyflash 1');", 'low battery ready behavior')
+must_replace("  await sendCommand(`set fpv_low_rectext ${fpvLowRecTextToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_low_rectext 1');", 'low battery record behavior')
+must_replace("  await sendCommand(`set fpv_low_text ${fpvLowTextInput.value}`);", "  await sendCommand('set fpv_low_text BATT LOW');", 'low battery text')
+must_replace("  await sendCommand(`set fpv_rec_low ${fpvRecLowToggle.checked ? 1 : 0}`);", "  await sendCommand(`set fpv_rec_low ${fpvLowBattToggle.checked ? 1 : 0}`);", 'low record master')
+must_replace("  await sendCommand(`set fpv_rec_low_rdy ${fpvRecLowReadyToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_rec_low_rdy 1');", 'low record ready behavior')
+must_replace("  await sendCommand(`set fpv_rec_low_rec ${fpvRecLowRecordingToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_rec_low_rec 1');", 'low record record behavior')
+must_replace("  await sendCommand(`set fpv_rec_low_text ${fpvRecLowTextInput.value}`);", "  await sendCommand('set fpv_rec_low_text REC LOW');", 'low record text')
+must_replace("  await sendCommand(`set fpv_hot ${fpvHotToggle.checked ? 1 : 0}`);", "  await sendCommand(`set fpv_hot ${fpvLowBattToggle.checked ? 1 : 0}`);", 'hot warning master')
+must_replace("  await sendCommand(`set fpv_hot_rdy ${fpvHotReadyToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_hot_rdy 1');", 'hot ready behavior')
+must_replace("  await sendCommand(`set fpv_hot_rec ${fpvHotRecordingToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_hot_rec 1');", 'hot record behavior')
+must_replace("  await sendCommand(`set fpv_hot_text ${fpvHotTextInput.value}`);", "  await sendCommand('set fpv_hot_text CAM HOT');", 'hot text')
+
+# Threshold enable/disable follows the single warnings switch.
 s = s.replace('fpvRecLowMinInput.disabled = !connectedNow || !fpvRecLowToggle.checked;', 'fpvRecLowMinInput.disabled = !connectedNow || !fpvLowBattToggle.checked;')
 
-load_hook = '          applyState(cfg);'
-load_extra = load_hook + "\n          const customDuration = document.getElementById('fpvCustomDurationSec');\n          if (customDuration) customDuration.value = (Math.min(2500, Math.max(100, Number(document.getElementById('fpvPreArmShow').value) || 1000)) / 1000).toFixed(1);"
-if load_hook not in s:
-    raise SystemExit('Could not locate config load hook')
-s = s.replace(load_hook, load_extra, 1)
+# Build-time sanity checks so Pages can never silently deploy the old controls.
+for marker in [
+    'id="fpvCustomDurationSec"',
+    'placeholder="e.g. CLEAN LENS"',
+    'Only before first arm',
+    "await sendCommand('set fpv_state_mode 1')",
+    'Camera warnings',
+]:
+    if marker not in s:
+        raise SystemExit(f'Generated configurator missing expected marker: {marker}')
+if '<strong>CLEAN LENS reminder</strong>' in s or '<div>Camera status (ERR / RDY / REC)</div>' in s:
+    raise SystemExit('Generated configurator still contains obsolete FPSteVe controls')
 
 p.write_text(s, encoding='utf-8')
-print('FPSteVe configurator generated')
+print('FPSteVe configurator generated and validated')
