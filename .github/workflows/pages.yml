@@ -27,6 +27,18 @@ jobs:
 
       - uses: actions/configure-pages@v5
 
+      - name: Apply FPSteVe Edition configurator theme
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('web/config.html')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('<title>FreeCLinker — Config</title>', '<title>FreeCLinker — FPSteVe Edition Config</title>')
+          s = s.replace('<span class="brand">FreeCLinker</span>', '<span class="brand">FreeCLinker — FPSteVe Edition</span>')
+          s = s.replace('</head>', '  <link rel="stylesheet" href="fps-theme.css">\n</head>', 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+
       - name: Download firmware releases
         run: |
           mkdir -p web/firmware
