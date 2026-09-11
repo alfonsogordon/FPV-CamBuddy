@@ -13,6 +13,7 @@ def must_replace(old, new, label):
 
 must_replace('<title>FreeCLinker — Config</title>', '<title>FreeCLinker — FPSteVe Edition Config</title>', 'page title')
 must_replace('<span class="brand">FreeCLinker</span>', '<span class="brand">FreeCLinker — FPSteVe Edition</span>', 'brand')
+must_replace('<a class="nav-link" href="flash.html">Flash</a>', '<a class="nav-link" href="flash.html">Flash</a>\n  <a class="nav-link" href="test.html">OSD Simulator</a>', 'simulator nav link')
 must_replace('</head>', '  <link rel="stylesheet" href="fps-theme.css">\n</head>', 'head close')
 
 start_marker = '      <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">\n        <div class="cfg-field-name">State-aware Craft Name</div>'
@@ -56,6 +57,7 @@ hook = "[fpvStateModeToggle, fpvErrorToggle, fpvReadyToggle, fpvRecordToggle, fp
 replacement = hook + "\n\n// FPSteVe simplified controls.\nfpvLowBattToggle.addEventListener('change', () => {\n  fpvRecLowToggle.checked = fpvLowBattToggle.checked;\n  fpvHotToggle.checked = fpvLowBattToggle.checked;\n  updateFpvOptionState();\n});\n\nconst customDurationInput = document.getElementById('fpvCustomDurationSec');\ncustomDurationInput.addEventListener('input', () => {\n  const sec = Math.min(2.5, Math.max(0.1, parseFloat(customDurationInput.value) || 1));\n  fpvPreArmShowInput.value = Math.round(sec * 1000);\n});"
 must_replace(hook, replacement, 'FPS option event hook')
 
+must_replace("  const key = m[1];\n  const val = m[2].trim().replace(/\\s*\\(saved.*/, '');", "  const key = m[1];\n  const val = m[2].trim().replace(/\\s*\\(saved.*/, '');\n  // Cache exactly what the C3 reports so the separate OSD Simulator can preview this device.\n  try { const c = JSON.parse(localStorage.getItem('freeclinkerC3Config') || '{}'); c[key] = val; localStorage.setItem('freeclinkerC3Config', JSON.stringify(c)); } catch {}", 'config cache hook')
 must_replace("} else if (key === 'fpv_state_mode') { fpvStateModeToggle.checked = (val === 'true');", "} else if (key === 'fpv_state_mode') { fpvStateModeToggle.checked = true;", 'fpv_state_mode parser')
 must_replace("} else if (key === 'fpv_prearm_show') { fpvPreArmShowInput.value = parseInt(val) || 1000;", "} else if (key === 'fpv_prearm_show') { fpvPreArmShowInput.value = parseInt(val) || 1000; const d = document.getElementById('fpvCustomDurationSec'); if (d) d.value = (Math.min(2500, Math.max(100, fpvPreArmShowInput.value)) / 1000).toFixed(1);", 'custom duration parser')
 
@@ -71,7 +73,6 @@ fixed_commands = [
     ("  await sendCommand(`set fpv_low_rdyflash ${fpvLowRdyFlashToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_low_rdyflash 1');", 'low battery ready behavior'),
     ("  await sendCommand(`set fpv_low_rectext ${fpvLowRecTextToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_low_rectext 1');", 'low battery record behavior'),
     ("  await sendCommand(`set fpv_low_text ${fpvLowTextInput.value}`);", "  await sendCommand('set fpv_low_text BATT LOW');", 'low battery text'),
-    # Exact command names from the known-good configurator source.
     ("  await sendCommand(`set fpv_rect_warn ${fpvRecLowToggle.checked ? 1 : 0}`);", "  await sendCommand(`set fpv_rect_warn ${fpvLowBattToggle.checked ? 1 : 0}`);", 'low record master'),
     ("  await sendCommand(`set fpv_rect_ready ${fpvRecLowReadyToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_rect_ready 1');", 'low record ready behavior'),
     ("  await sendCommand(`set fpv_rect_record ${fpvRecLowRecordingToggle.checked ? 1 : 0}`);", "  await sendCommand('set fpv_rect_record 1');", 'low record record behavior'),
@@ -89,15 +90,7 @@ must_replace("  await sendCommand(`set fpv_prearm_int ${Math.max(100, parseInt(f
 
 s = s.replace('fpvRecLowMinInput.disabled = !connectedNow || !fpvRecLowToggle.checked;', 'fpvRecLowMinInput.disabled = !connectedNow || !fpvLowBattToggle.checked;')
 
-for marker in [
-    'id="fpvCustomDurationSec"',
-    'placeholder="e.g. CLEAN LENS"',
-    'Only before first arm',
-    "await sendCommand('set fpv_state_mode 1')",
-    'set fpv_rect_warn',
-    'set fpv_hot_warn',
-    'Camera warnings',
-]:
+for marker in ['id="fpvCustomDurationSec"','placeholder="e.g. CLEAN LENS"','Only before first arm',"await sendCommand('set fpv_state_mode 1')",'set fpv_rect_warn','set fpv_hot_warn','Camera warnings','freeclinkerC3Config','href="test.html"']:
     if marker not in s:
         raise SystemExit(f'Generated configurator missing expected marker: {marker}')
 if '<strong>CLEAN LENS reminder</strong>' in s or '<div>Camera status (ERR / RDY / REC)</div>' in s:
