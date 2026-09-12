@@ -1,214 +1,92 @@
-# FreeCLinker a DJI Action / GoPro → Betaflight Bridge
+# FreeCLinker — FPSteVe Edition
 
-FreeCLinker as in Free Cam Linker. Pronounced *freak linker* because we know
-you bunch of freaks like to film yourself doing *illegal* stuff.
-ESP32 firmware that connects a DJI Action or GoPro camera to a Betaflight flight controller.
+**FreeCLinker — FPSteVe Edition** is my fork of **[FreeCLinker](https://github.com/sheeprine/freeclinker)**, the ESP32 camera-to-Betaflight bridge. It keeps the original project's camera control and telemetry workflow while adding the FPSteVe OSD/status, warning, Temporary Message, bench-testing and configurator work.
 
-**→ [sheeprine.github.io/freeclinker](https://sheeprine.github.io/freeclinker/)** — project site (flash firmware, configure over Web Serial, browse supported cameras)
-**→ [Quickstart guide](QUICKSTART.md)** — wiring, build, flash, and web interface setup. The ESP32 bridges the two devices: it receives camera telemetry over BLE and forwards it to the FC via MSP serial, and automatically starts/stops camera recording when the FC arms or disarms.
+## FPSteVe hosted tools
+
+- **[Open the FPSteVe Configurator](https://alfonsogordon.github.io/freeclinker/config.html)** — configure the ESP32 over Web Serial, select the Betaflight OSD method and set camera/status behaviour.
+- **[Open OSD Preview](https://alfonsogordon.github.io/freeclinker/test.html)** — preview the selected OSD layout and use Demo Mode without a flight controller or ESP32 attached.
+- **[Open the browser flasher](https://alfonsogordon.github.io/freeclinker/flash.html)** — flash published FPSteVe Edition firmware releases.
+- **[FPSteVe Edition project site](https://alfonsogordon.github.io/freeclinker/)** — project overview, wiring and current feature/test status.
+
+> This is a fork under active development. **[FreeCLinker](https://github.com/sheeprine/freeclinker)** is the original upstream project by sheeprine. Upstream describes the project as open source, but this fork does not assume a licence beyond what the upstream repository explicitly grants. Please check the upstream repository/licensing status before redistributing modified builds.
+
+## What the FPSteVe Edition adds
+
+The fork currently focuses on making camera telemetry useful as a state-aware FPV OSD rather than just forwarding fixed text. The configurator supports the newer Betaflight Custom Message workflow as well as the Pilot Name/Craft Name fallback used by older Betaflight releases.
+
+- State-aware `ERR`, `RDY` and `REC` display with optional flashing REC state.
+- Camera battery and remaining-record-time information.
+- Camera warnings including low battery, low recording time and camera-hot status when telemetry is available.
+- **Temporary Message** support, for messages such as `CLEAN LENS`, with display duration and an **Only before first arm** option.
+- Adaptive Temporary Message/warning destination: Pilot Name or Craft Name on legacy Betaflight, or one of up to four Custom Message slots on newer Betaflight.
+- Browser **Demo Mode** and OSD Preview for testing settings without arming a flight controller.
+- Safe USB bench arm/AUX simulation in FPSteVe firmware builds that include the simulator commands.
+- FPSteVe-specific browser configurator and flasher hosted through GitHub Pages.
+
+### Betaflight OSD modes
+
+**Betaflight 4.4 through 2025.12.x** uses `MSP2_SET_TEXT` with **Pilot Name** and **Craft Name**. The FPSteVe default is Pilot Name enabled with Status + Battery + Time Remaining; REC-only and REC flashing are enabled while recording. Craft Name is disabled by default. Temporary Message defaults to `CLEAN LENS`, enabled only before first arm, with a 1.0 second display duration. Camera warnings default to enabled with a 10% low-battery threshold and 5-minute low-recording-time threshold.
+
+**Betaflight 2026.6+** uses up to four **Custom Messages**. The original four-line camera layout remains the default: battery; recording state/duration; mode/resolution/FPS/stabilisation; and remaining recording time/storage.
+
+The browser UI keeps these modes separate so you only configure fields available on the Betaflight generation you're actually using.
 
 ## How it works
 
+```text
+Camera ←— BLE / camera protocol —→ ESP32 ←— MSP Serial —→ Betaflight FC
 ```
-DJI Action / GoPro Camera ←—BLE—→ ESP32 ←—MSP Serial—→ Betaflight FC
-```
 
-1. The ESP32 scans for a supported camera and establishes a BLE connection.
-2. It subscribes to camera status updates, receiving battery percentage, recording state, and more.
-3. It polls the flight controller every 100 ms for arm state via `MSP_STATUS`.
-4. On arm, it sends a recording-start command to the camera. On disarm, recording stops.
-5. Battery and recording state are continuously forwarded to Betaflight as OSD telemetry.
+The ESP32 connects to a supported camera, receives available camera status/telemetry, polls Betaflight for arm state, starts recording when the FC arms and optionally stops recording after disarm. Camera/status information is then formatted for the selected Betaflight OSD method.
 
-## Telemetry sent to Betaflight
+## ESP32-C3 Super Mini wiring
 
-| Data | MSP message | OSD location |
-|------|-------------|--------------|
-| Battery voltage, current, capacity, temperature | `MSP2_CAMERA_BATTERY` (0x3001) | — |
-| Battery percentage | `MSP2_SET_TEXT` | Custom Message 1 (default: `CAM: 75%`) |
-| Recording state / time | `MSP2_SET_TEXT` | Custom Message 2 (default: `REC  0:42` / `IDLE` / `CAM:HOT`) |
-| Mode, resolution, FPS, stabilisation | `MSP2_SET_TEXT` | Custom Message 3 (default: `VID 4K/60 RS+`) |
-| Remaining record time and SD free space | `MSP2_SET_TEXT` | Custom Message 4 (default: `30m 15.2G`) |
+| ESP32-C3 | Flight controller |
+|---|---|
+| 5V | 5V BEC |
+| GND | GND |
+| GPIO4 TX | UART RX |
+| GPIO5 RX | UART TX |
 
-All four custom messages are user-configurable templates (see `set osd1`–`osd4` below).
+Configure that flight-controller UART for **MSP at 115200 baud**.
 
-**Betaflight 4.5**: the Custom Message 1-4 OSD fields were added in BF2025.12.1 and don't exist on 4.5. Enable `bf45_compat` to send telemetry through the Pilot Name and Craft Name fields instead, which BF4.5 does have (see `set bf45_compat`/`pilot_tpl`/`craft_tpl` below).
+The project also supports the standard ESP32 target; see the source configuration and [Quickstart guide](QUICKSTART.md) for board-specific details.
 
-## Hardware setup
+## Supported camera families
 
-Connect the ESP32 to a free Betaflight FC UART. Pin numbers differ by board:
+The underlying **[FreeCLinker](https://github.com/sheeprine/freeclinker)** project contains support for DJI Action, GoPro, Caddx Orca, Sony Alpha, Blackmagic and Insta360 camera families. Protocol capabilities differ by camera, so not every camera can provide every OSD value.
 
-**ESP32-C3 Super Mini**
+For the FPSteVe Edition, distinguish **supported in code** from **physically tested**. Current FPSteVe hardware testing includes GoPro HERO11 Black Mini and GoPro MAX2. Other camera families should be treated as needing additional hardware validation unless explicitly marked tested on the project site.
 
-| ESP32-C3 pin | FC pin        |
-|--------------|---------------|
-| 5V           | 5V (BEC out)  |
-| GND          | GND           |
-| IO4 (TX)     | UARTx **RX**  |
-| IO5 (RX)     | UARTx **TX**  |
+## GoPro wake protection
 
-**Standard ESP32 Dev Board**
+The fork retains the GoPro wake-guard behaviour developed for mounted FPV cameras. For known advertisement formats, the ESP32 can avoid automatically connecting to a GoPro that is advertising while asleep, preventing an unwanted BLE connection from waking a camera the pilot deliberately left powered down. Manual camera selection can bypass this protection.
 
-| ESP32 pin   | FC pin        |
-|-------------|---------------|
-| VIN (5V)    | 5V (BEC out)  |
-| GND         | GND           |
-| GPIO17 (TX) | UARTx **RX**  |
-| GPIO16 (RX) | UARTx **TX**  |
+## Configuration and firmware
 
-Configure the FC UART for **MSP** at **115200 baud**. See [QUICKSTART.md](QUICKSTART.md) for wiring diagrams.
+Runtime settings are persisted on the ESP32. The recommended interface for this fork is the **[FPSteVe Configurator](https://alfonsogordon.github.io/freeclinker/config.html)** rather than the upstream hosted configurator.
 
-### 3D printed case
+The USB serial CLI remains available for diagnostics and direct settings. Useful commands include `status`, `show`, `help`, `record start`, `record stop` and `reboot`. FPSteVe test firmware may additionally expose safe RAM-only simulator commands such as `sim arm 1`, `sim arm 0`, `sim aux high`, `sim aux low`, `sim status` and `sim off`.
 
-A 3D printable case for the ESP32-C3 Super Mini is available at [`3d/esp32_c3_sm_freeclinker v2.3mf`](3d/esp32_c3_sm_freeclinker%20v2.3mf) (3MF format).
+## Building
 
-## Configuration
-
-All tunable parameters are in `include/config.h`:
-
-| Constant | Default | Description |
-|----------|---------|-------------|
-| `BF_TX_PIN` / `BF_RX_PIN` | 17 / 16 | GPIO pins for MSP serial |
-| `BF_BAUD` | 115200 | MSP serial baud rate |
-| `BLE_SCAN_DURATION_SECS` | 5 | BLE scan window |
-| `BLE_RECONNECT_DELAY_MS` | 3000 | Backoff after failed connection |
-| `MSP_BATTERY_KEEPALIVE_MS` | 2000 | Battery telemetry resend interval |
-
-Runtime settings are changed via the USB serial console and persisted across reboots:
-
-| Command | Default | Description |
-|---------|---------|-------------|
-| `set camera_type <0-5>` | 0 | Camera protocol: 0 = DJI, 1 = GoPro, 2 = Caddx Orca, 3 = Sony Alpha, 4 = Blackmagic, 5 = Insta360 (reboot to apply) |
-| `set camera_match <0-2>` | 0 | Camera matching strategy: 0 = fallback (preferred if found, else any eligible camera), 1 = strict (preferred only), 2 = best_signal (ignore preferred, connect to whichever eligible camera has the strongest RSSI) |
-| `set wake_guard <0\|1>` | 1 | GoPro only. When 1, don't connect to a camera whose advertisement shows it's asleep/powered-down (a connection attempt would wake it). Bypassed for a manually selected camera (`cameras connect <idx>`) |
-| `set stop_on_disarm <0\|1>` | 1 | Stop recording on FC disarm |
-| `set disarm_delay <ms>` | 0 | Delay between disarm and recording stop |
-| `set aux_channel <0-12>` | 0 | AUX channel for camera mode switch (0 = off) |
-| `set aux_mode <0x##>` | 0x00 | Camera mode when AUX is high (`0x00`=slow-motion, `0x01`=video, `0x0A`=hyperlapse). On GoPro, when already recording, AUX high/low triggers Burst Slo-Mo instead of switching presets. |
-| `set osd1 <template>` | `CAM:{bat}` | OSD Custom Message 1 template |
-| `set osd2 <template>` | `{rec}{recdur}` | OSD Custom Message 2 template |
-| `set osd3 <template>` | `{mode} {res}/{fps} {eis}` | OSD Custom Message 3 template |
-| `set osd4 <template>` | `{rleft} {rcap}` | OSD Custom Message 4 template |
-| `set bf45_compat <0\|1>` | 0 | Betaflight 4.5 has no Custom Message 1-4 OSD fields. When 1, `osd1`–`osd4` above stop being sent and `pilot_tpl`/`craft_tpl` are sent to Pilot Name/Craft Name instead |
-| `set pilot_tpl <template>` | `CAM:{bat}` | Pilot Name template — sent only when `bf45_compat=1` |
-| `set craft_tpl <template>` | `{rec}{recdur}` | Craft Name template — sent only when `bf45_compat=1` |
-
-OSD template tokens: `{bat}` battery %, `{rec}` recording state, `{recdur}` recording duration (blank unless recording), `{mode}` camera mode, `{res}` resolution, `{fps}` frame rate, `{eis}` stabilisation, `{rleft}` SD time remaining, `{rcap}` SD space remaining.
-
-Action commands:
-
-| Command | Description |
-|---------|-------------|
-| `status` | Report firmware version, uptime, free heap, WiFi AP state, and camera type/connection/telemetry |
-| `record start` | Start camera recording immediately, independent of FC arm state |
-| `record stop` | Stop camera recording immediately, independent of FC arm state |
-| `reboot` | Restart the ESP32 |
-
-Type `help` in the serial console to list all commands, `show` to print current settings.
-
-## Web interface
-
-There are two ways to reach the configuration UI:
-
-**Built-in WiFi AP (any browser, no cable)**
-
-If no camera connects within 30 seconds of boot, the ESP32 automatically starts a WiFi access point:
-
-- SSID: `FreeCLinker` (open, no password)
-- URL: `http://192.168.4.1`
-
-Connect your phone or laptop to the `FreeCLinker` network and open that URL. The AP shuts down as soon as a camera connects and restarts 30 s after a camera disconnects.
-
-**USB Serial (Chrome / Edge desktop)**
-
-**→ [sheeprine.github.io/freeclinker/config.html](https://sheeprine.github.io/freeclinker/config.html)** — hosted config UI
-
-Or open `web/config.html` locally (no server required). Connect to the ESP32 via the browser's Web Serial dialog to get a graphical config panel and an interactive CLI terminal.
-
-## Flashing from the browser
-
-**→ [sheeprine.github.io/freeclinker/flash.html](https://sheeprine.github.io/freeclinker/flash.html)** — no toolchain required
-
-Select your board (ESP32 Dev Board or ESP32-C3 Super Mini), click **Connect & Flash**, and pick the serial port. The page fetches the latest firmware release automatically.
-
-> **ESP32-C3**: hold the **BOOT** button while plugging in to enter download mode.
-
-## Building and flashing
-
-Requires [PlatformIO](https://platformio.org/).
+The firmware uses PlatformIO. Typical local commands are:
 
 ```bash
-pio run                    # Build
-pio run --target upload    # Flash to ESP32
-pio device monitor         # View serial debug output
+pio run
+pio run -e esp32c3supermini
+pio run -e esp32dev
 ```
 
-## Supported cameras
+Published test builds are produced through this repository's GitHub Actions release workflow. The hosted flasher downloads release assets from **this fork**, not from upstream.
 
-### DJI Action (default)
+## Project status
 
-Any DJI Action camera that advertises BLE manufacturer ID `0x08AA` with marker byte `0xFA`, or whose device name contains `"DJI Action"`. Uses the DJI proprietary BLE protocol (GATT service `0xFFF0`). Status is pushed at 2 Hz once subscribed.
+The FPSteVe Edition is currently in active test/development. Browser UI, OSD Preview, Demo Mode, defaults and persistence are being validated before the next C3 test firmware is promoted for hardware testing. Do not interpret a supported-camera entry as confirmation that FPSteVe has physically tested that model.
 
-### GoPro (Open GoPro BLE API)
+## Upstream credit
 
-Any GoPro camera supporting the [Open GoPro BLE API](https://gopro.github.io/OpenGoPro/docs/ble/) (HERO 9 and later), identified by advertised service UUID `0xFEA6`. Uses standard TLV-encoded commands and registers for push notifications on status changes.
+This work is based on **[FreeCLinker](https://github.com/sheeprine/freeclinker)** by sheeprine. The upstream project established the core ESP32 camera/Betaflight bridge, camera protocol implementations and original web interface. FPSteVe Edition builds on that work with the features described above.
 
-Older cameras that predate the preset-group scheme (HERO4/5 Session) are also supported: recording, mode switching, and telemetry fall back to that generation's status IDs and capture-mode command automatically, no configuration needed.
-
-A powered-down GoPro keeps advertising for remote-wake, and a plain BLE connection attempt would wake it — undesirable on an FPV quad, where the pilot may have deliberately left a mounted camera off. With `wake_guard` on (the default), the ESP32 recognizes known sleep/awake advertisement states (currently HERO11 Mini and MAX2) and only auto-connects to a camera that's genuinely awake; unrecognized advertisement formats are logged but never auto-connected. Manually selecting a saved camera (`cameras connect <idx>` / hosted UI) always bypasses this filter. Disable with `set wake_guard 0` if this misidentifies your camera generation.
-
-To use a GoPro, connect via serial and run:
-
-```
-set camera_type 1
-```
-
-Then reboot the ESP32. To switch back to DJI: `set camera_type 0` and reboot.
-
-### Caddx Orca (Wi-Fi/HTTP)
-
-The Orca has no BLE pairing flow — it's controlled over the Wi-Fi network it creates itself, the same one the CaddxFPV app joins from a phone. Configure it via serial:
-
-```
-set camera_type 2
-set caddx_ssid <the Orca's SSID>
-```
-
-Use `wifi scan` beforehand to find the SSID if you don't already know it. On boot, the ESP32 tries the factory default password (`12345678`) first; if the camera doesn't have that password, it'll log a message after ~30s asking you to set the real one:
-
-```
-set caddx_pass <password>
-```
-
-Reboot after either command to apply.
-
-Just like DJI/GoPro cameras, every SSID the ESP32 successfully connects to is remembered in the camera list (`cameras list`) — configure multiple Orcas over time and switch between them with `cameras connect <idx>` (also requires a reboot, since Caddx has no live rescan to act on a selection while running).
-
-### Sony Alpha (BLE remote)
-
-Any Sony Alpha camera advertising manufacturer ID `0x012D` with device type `0x0300` (most bodies also advertise a name starting with `ILCE`). Uses Sony's undocumented BLE remote-button protocol — start/stop simulates the physical record button, so there's no explicit mode-switch command (`switchCameraMode` is unsupported).
-
-```
-set camera_type 3
-```
-
-The first connection requires bonding: open **Bluetooth Rmt Ctrl** in the camera's menu before it will pair (Just Works — no PIN to enter). Reboot after setting the camera type. Only recording state, focus, shutter, and battery are reported; no resolution/fps/stabilisation telemetry is available from this protocol.
-
-### Blackmagic (Pocket Cinema Camera, URSA, Studio range)
-
-Any Blackmagic Design camera advertising the Blackmagic Camera Service (BLE UUID `291d567a-...`). Uses the official Blackmagic Camera Control Protocol — the same one the cameras speak over SDI — re-exposed as BLE GATT characteristics.
-
-```
-set camera_type 4
-```
-
-Reboot after setting the camera type. The first connection requires pairing: the camera displays a **6-digit PIN on its own screen**, which you must type into the USB serial console when the firmware prompts for it (there's no way to automate this — the ESP32 has no display). This only happens once; the bond is remembered afterwards. Only recording start/stop is supported (`switchCameraMode` is unsupported — these cameras have no separate photo/video mode) and no battery/resolution/fps/stabilisation telemetry is exposed over BLE for this camera family.
-
-### Insta360 (X3, X4, ONE R/RS, GO 2/3, etc.)
-
-Identified by the advertised BLE camera-control service (UUID `0000be80-...`) where the camera includes it in its advertisement, or — best-effort, since Insta360 publishes no scan-identification info — an advertised name that looks like a known model. Uses the same simple BLE command channel the official phone app speaks, no bonding required.
-
-```
-set camera_type 5
-```
-
-Reboot after setting the camera type. Only recording start/stop is supported (`switchCameraMode` is unsupported — the protocol only exposes separate "start recording in mode X" commands, not a stateless mode switch), confirmed via the camera's ack for each command rather than a pushed status. Battery is reported if the camera exposes the standard Bluetooth Battery Service; no resolution/fps/stabilisation telemetry is available (the camera's own status messages use a protobuf schema that isn't publicly available to decode).
+FPSteVe: [YouTube](https://www.youtube.com/@FPSteVe) · [Instagram](https://www.instagram.com/fpvsteve/)
