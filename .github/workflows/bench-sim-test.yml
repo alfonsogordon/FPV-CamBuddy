@@ -1,0 +1,33 @@
+name: Build Live Bench Simulator
+
+on:
+  push:
+    branches: [live-bench-sim]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: live-bench-sim
+      - name: Apply bench simulation patch
+        run: python tools/apply_bench_sim.py
+      - name: Install PlatformIO
+        run: pip install platformio
+      - name: Compile ESP32-C3 and ESP32
+        run: |
+          pio run -e esp32c3supermini
+          pio run -e esp32dev
+      - name: Commit verified bench simulator
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/msp_serial.h src/config_manager.cpp src/main.cpp web/test.html
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Add safe USB bench arm simulation"
+          git push
