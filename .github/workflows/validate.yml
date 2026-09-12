@@ -24,3 +24,25 @@ jobs:
         run: pip install platformio
       - name: Build ESP32-C3 and ESP32 firmware
         run: pio run -e esp32c3supermini -e esp32dev
+      - name: Publish ESP32-C3 test firmware
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: freeclinker-stage3-esp32c3
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            .pio/build/esp32c3supermini/firmware.bin
+            .pio/build/esp32c3supermini/bootloader.bin
+            .pio/build/esp32c3supermini/partitions.bin
+      - name: Publish ESP32 test firmware
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: freeclinker-stage3-esp32
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            .pio/build/esp32dev/firmware.bin
+            .pio/build/esp32dev/bootloader.bin
+            .pio/build/esp32dev/partitions.bin
