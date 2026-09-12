@@ -90,3 +90,9 @@ The FPSteVe Edition is currently in active test/development. Browser UI, OSD Pre
 This work is based on **[FreeCLinker](https://github.com/sheeprine/freeclinker)** by sheeprine. The upstream project established the core ESP32 camera/Betaflight bridge, camera protocol implementations and original web interface. FPSteVe Edition builds on that work with the features described above.
 
 FPSteVe: [YouTube](https://www.youtube.com/@FPSteVe) · [Instagram](https://www.instagram.com/fpvsteve/)
+
+### GoPro first connection
+
+After flashing an ESP32-C3, **power-cycle the FreeCLinker board**. With the GoPro awake, FreeCLinker should discover and connect to it automatically; during current HERO11 Mini/MAX2 testing there is **no need to put the GoPro into its Pair/Connect Device screen**. Wake Guard is intended to ignore a sleeping GoPro rather than wake it during scanning.
+
+While connected, FPSteVe Edition currently sends an experimental Open GoPro keep-alive every **10 seconds**. This interval is under real-hardware validation and may change before V1.0.
