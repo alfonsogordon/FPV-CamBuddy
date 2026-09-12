@@ -17,7 +17,9 @@ def write(path, text):
 
 
 # Canonicalise the generated configurator so production always has exactly one
-# UI owner and one Demo Mode owner.
+# UI owner and one Demo Mode owner. The integrated preview is read-only with
+# respect to settings: it consumes the configurator controls and never owns a
+# second settings store.
 c = Path('web/config.html')
 cs = read(c)
 cs = re.sub(r'<style id="fps-demo-style">.*?<script id="fps-demo">.*?</script>', '', cs, flags=re.S)
@@ -32,7 +34,7 @@ legacy_scripts = [
 ]
 for script in legacy_scripts:
     cs = cs.replace(f'<script src="{script}"></script>', '')
-for script in ['fps-ui-rebuild.js', 'fps-demo-v1.js']:
+for script in ['fps-ui-rebuild.js', 'fps-demo-v1.js', 'fps-integrated-preview.js']:
     tag = f'<script src="{script}"></script>'
     if tag not in cs:
         if '</body>' not in cs:
@@ -61,6 +63,7 @@ if 'href="test.html"' in final or 'osd-preview-tab' in final:
 for required in [
     '<script src="fps-ui-rebuild.js"></script>',
     '<script src="fps-demo-v1.js"></script>',
+    '<script src="fps-integrated-preview.js"></script>',
     'fps-theme.css',
 ]:
     if required not in final:
