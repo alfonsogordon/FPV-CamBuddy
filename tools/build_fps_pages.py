@@ -27,13 +27,14 @@ patch = r'''
     if (telemetry) telemetry.insertAdjacentElement('afterend', alertEl);
   }
 
-  // Disconnected demo represents the cropped left-hand portion of the OSD,
-  // so all four current-Betaflight Custom Messages are stacked on the left.
+  // Disconnected demo represents the cropped left-hand portion of the OSD.
+  // Stack the four current-Betaflight Custom Messages on the left and center
+  // the complete message block vertically in the visible preview.
   const screen = document.querySelector('.screen');
   const demo = document.createElement('div');
   demo.id = 'bf-latest-demo';
   demo.innerHTML = '<div>CAM:69%</div><div>●REC 00:42</div><div>VIDEO 4K/60 HS</div><div>45m 128GB</div>';
-  demo.style.cssText = 'position:absolute;top:10%;left:4%;pointer-events:none;font:700 18px/1.45 Courier New,monospace;color:#fff;text-align:left;text-shadow:2px 2px 2px #000,-1px -1px 2px #000';
+  demo.style.cssText = 'position:absolute;top:50%;left:4%;transform:translateY(-50%);pointer-events:none;font:700 18px/1.45 Courier New,monospace;color:#fff;text-align:left;text-shadow:2px 2px 2px #000,-1px -1px 2px #000';
   if (screen) screen.appendChild(demo);
 
   function refreshBenchUi() {
