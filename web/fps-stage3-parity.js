@@ -3,8 +3,10 @@
 const $=id=>document.getElementById(id);
 const DEMO='freeclinkerDemoMode';
 const DEFAULT_TPL=['','{batt}','{state} {recdur}','{mode} {res} {fps} {eis}','{rectf} {rcap}'];
+let syncing=false;
 
 function legacyMode(){return $('fpsBfMode')?.value==='legacy'}
+function connected(){return !!$('connectBtn')?.disabled}
 function targetCode(value){
   if(legacyMode()) return value==='craft'?2:1;
   const n=parseInt(value,10);
@@ -32,6 +34,23 @@ function fire(id,type='change'){
   const e=$(id); if(e)e.dispatchEvent(new Event(type,{bubbles:true}));
 }
 
+async function disableHardwareOsd(showStatus=true){
+  if(localStorage.getItem(DEMO)==='1'||!connected())return;
+  if(showStatus)setStatus('Disabling OSD…');
+  try{
+    // {off} is an intentionally unknown token; the firmware renders it as an
+    // empty field while still giving the CLI a valid non-empty value to save.
+    for(let n=1;n<=4;n++)await cmd(`set osd${n} {off}`);
+    await cmd('set pilot_en 0');
+    await cmd('set craft_en 0');
+    await cmd('set fpv_prearm_text @1:');
+    await cmd('set fpv_low_batt 0');
+    await cmd('set fpv_rect_warn 0');
+    await cmd('set fpv_hot_warn 0');
+    if(showStatus){setStatus('OSD disabled on C3 ✓');setTimeout(()=>setStatus(''),1400)}
+  }catch(e){setStatus('Disable failed — '+e.message,true)}
+}
+
 async function applyParity(){
   // Demo owns no hardware state; keep the existing Demo save behaviour.
   if(localStorage.getItem(DEMO)==='1'){
@@ -39,7 +58,8 @@ async function applyParity(){
     setTimeout(()=>setStatus(''),1200);
     return;
   }
-  if(!$('connectBtn')?.disabled){setStatus('Connect a C3 first',true);return}
+  if(!connected()){setStatus('Connect a C3 first',true);return}
+  if(!$('fpsOsdMaster')?.checked){await disableHardwareOsd();return}
   if(activeDestinationCount()===0&&($('fpsTempMaster')?.checked||$('fpsWarnMaster')?.checked)){
     setStatus('Enable an OSD destination first',true);return;
   }
@@ -60,10 +80,9 @@ async function applyParity(){
 
   setStatus('Applying…');
   try{
-    // A disabled Custom Message is persisted as the unknown token {off}. The
-    // firmware token expander intentionally renders unknown tokens as blank,
-    // which gives us a non-empty CLI value and a reliable blank OSD slot after
-    // reboot. The browser keeps the user's real template while connected.
+    // A disabled Custom Message is persisted as {off}; the firmware token
+    // expander renders unknown tokens as blank. Enabled messages use exactly
+    // the templates shown by the Preview.
     for(let n=1;n<=4;n++){
       const enabled=!!$('fpsMsg'+n)?.checked;
       const tpl=enabled?String($('osd'+n)?.value||DEFAULT_TPL[n]):'{off}';
@@ -76,9 +95,8 @@ async function applyParity(){
     await cmd(`set craft_en ${craftOn?1:0}`);
     await cmd(`set craft_tpl ${String($('craftTpl')?.value||'').trim()||'{off}'}`);
 
-    // The existing persisted recording-state template carries one tiny metadata
-    // prefix for REC-only. The firmware strips it before rendering; this keeps
-    // backward-compatible NVS/CLI storage without another migration-only field.
+    // REC-only is metadata on the existing recording-state template. The
+    // firmware consumes @ARM: but never displays it.
     await cmd('set fpv_state_mode 1');
     await cmd('set fpv_error 1');
     await cmd('set fpv_err_text {state}');
@@ -88,9 +106,8 @@ async function applyParity(){
     await cmd(`set fpv_record_text ${recOnly?'@ARM:{state}':'{state}'}`);
     await cmd(`set fpv_flash ${flash?1:0}`);
 
-    // Target metadata uses @N: on existing persisted text fields. A disabled
-    // Temporary Message is stored as @N: (empty visible payload) because the
-    // legacy CLI deliberately requires a non-empty value after the key.
+    // @N: carries the selected destination in an existing persisted string.
+    // @N: with no visible payload is the persisted Temporary Message OFF state.
     await cmd(`set fpv_prearm ${tempOn&&$('fpvPreArm')?.checked?1:0}`);
     await cmd(`set fpv_prearm_text @${tempTarget}:${tempOn?tempText:''}`);
     await cmd(`set fpv_prearm_show ${tempMs}`);
@@ -125,56 +142,61 @@ function setSelectTarget(id,target){
 }
 
 function syncMetadataFromDevice(){
-  // First pull the real BF method + legacy enable flags into the Stage-3 controls.
-  const bf=$('bf45Compat');
-  if($('fpsBfMode')&&bf){$('fpsBfMode').value=bf.checked?'legacy':'current';fire('fpsBfMode')}
-  if($('fpsPilotMaster')&&$('pilotEn')){$('fpsPilotMaster').checked=$('pilotEn').checked;fire('fpsPilotMaster')}
-  if($('fpsCraftMaster')&&$('craftEn')){$('fpsCraftMaster').checked=$('craftEn').checked;fire('fpsCraftMaster')}
+  syncing=true;
+  try{
+    const bf=$('bf45Compat');
+    if($('fpsBfMode')&&bf){$('fpsBfMode').value=bf.checked?'legacy':'current';fire('fpsBfMode')}
+    if($('fpsPilotMaster')&&$('pilotEn')){$('fpsPilotMaster').checked=$('pilotEn').checked;fire('fpsPilotMaster')}
+    if($('fpsCraftMaster')&&$('craftEn')){$('fpsCraftMaster').checked=$('craftEn').checked;fire('fpsCraftMaster')}
 
-  // Current-BF disabled slots use {off}; expose that as the normal enable switch
-  // and keep a useful template ready if the user turns the slot back on.
-  for(let n=1;n<=4;n++){
-    const input=$('osd'+n),master=$('fpsMsg'+n);
-    if(!input||!master)continue;
-    const off=String(input.value||'').trim()==='{off}';
-    master.checked=!off;
-    if(off)input.value=DEFAULT_TPL[n];
-    input.dispatchEvent(new Event('input',{bubbles:true}));
-    master.dispatchEvent(new Event('change',{bubbles:true}));
-  }
+    const rawCurrent=[1,2,3,4].map(n=>String($('osd'+n)?.value||'').trim());
+    const currentActive=rawCurrent.some(v=>v&&v!=='{off}');
+    const legacyActive=!!bf?.checked&&(!!$('pilotEn')?.checked||!!$('craftEn')?.checked);
+    const osdOn=bf?.checked?legacyActive:currentActive;
+    if($('fpsOsdMaster')){$('fpsOsdMaster').checked=osdOn;fire('fpsOsdMaster')}
 
-  // Strip metadata prefixes before presenting values in the user-facing UI.
-  const recordMeta=String($('fpvRecordText')?.value||'');
-  const recOnly=$('fpsRecOnly');
-  if(recOnly){recOnly.checked=recordMeta.startsWith('@ARM:');fire('fpsRecOnly')}
+    // Current-BF disabled slots use {off}. A completely fresh board has blank
+    // slots and OSD master OFF; prepare the friendly defaults for first enable.
+    for(let n=1;n<=4;n++){
+      const input=$('osd'+n),master=$('fpsMsg'+n); if(!input||!master)continue;
+      const wire=String(input.value||'').trim();
+      const off=wire==='{off}';
+      if(!osdOn&&!wire){master.checked=true;input.value=DEFAULT_TPL[n]}
+      else {master.checked=!off;if(off)input.value=DEFAULT_TPL[n]}
+      input.dispatchEvent(new Event('input',{bubbles:true}));
+      master.dispatchEvent(new Event('change',{bubbles:true}));
+    }
 
-  const p=stripTarget($('fpvPreArmText')?.value);
-  if($('fpvPreArmText')){
-    $('fpvPreArmText').value=p.text||'CLEAN LENS';
-    fire('fpvPreArmText','input');
-  }
-  if($('fpsTempMaster')){$('fpsTempMaster').checked=!!p.text;fire('fpsTempMaster')}
-  setSelectTarget('fpsTempDest',p.target);
+    const recordMeta=String($('fpvRecordText')?.value||'');
+    if($('fpsRecOnly')){$('fpsRecOnly').checked=recordMeta.startsWith('@ARM:');fire('fpsRecOnly')}
 
-  const w=stripTarget($('fpvLowText')?.value);
-  if($('fpsWarnMaster')&&$('fpvLowBatt')){$('fpsWarnMaster').checked=$('fpvLowBatt').checked;fire('fpsWarnMaster')}
-  setSelectTarget('fpsWarnDest',w.target);
+    const p=stripTarget($('fpvPreArmText')?.value);
+    if($('fpvPreArmText')){$('fpvPreArmText').value=p.text||'CLEAN LENS';fire('fpvPreArmText','input')}
+    if($('fpsTempMaster')){$('fpsTempMaster').checked=!!p.text;fire('fpsTempMaster')}
+    setSelectTarget('fpsTempDest',p.target);
 
-  // Native parser has now supplied the live flash/duration/threshold values;
-  // nudge Stage-3 visibility/sample renderers without writing anything back.
-  fire('fpvFlash'); fire('fpvPreArm'); fire('fpvCustomDurationSec','input');
-  fire('fpvLowPct','input'); fire('fpvRecLowMin','input');
-  setStatus('Read from C3 ✓');
-  setTimeout(()=>setStatus(''),1200);
+    const w=stripTarget($('fpvLowText')?.value);
+    if($('fpsWarnMaster')&&$('fpvLowBatt')){$('fpsWarnMaster').checked=$('fpvLowBatt').checked;fire('fpsWarnMaster')}
+    setSelectTarget('fpsWarnDest',w.target);
+
+    fire('fpvFlash'); fire('fpvPreArm'); fire('fpvCustomDurationSec','input');
+    fire('fpvLowPct','input'); fire('fpvRecLowMin','input');
+    setStatus('Read from C3 ✓');
+    setTimeout(()=>setStatus(''),1200);
+  }finally{syncing=false}
 }
 
 function init(){
   const apply=$('fpsApplyAll');
   if(apply) apply.onclick=applyParity;
 
-  // Requested legacy default: when Craft Name is first enabled, use Resolution
-  // + FPS (e.g. 4K 60). Existing user choices are never overwritten.
   document.addEventListener('change',e=>{
+    // OSD Templates OFF has no visible Apply button by design, so when a real
+    // C3 is connected this master-off transition is applied immediately.
+    if(e.target?.id==='fpsOsdMaster'&&!e.target.checked&&!syncing&&localStorage.getItem(DEMO)!=='1'&&connected()){
+      disableHardwareOsd();
+    }
+    // Requested legacy default: Craft Name starts as Resolution + FPS.
     if(e.target?.id==='fpsCraftMaster'&&e.target.checked){
       const tpl=$('craftTpl');
       if(tpl&&(!String(tpl.value||'').trim()||String(tpl.value).trim()==='{off}')){
@@ -184,8 +206,8 @@ function init(){
     }
   });
 
-  // `show` writes the raw persisted metadata into the native controls. Convert
-  // it back to the clean Stage-3 representation once the serial read finishes.
+  // `show` writes raw persisted metadata into the native controls. Convert it
+  // back into the clean Stage-3 UI once the serial read has completed.
   $('readBtn')?.addEventListener('click',()=>setTimeout(syncMetadataFromDevice,850));
 }
 
