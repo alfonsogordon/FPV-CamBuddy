@@ -24,20 +24,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/configure-pages@v5
 
-      - name: Apply FPSteVe Edition configurator UI
+      - name: Generate FPSteVe Edition web UI
         run: |
           sed -i "s/,'Message 1 builder'//" tools/build_fps_pages.py
           python3 tools/build_fps_pages.py
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('tools/build_fps_polish.py')
-          s=p.read_text()
-          s=s.replace(', "if(!DEMO)await send(`sim arm"', '')
-          p.write_text(s)
-          PY
           python3 tools/build_fps_polish.py
 
       - name: Download firmware releases
