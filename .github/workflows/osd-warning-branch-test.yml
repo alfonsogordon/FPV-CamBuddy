@@ -1,0 +1,23 @@
+name: Build OSD warning branch
+on:
+  push:
+    branches: [fps-osd-warnings-custom-text]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Apply deterministic source patch
+        run: python tools/apply_osd_warning_patch.py
+      - name: Validate configurator
+        run: python tools/build_fps_pages.py
+      - name: Install PlatformIO
+        run: pip install platformio
+      - name: Build both boards
+        run: pio run
