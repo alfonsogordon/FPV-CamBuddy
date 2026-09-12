@@ -3,13 +3,17 @@ from pathlib import Path
 p = Path('web/config.html')
 s = p.read_text(encoding='utf-8')
 
+# Add the proven FPSteVe state/formatted telemetry tokens to every visual builder.
+s=s.replace("['Battery','{bat}'],['Recording','{rec}'],['Duration','{recdur}']", "['Status','{state}'],['Battery','{batt}'],['Time left','{rectf}'],['Battery %','{bat}'],['Recording','{rec}'],['Duration','{recdur}']",1)
+s=s.replace("const samples = {'{bat}':'69%'", "const samples = {'{state}':'RDY','{batt}':'B:69','{rectf}':'T:45m','{bat}':'69%'",1)
+
 old = """    tokenDefs.forEach(([name,token])=>{ const b=document.createElement('button'); b.type='button'; b.className='osd-token'; b.textContent='+ '+name; b.title=token; b.onclick=()=>{ const spacer=input.value && !input.value.endsWith(' ')?' ':''; input.value+=spacer+token; input.dispatchEvent(new Event('input',{bubbles:true})); refresh(); }; grid.appendChild(b); });
     const clear=document.createElement('button'); clear.type='button'; clear.className='osd-token'; clear.textContent='Clear'; clear.onclick=()=>{input.value='';input.dispatchEvent(new Event('input',{bubbles:true}));refresh()}; grid.appendChild(clear);"""
 new = """    const picker=document.createElement('details'); picker.className='osd-multi';
     const summary=document.createElement('summary'); summary.textContent='Select OSD elements'; picker.appendChild(summary);
     const menu=document.createElement('div'); menu.className='osd-multi-menu'; picker.appendChild(menu); grid.appendChild(picker);
     const chips=document.createElement('div'); chips.className='osd-chip-row'; grid.appendChild(chips);
-    const tokenRe=/(\\{(?:bat|rec|recdur|mode|res|fps|eis|rleft|rcap)\\})/g;
+    const tokenRe=/(\\{(?:state|batt|rectf|bat|rec|recdur|mode|res|fps|eis|rleft|rcap)\\})/g;
     function tokensInOrder(){return String(input.value||'').match(tokenRe)||[]}
     function removeToken(token){const parts=String(input.value||'').split(tokenRe);let removed=false;input.value=parts.filter(part=>{if(!removed&&part===token){removed=true;return false}return true}).join('').replace(/ {2,}/g,' ').trim()}
     function syncPicker(){const active=tokensInOrder();menu.querySelectorAll('input[type=checkbox]').forEach(cb=>cb.checked=active.includes(cb.value));chips.innerHTML='';active.forEach(token=>{const def=tokenDefs.find(x=>x[1]===token);const chip=document.createElement('span');chip.className='osd-chip';chip.textContent=def?def[0]:token;chips.appendChild(chip)});summary.textContent=active.length?`OSD elements (${active.length})`:'Select OSD elements'}
@@ -25,6 +29,36 @@ if needle not in s: raise SystemExit('builder loop not found')
 s=s.replace(needle, "  ['osd1','osd2','osd3','osd4','pilotTpl','craftTpl'].forEach((id,i) => {",1)
 s=s.replace("<span class=\"osd-builder-title\">Message ${i+1} builder</span>", "<span class=\"osd-builder-title\">${id==='pilotTpl'?'Pilot Name':id==='craftTpl'?'Craft Name':'Message '+(i+1)} builder</span>",1)
 
+# State-aware Craft Name controls: idle uses the selected Craft template; recording can collapse to REC only and flash.
+state_ui = r'''
+<script id="fps-state-ui">
+(() => {
+  function boot(){
+    const craft=document.getElementById('craftTpl'); if(!craft) return;
+    const builder=craft.closest('.osd-builder'); if(!builder || document.getElementById('fpsRecOnly')) return;
+    const panel=document.createElement('div'); panel.className='fps-state-options';
+    panel.innerHTML='<label class="osd-check-item"><input type="checkbox" id="fpsRecOnly" checked><span>While recording show REC only</span></label><label class="osd-check-item"><input type="checkbox" id="fpsRecFlash" checked><span>Flash REC while recording</span></label>';
+    builder.appendChild(panel);
+    const recOnly=document.getElementById('fpsRecOnly'), flash=document.getElementById('fpsRecFlash');
+    const ready=document.getElementById('fpvReadyText'), err=document.getElementById('fpvErrorText'), rec=document.getElementById('fpvRecordText'), fpvFlash=document.getElementById('fpvFlash');
+    function sync(){
+      if(ready) ready.value=craft.value || '{state}';
+      if(err) err.value=craft.value || '{state}';
+      if(rec) rec.value=recOnly.checked?'{state}':(craft.value || '{state}');
+      if(fpvFlash) fpvFlash.checked=flash.checked;
+      localStorage.setItem('freeclinkerRecOnly',recOnly.checked?'1':'0');
+      localStorage.setItem('freeclinkerRecFlash',flash.checked?'1':'0');
+    }
+    recOnly.checked=localStorage.getItem('freeclinkerRecOnly')!=='0';
+    flash.checked=localStorage.getItem('freeclinkerRecFlash')!=='0';
+    craft.addEventListener('input',sync); recOnly.addEventListener('change',sync); flash.addEventListener('change',sync); sync();
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+'''
+s=s.replace('</body>', state_ui+'\n</body>',1)
+
 old_demo = """    fields().forEach(e=>e.disabled=false);
     [applyBtn,auxApplyBtn,osdApplyBtn,bf45ApplyBtn,caddxApplyBtn].filter(Boolean).forEach(e=>{e.disabled=false;e.textContent='Save Demo'});"""
 new_demo = """    fields().forEach(e=>e.disabled=false);
@@ -39,12 +73,13 @@ s=s.replace(old_demo,new_demo,1)
 
 p.write_text(s,encoding='utf-8')
 
+# OSD Preview: DEMO can be carried by either localStorage or ?demo=1, so navigation cannot silently drop it.
 t=Path('web/test.html')
 x=t.read_text(encoding='utf-8')
 x=x.replace('</style></head>', '.demo-banner{display:none;background:#3b1766;color:#f2e8ff;border-bottom:1px solid #8b5cf6;padding:8px 12px;text-align:center;font-weight:700;font-size:12px;letter-spacing:.04em}body.demo-on{outline:2px solid #7c3aed;outline-offset:-2px}body.demo-on .demo-banner{display:block}</style></head>',1)
 x=x.replace('<header>', '<div id="demoBanner" class="demo-banner">🧪 PREVIEW / DEMO MODE — NO HARDWARE CONNECTED</div><header>',1)
-x=x.replace("const $=x=>document.getElementById(x),D=", "const $=x=>document.getElementById(x),DEMO=localStorage.getItem('freeclinkerDemoMode')==='1',D=",1)
-x=x.replace("function load(){try{c={...D,...JSON.parse(localStorage.getItem('freeclinkerC3Config')||'{}')}}catch{c={...D}}summary()}", "function load(){try{const demoCfg=DEMO?JSON.parse(localStorage.getItem('freeclinkerDemoConfig')||'{}'):{};c={...D,...JSON.parse(localStorage.getItem('freeclinkerC3Config')||'{}'),...demoCfg}}catch{c={...D}}summary();if(DEMO){document.body.classList.add('demo-on');$('pill').textContent='DEMO';$('pill').className='pill';$('statusText').textContent='Demo Mode';$('source').textContent='DEMO DATA';$('connect').disabled=true;$('disconnect').disabled=true;$('read').disabled=false;$('arm').disabled=false;$('power').disabled=false;document.querySelectorAll('.tab[href^=\"config.html\"]').forEach(a=>a.href=a.getAttribute('href')+(a.getAttribute('href').includes('?')?'&':'?')+'demo=1')}}",1)
+x=x.replace("const $=x=>document.getElementById(x),D=", "const $=x=>document.getElementById(x),DEMO=localStorage.getItem('freeclinkerDemoMode')==='1'||new URLSearchParams(location.search).get('demo')==='1',D=",1)
+x=x.replace("function load(){try{c={...D,...JSON.parse(localStorage.getItem('freeclinkerC3Config')||'{}')}}catch{c={...D}}summary()}", "function load(){try{const demoCfg=DEMO?JSON.parse(localStorage.getItem('freeclinkerDemoConfig')||'{}'):{};c={...D,...JSON.parse(localStorage.getItem('freeclinkerC3Config')||'{}'),...demoCfg}}catch{c={...D}}summary();if(DEMO){localStorage.setItem('freeclinkerDemoMode','1');document.body.classList.add('demo-on');$('pill').textContent='DEMO';$('pill').className='pill';$('statusText').textContent='Demo Mode';$('source').textContent='DEMO DATA';$('connect').disabled=true;$('disconnect').disabled=true;$('read').disabled=false;$('arm').disabled=false;$('power').disabled=false;document.querySelectorAll('a[href^=\"config.html\"]').forEach(a=>a.href='config.html?demo=1')}}",1)
 x=x.replace("await send(`sim arm ${armed?1:0}`)", "if(!DEMO)await send(`sim arm ${armed?1:0}`)")
 x=x.replace("await send('sim off')", "if(!DEMO)await send('sim off')")
 x=x.replace("$('arm').disabled=!live", "$('arm').disabled=!live&&!DEMO")
@@ -52,5 +87,8 @@ x=x.replace("$('power').disabled=!live", "$('power').disabled=!live&&!DEMO")
 x=x.replace("$('read').disabled=!live", "$('read').disabled=!live&&!DEMO")
 x=x.replace("$('source').textContent=useLive()?'LIVE CAMERA DATA':'PREVIEW VALUES'", "$('source').textContent=useLive()?'LIVE CAMERA DATA':DEMO?'DEMO DATA':'PREVIEW VALUES'")
 x=x.replace("${useLive()?'LIVE CAMERA DATA':'PREVIEW DATA'}", "${useLive()?'LIVE CAMERA DATA':DEMO?'DEMO DATA':'PREVIEW DATA'}")
+# Fail the build if the demo patch did not actually land; previous postprocessor silently allowed this.
+for marker in ["new URLSearchParams(location.search).get('demo')==='1", 'PREVIEW / DEMO MODE', "if(!DEMO)await send(`sim arm"]:
+    if marker not in x: raise SystemExit('OSD Preview demo patch missing: '+marker)
 t.write_text(x,encoding='utf-8')
-print('FPSteVe checkbox dropdown polish applied')
+print('FPSteVe state/checkbox/demo polish applied')
