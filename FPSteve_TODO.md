@@ -1,57 +1,105 @@
-# FreeCLinker — FPSteVe Edition working TODO
+# FreeCLinker — FPSteVe Edition roadmap
 
-This is the live working checklist for requested FPSteVe Edition changes. Keep it updated as features are completed/tested.
+This is the single authoritative project roadmap. Work through the stages in order. New ideas are parked at the end unless they are required to complete or safely validate the current stage.
 
-## Current test milestone
+## Stage 1 — Repository cleanup
 
-- [x] Port tested FPSteVe camera-state/warning behaviour.
-- [x] Replace CLEAN LENS-specific UI with generic Custom Message controls.
-- [x] Make ERR / RDY / REC state-aware Craft Name behaviour foundational in the FPSteVe UI.
-- [x] Add Camera Warnings master control with low-battery, low-record-time and CAM HOT behaviour.
-- [x] Add dark/purple shared configurator theme.
-- [x] Add OSD Preview entry to the configurator tab bar and match tab styling.
-- [x] Add exact supplied FPV DVR image to OSD Preview, left-biased for left-aligned Craft Name text.
-- [x] Add live C3 camera telemetry panel to OSD Preview.
-- [x] Add RAM-only USB bench ARM/DISARM simulation through the same MSPSerial arm callback used by Betaflight.
-- [x] Add RAM-only AUX high/low simulation through the normal AUX callback.
-- [x] Compile the bench-simulator firmware successfully for ESP32-C3 Super Mini and ESP32 after the simulator/DVR changes.
-- [ ] Publish the bench-simulator firmware as a new test prerelease (keep v0.1 as known-good).
-- [ ] Merge the bench-simulator/OSD Preview branch to main and verify GitHub Pages deployment.
-- [ ] Hardware bench test: C3 over USB + GoPro HERO11 Mini, no FC — ARM starts recording; DISARM honours configured stop delay.
-- [ ] Hardware bench test the same flow with GoPro MAX2.
-- [ ] Hardware test configured AUX behaviour from OSD Preview.
-- [ ] Add/verify a simulation safety lease/heartbeat so an abandoned browser session cannot leave simulated state active; reboot must always clear simulation.
+- [x] Replace branch-specific validation workflows with one production validation workflow.
+- [x] Add a single production site build entry point (`tools/build_fps_site.py`).
+- [x] Remove retired competing configurator UI/state helper files.
+- [x] Keep `fps-ui-rebuild.js` as the production Settings UI owner.
+- [x] Keep `fps-demo-v1.js` as the Demo Mode owner.
+- [x] Restore the obvious purple Demo Mode page frame/marker.
+- [x] Remove obsolete one-shot/branch-specific workflows.
+- [x] Remove obsolete firmware/UI patch helper scripts that are no longer part of the production path.
+- [x] Fix MSP warning declarations/routing mismatch exposed by validation.
+- [x] Validate production site generation.
+- [x] Build ESP32-C3 Super Mini firmware in CI.
+- [x] Build normal ESP32 firmware in CI.
+- [x] Consolidate duplicate TODO files into this roadmap.
+- [ ] Final PR diff review.
+- [ ] Merge cleanup PR.
+- [ ] Verify GitHub Pages deployment from main.
+- [ ] User regression check of Configurator and Demo Mode.
 
-## OSD presentation
+## Stage 2 — Settings / configurator overhaul
 
-- [ ] Replace the `B:` prefix in FPSteVe BF4.5 state text with the real Betaflight main-battery OSD glyph (Betaflight 4.5 `SYM_MAIN_BATT`, character code `0x97`) followed by the camera percentage, e.g. battery-icon + `69` instead of `B:69`.
-- [ ] Update the OSD Preview to visually represent that battery glyph rather than displaying `B:`.
-- [ ] Verify the glyph survives MSP2_SET_TEXT / Craft Name end-to-end on Betaflight 4.5 analog OSD and does not get sanitised or rendered as an unexpected character.
-- [ ] Preserve the 16-character Craft Name budget and warning alternation after the icon change.
-- [ ] Bring simulator strict ERR/RDY/REC readiness rules fully in line with firmware for every capability/error state, including unknown recording state and media readiness.
-- [ ] Make OSD Preview reflect real media-ready state when the firmware exposes it machine-readably.
+- [ ] Visually verify and finish the cleaned single-owner Settings UI.
+- [ ] OSD Templates fresh default OFF; when OFF show heading + switch only.
+- [ ] Show Betaflight version selector only when OSD Templates is enabled.
+- [ ] Keep current and legacy Betaflight controls inside one Betaflight OSD card.
+- [ ] Current BF defaults: `{batt}`, `{state} {recdur}`, `{mode} {res} {fps} {eis}`, `{rectf} {rcap}`.
+- [ ] Legacy Pilot default: `{stateonly} {batt} {rectf}`; Craft default OFF.
+- [ ] Add a proper switch for REC-only-when-armed-and-actually-recording behaviour.
+- [ ] Keep Flash REC at 1 Hz as its own switch.
+- [ ] Render `Only before first arm` as the standard enable/disable switch, not a text/value field.
+- [ ] Temporary Message fresh default OFF; CLEAN LENS latent default; duration 1.0 s; repeat interval hidden at 3000 ms.
+- [ ] Camera Warnings fresh default OFF; latent defaults 10% battery / 5 min recording time / automatic CAM HOT.
+- [ ] AUX fresh default OFF; restore ARM/disarm guidance; AUX channel 0 means disabled.
+- [ ] Optional feature OFF state must collapse to heading + switch only.
+- [ ] Verify Demo Mode uses the same Settings state model and never writes hardware.
+- [ ] Remove any remaining inconsistent/legacy Settings styling.
+- [ ] User visual sign-off before Stage 3.
 
-## Web UI / site polish
+## Stage 3 — Firmware configuration plumbing
 
-- [ ] Make every public OSD Preview element use the same dark/purple visual language as Easy Config / Cameras / CLI; remove any remaining inconsistent/legacy styling.
-- [ ] Convert remaining blue inline accents in the browser flasher to the FPSteVe purple theme.
-- [ ] Audit all public web pages for references to the upstream/original project. When referring to the original project, display **FreeCLinker** in bold and link it to `https://github.com/sheeprine/freeclinker`; do not turn the FPSteVe Edition brand/title into that link.
-- [ ] Add the new FPSteVe Edition features to the main landing page.
-- [ ] Add a separate **Tested hardware** section so physically tested cameras/boards are not confused with protocol-level supported hardware.
-- [ ] Initially list ESP32-C3 Super Mini + GoPro HERO11 Mini + GoPro MAX2 as physically tested once the current bench tests pass; add DJI models only after friends actually test them.
-- [ ] Add a public camera test/report route for owners of other supported cameras, preferably a GitHub `Camera Test Report` issue template asking for camera model, camera firmware, ESP32 board, result and logs.
-- [ ] Add the FPSteVe logo later, small and deliberate (header/footer rather than huge hero artwork), with a web-specific purple-accent variant while retaining the original artwork.
+- [ ] Finish one global Temporary Message / Camera Warning engine.
+- [ ] BF 2026.6+ routes to selected Custom Message 1–4.
+- [ ] BF 4.4–2025.12 routes to selected Pilot/Craft destination.
+- [ ] Auto-select/hide destination when only one valid destination exists.
+- [ ] Persist destination in NVS.
+- [ ] Expose destination through CLI/config read-back.
+- [ ] Verify Apply -> read-back -> reboot persistence.
+- [ ] Preserve known-good GoPro scan/wake/connect/ARM-record/disarm-stop behaviour.
 
-## Release / repository housekeeping
+## Stage 4 — Integrated OSD Preview
 
-- [ ] Restore `.github/workflows/release.yml` so normal `main` UI pushes do not continuously rebuild/update the v0.1 test release; keep tag/manual release behaviour.
-- [ ] Remove temporary one-shot development workflows/helpers after the bench simulator is merged and verified.
-- [ ] Publish a clean v0.2-style FPSteVe test prerelease containing the verified bench-simulator firmware.
-- [ ] Verify the hosted flasher selects/downloads that new release correctly for ESP32-C3 Super Mini.
-- [ ] Verify Pages contains the matching Configurator + OSD Preview + flasher before calling a build flash-ready.
-- [ ] Update README/Quickstart for FPSteVe Edition defaults, Custom Message, Camera Warnings, bench simulation and hosted FPSteVe URLs instead of leaving upstream-only instructions.
-- [ ] Resolve/clarify the upstream repository licensing situation before treating the fork as broadly redistributable beyond GitHub's fork mechanism.
+- [ ] Move OSD Preview beside OSD Settings using the same state model.
+- [ ] Desktop side-by-side; narrow/mobile stacked.
+- [ ] Live update for BF version, builders, messages, warnings and destinations.
+- [ ] Demo ARM/DISARM shows RDY -> REC behaviour, REC-only mode and flashing.
+- [ ] Simulate Temporary Message and warning priority/rotation.
+- [ ] Use connected C3 camera telemetry where available.
+- [ ] Prefer real Betaflight OSD glyphs where practical/licensed.
+- [ ] Preview changes remain UI-only until Apply/Save.
+- [ ] Preview must never arm an FC or motors.
 
-## Later / parked
+## Stage 5 — Hardware validation
 
-- [ ] Revisit the possible visible name `FreekLinker`; do **not** rename it yet. If changed later, keep original FreeCLinker attribution extremely prominent.
+- [ ] Flash the spare ESP32-C3 Super Mini first.
+- [ ] Read config and confirm UI reflects board state.
+- [ ] Change every setting -> Apply -> read back exact values.
+- [ ] Reboot -> verify NVS persistence.
+- [ ] HERO11 Mini: sleeping scan behaviour, connect, ARM record, DISARM stop/delay.
+- [ ] Repeat with GoPro MAX2.
+- [ ] Test warnings and Temporary Message through actual Betaflight OSD.
+- [ ] Test configured AUX behaviour.
+- [ ] Verify simulation safety: RAM-only, no FC arming, reboot clears simulated state.
+
+## Stage 6 — v1.0 release
+
+- [ ] Clean README and Quickstart for FPSteVe Edition.
+- [ ] Separate physically tested hardware from protocol-supported hardware.
+- [ ] Verify hosted flasher selects the correct release/board image.
+- [ ] Verify Configurator + Preview + Flasher match the firmware release.
+- [ ] Publish final test release.
+- [ ] Bench/flying test and fix release blockers.
+- [ ] Release **FreeCLinker — FPSteVe Edition v1.0**.
+
+## Stage 7 — Post-v1 features
+
+- [ ] Multi-camera pairing/sync while retaining reliable single-camera fallback.
+- [ ] Mixed camera families such as GoPro + DJI.
+- [ ] Per-camera connection, recording and error state.
+- [ ] Synchronized ARM recording and defined DISARM/crash behaviour.
+- [ ] Optional low-power handling.
+- [ ] Capability-aware camera settings: resolution, FPS, stabilisation, exposure/EV, ISO, shutter, white balance/colour, lens/FOV and other supported controls.
+- [ ] Optional AUX mappings for selected camera settings without complicating normal ARM/record behaviour.
+
+## Parked ideas — do not interrupt the roadmap
+
+- [ ] Replace legacy `B:` camera-battery prefix with the Betaflight main-battery OSD glyph if end-to-end BF4.5 testing proves it survives MSP text transport correctly.
+- [ ] Add a public camera test/report GitHub issue template for community hardware results.
+- [ ] Add the FPSteVe logo later as a restrained header/footer treatment.
+- [ ] Revisit possible visible name `FreekLinker`; do not rename before v1.0.
+- [ ] Resolve/clarify upstream licensing before treating the fork as broadly redistributable beyond GitHub's fork mechanism.
