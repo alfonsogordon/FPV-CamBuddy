@@ -26,32 +26,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
 
-      - name: Generate FPSteVe Edition web UI
-        run: |
-          python3 tools/build_fps_pages.py
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          p=Path('web/test.html'); s=p.read_text(encoding='utf-8'); marker='<script src="fps-preview-demo.js"></script>'
-          if marker not in s:
-              if '</body>' not in s: raise SystemExit('OSD Preview has no body close')
-              p.write_text(s.replace('</body>',marker+'\n</body>',1),encoding='utf-8')
-          c=Path('web/config.html'); cs=c.read_text(encoding='utf-8')
-          cs=re.sub(r'<style id="fps-demo-style">.*?<script id="fps-demo">.*?</script>', '', cs, flags=re.S)
-          for old in ['<script src="fps-ui-v2.js"></script>','<script src="fps-osd-method.js"></script>','<script src="fps-osd-enhancements.js"></script>','<script src="fps-osd-adaptive.js"></script>','<script src="fps-config-state.js"></script>','<script src="fps-ui-clean.js"></script>','<script src="fps-ui-final-polish.js"></script>']:
-              cs=cs.replace(old,'')
-          for script in ['fps-ui-rebuild.js','fps-demo-v1.js']:
-              tag=f'<script src="{script}"></script>'
-              if tag not in cs:
-                  if '</body>' not in cs: raise SystemExit('Configurator has no body close')
-                  cs=cs.replace('</body>',tag+'\n</body>',1)
-          c.write_text(cs,encoding='utf-8')
-          h=Path('web/index.html'); hs=h.read_text(encoding='utf-8'); home='<script src="fps-home-updates.js"></script>'
-          if home not in hs:
-              if '</body>' not in hs: raise SystemExit('Homepage has no body close')
-              h.write_text(hs.replace('</body>',home+'\n</body>',1),encoding='utf-8')
-          print('FPSteVe single-owner configurator + Demo Mode installed')
-          PY
+      - name: Generate FPSteVe Edition site
+        run: python3 tools/build_fps_site.py
 
       - name: Download firmware releases
         run: |
