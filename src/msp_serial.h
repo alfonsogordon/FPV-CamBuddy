@@ -78,11 +78,12 @@ public:
         _fpvPreArmIntervalMs = preArmIntervalMs < _fpvPreArmShowMs ? _fpvPreArmShowMs : preArmIntervalMs;
     }
     bool isArmed() const { return _armed; }
-    // USB bench simulation uses the same state/callback path as MSP responses.
-    // RAM-only: reboot clears it and it can never arm a real flight controller.
+    // USB bench simulation uses the same callback as a real MSP arm-state
+    // transition. Always invoke it: on a bench there may be no FC response to
+    // establish a previous state, and the explicit user action must reach the
+    // camera handler even if the cached state already matches.
     void simulateArmState(bool armed) {
         if (armed) _hasArmedSinceBoot = true;
-        if (_armed == armed) return;
         _armed = armed;
         if (_armCb) _armCb(armed);
     }
@@ -98,34 +99,33 @@ public:
 private:
     void sendFrame(uint16_t cmd, const uint8_t *payload, uint16_t length, char dir = '>');
     void sendRequest(uint16_t cmd);
+    void handleByte(uint8_t b);
+    void handleResponse(uint16_t cmd, const uint8_t *payload, uint16_t length);
     void sendCustomText(uint8_t textType, const char *text);
-    void sendCustomOSD(uint8_t textType, const CameraData &data, const char *tpl, const char *stateOverride = nullptr);
-    void feedByte(uint8_t b);
-    void processResponse();
-    void handleStatusResponse();
-    void handleRcResponse();
-    enum class RxState : uint8_t { IDLE, HDR_X, HDR_DIR, FLAG, CMD_LO, CMD_HI, SZ_LO, SZ_HI, PAYLOAD, CRC };
-    static constexpr uint8_t RX_BUF_SIZE = 32;
-    RxState _rxState = RxState::IDLE;
-    uint8_t _rxBuf[RX_BUF_SIZE]{};
-    uint16_t _rxCmd = 0;
-    uint16_t _rxSize = 0;
-    uint16_t _rxPos = 0;
-    uint8_t _rxCrc = 0;
-    static uint8_t crc8DvbS2(uint8_t crc, uint8_t byte);
-    static uint8_t crc8DvbS2Buf(uint8_t seed, const uint8_t *buf, uint16_t length);
+    void expandTemplate(const char *tpl, const CameraData &data, char *out, size_t outLen);
+    void buildFpvStateText(const CameraData &data, char *out, size_t outLen);
+    bool warningActive(const CameraData &data, bool recording, char warnings[][17], uint8_t &warningCount) const;
+
     HardwareSerial *_serial = nullptr;
-    bool _armed = false;
     ArmCallback _armCb = nullptr;
-    uint32_t _lastPollMs = 0;
+    AuxSwitchCallback _auxSwitchCb = nullptr;
+    bool _armed = false;
+    bool _hasArmedSinceBoot = false;
     uint8_t _auxChannel = 0;
     bool _auxHigh = false;
-    AuxSwitchCallback _auxSwitchCb = nullptr;
-    bool _fpvStateMode = true;
+    uint32_t _lastStatusReqMs = 0;
+    uint32_t _lastRcReqMs = 0;
+
+    enum ParseState { IDLE, HEADER_M, HEADER_DIR, SIZE, CMD, PAYLOAD, CHECKSUM };
+    ParseState _state = IDLE;
+    uint8_t _size = 0, _cmd = 0, _offset = 0, _checksum = 0;
+    uint8_t _payload[64];
+
+    bool _fpvStateMode = false;
     bool _fpvErrorEnabled = true;
-    char _fpvErrorText[32] = "{state}";
+    char _fpvErrorText[32] = "{state} {batt} {rectf}";
     bool _fpvReadyEnabled = true;
-    char _fpvReadyText[32] = "{state} B:{batn} T:{rect}";
+    char _fpvReadyText[32] = "{state} {batt} {rectf}";
     bool _fpvRecordingEnabled = true;
     char _fpvRecordingText[32] = "{state}";
     bool _fpvRecFlash = true;
@@ -133,19 +133,18 @@ private:
     uint8_t _fpvLowBatteryPct = 10;
     bool _fpvLowBatteryReadyFlash = true;
     bool _fpvLowBatteryRecText = true;
-    char _fpvLowBatteryText[32] = "BATT LOW";
+    char _fpvLowBatteryText[17] = "BATT LOW";
     bool _fpvLowRecEnabled = true;
     uint16_t _fpvLowRecMinutes = 5;
     bool _fpvLowRecReady = true;
     bool _fpvLowRecRecording = true;
-    char _fpvLowRecText[32] = "REC LOW";
+    char _fpvLowRecText[17] = "REC LOW";
     bool _fpvHotEnabled = true;
     bool _fpvHotReady = true;
     bool _fpvHotRecording = true;
-    char _fpvHotText[32] = "CAM HOT";
-    bool _fpvPreArmEnabled = true;
+    char _fpvHotText[17] = "CAM HOT";
+    bool _fpvPreArmEnabled = false;
     char _fpvPreArmText[32] = "";
     uint16_t _fpvPreArmShowMs = 1000;
     uint16_t _fpvPreArmIntervalMs = 3000;
-    bool _hasArmedSinceBoot = false;
 };
