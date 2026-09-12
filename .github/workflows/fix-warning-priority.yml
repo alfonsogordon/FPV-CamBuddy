@@ -1,0 +1,73 @@
+name: Fix warning priority and defaults
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-warning-priority.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Apply warning priority and default-on fixes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          # Preview: an active warning overlay must never be discarded by REC-only.
+          p = Path('web/fps-integrated-preview.js')
+          s = p.read_text()
+          old = "if(recOnly&&statusBox&&armed&&recording&&!cameraError){overlay=null;text='REC'}"
+          new = "if(recOnly&&statusBox&&armed&&recording&&!cameraError&&!overlay){text='REC'}"
+          if old not in s:
+              raise SystemExit('preview REC-only block not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+
+          # UI: warnings are ON by default for a fresh/default Stage-3/V1 configuration.
+          # Bump the revision so the new default is picked up by clean/default sessions.
+          p = Path('web/fps-ui-rebuild.js')
+          s = p.read_text()
+          old = "REV='fpsUiStage3StatusDefaults20260912v2'"
+          new = "REV='fpsUiStage3StatusDefaults20260912v3'"
+          if old not in s:
+              raise SystemExit('UI revision marker not found')
+          s = s.replace(old, new, 1)
+          old = "warnEnabled:false"
+          new = "warnEnabled:true"
+          if old not in s:
+              raise SystemExit('UI warning default not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+
+          # Firmware: fresh-board warning defaults are ON. Apply/Read already persist
+          # these flags, so a user turning Warnings OFF remains respected after save.
+          p = Path('src/config_manager.h')
+          s = p.read_text()
+          replacements = {
+              'DEFAULT_FPV_LOW_BATTERY_ENABLED = false': 'DEFAULT_FPV_LOW_BATTERY_ENABLED = true',
+              'DEFAULT_FPV_LOW_REC_ENABLED      = false': 'DEFAULT_FPV_LOW_REC_ENABLED      = true',
+              'DEFAULT_FPV_HOT_ENABLED          = false': 'DEFAULT_FPV_HOT_ENABLED          = true',
+          }
+          for old, new in replacements.items():
+              if old not in s:
+                  raise SystemExit(f'firmware default not found: {old}')
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+
+      - name: Remove one-shot workflow
+        run: rm .github/workflows/fix-warning-priority.yml
+      - name: Commit fixes
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add web/fps-integrated-preview.js web/fps-ui-rebuild.js src/config_manager.h .github/workflows/fix-warning-priority.yml
+          git commit -m "Make camera warnings top priority and default on"
+          git push
