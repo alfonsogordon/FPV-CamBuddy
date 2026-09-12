@@ -60,7 +60,7 @@ void GoProCamera::update() {
         // Open GoPro requires a periodic Keep Alive while a client owns the BLE
         // session. This prevents Auto Power Down while we are already connected,
         // but is never sent while scanning, so sleeping nearby GoPros remain asleep.
-        if (now - _lastKeepAliveMs >= 3000) {
+        if (now - _lastKeepAliveMs >= 20000) {
             _lastKeepAliveMs = now;
             sendKeepAlive();
         }
