@@ -42,11 +42,14 @@ jobs:
           c=Path('web/config.html')
           cs=c.read_text(encoding='utf-8')
           adaptive='<script src="fps-osd-adaptive.js"></script>'
+          cleanup='<link rel="stylesheet" href="fps-osd-cleanup.css">'
+          if cleanup not in cs:
+              cs=cs.replace('</head>', cleanup+'\n</head>', 1)
           if adaptive not in cs:
               if '</body>' not in cs:
                   raise SystemExit('Configurator has no body close')
               cs=cs.replace('</body>', adaptive+'\n</body>', 1)
-              c.write_text(cs,encoding='utf-8')
+          c.write_text(cs,encoding='utf-8')
           h=Path('web/index.html')
           hs=h.read_text(encoding='utf-8')
           home='<script src="fps-home-updates.js"></script>'
