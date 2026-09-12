@@ -46,10 +46,11 @@
 #define DBG_SERIAL                  Serial
 #define DBG_BAUD                    115200
 
-// How often to re-send the last battery frame when no new data arrives (ms).
-// Camera pushes status at 2 Hz once subscribed; this keepalive only fires
-// if the camera goes silent (sleep mode, etc.).
-#define MSP_BATTERY_KEEPALIVE_MS    2000
+// Re-send the last camera/OSD frame twice per second even when camera telemetry
+// is quiet. This is also the animation clock for REC flashing, alternating
+// warnings, and temporary-message timing, so the real OSD stays in lock-step
+// with the Stage-3 preview instead of depending on camera notification cadence.
+#define MSP_BATTERY_KEEPALIVE_MS    500
 
 // ─── WiFi AP (configuration web interface) ───────────────────────────────────
 //
