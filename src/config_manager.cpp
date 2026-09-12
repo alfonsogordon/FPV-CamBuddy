@@ -54,6 +54,13 @@ static constexpr const char *KEY_FPV_PREARM_TXT = "fpv_prearm_txt";
 static constexpr const char *KEY_FPV_PREARM_SHOW = "fpv_prearm_show";
 static constexpr const char *KEY_FPV_PREARM_INT = "fpv_prearm_int";
 
+// Implemented in main.cpp. These bench hooks feed the normal MSPSerial state
+// handlers; they do not transmit an ARM command to the FC.
+extern void benchSimArm(bool armed);
+extern void benchSimAux(bool high);
+extern void benchSimOff();
+extern void benchSimStatus(Stream &out);
+
 void ConfigManager::begin(Stream &serial) {
     _serial = &serial;
     _prefs.begin(NVS_NS, false);
@@ -323,6 +330,10 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
         out.println("  status                     - report ESP32 and camera status");
         out.println("  record start               - start camera recording now");
         out.println("  record stop                - stop camera recording now");
+        out.println("  sim arm <0|1>              - bench-test FC arm state through normal camera handler");
+        out.println("  sim aux <low|high>         - bench-test configured AUX camera action");
+        out.println("  sim status                 - show RAM-only bench simulation state");
+        out.println("  sim off                    - disarm and leave bench simulation");
         out.println("Camera list commands:");
         out.println("  cameras list               - list saved cameras");
         out.println("  cameras connect <idx>      - select camera for next connection");
@@ -385,6 +396,13 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
         }
         return;
     }
+
+    if (strcmp(line, "sim arm 1") == 0) { benchSimArm(true); out.println("[sim] armed=1"); return; }
+    if (strcmp(line, "sim arm 0") == 0) { benchSimArm(false); out.println("[sim] armed=0"); return; }
+    if (strcmp(line, "sim aux high") == 0) { benchSimAux(true); out.println("[sim] aux=high"); return; }
+    if (strcmp(line, "sim aux low") == 0) { benchSimAux(false); out.println("[sim] aux=low"); return; }
+    if (strcmp(line, "sim off") == 0) { benchSimOff(); out.println("[sim] off"); return; }
+    if (strcmp(line, "sim status") == 0) { benchSimStatus(out); return; }
 
     if (strcmp(line, "record start") == 0 || strcmp(line, "record stop") == 0) {
         if (!_camera) {

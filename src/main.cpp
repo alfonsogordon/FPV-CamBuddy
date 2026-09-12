@@ -33,6 +33,9 @@ static uint32_t      lastBattMs = 0;
 static bool     pendingStop = false;
 static uint32_t disarmMs   = 0;
 
+static bool benchSimActive = false;
+static bool benchSimAuxHigh = false;
+
 // Timestamp used to compute the WiFi AP start delay.
 // Reset to millis() whenever a camera disconnects so the countdown restarts.
 static uint32_t wifiDelayOriginMs  = 0;
@@ -111,6 +114,34 @@ static void onArmStateChange(bool armed) {
             }
         }
     }
+}
+
+void benchSimArm(bool armed) {
+    benchSimActive = true;
+    DBG_SERIAL.printf("[sim] FC %s (USB bench only)\n", armed ? "ARM" : "DISARM");
+    mspSerial.simulateArmState(armed);
+}
+
+void benchSimAux(bool high) {
+    benchSimActive = true;
+    benchSimAuxHigh = high;
+    DBG_SERIAL.printf("[sim] AUX %s (USB bench only)\n", high ? "HIGH" : "LOW");
+    mspSerial.simulateAuxSwitch(high);
+}
+
+void benchSimOff() {
+    if (mspSerial.isArmed()) mspSerial.simulateArmState(false);
+    if (benchSimAuxHigh) mspSerial.simulateAuxSwitch(false);
+    benchSimAuxHigh = false;
+    benchSimActive = false;
+}
+
+void benchSimStatus(Stream &out) {
+    out.printf("[sim] active=%s armed=%s aux=%s camera_connected=%s recording=%s\n",
+               benchSimActive ? "yes" : "no", mspSerial.isArmed() ? "yes" : "no",
+               benchSimAuxHigh ? "high" : "low",
+               (activeCamera && activeCamera->isConnected()) ? "yes" : "no",
+               currentCamera.recording ? "yes" : "no");
 }
 
 void setup() {
