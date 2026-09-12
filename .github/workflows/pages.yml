@@ -40,7 +40,7 @@ jobs:
           cs=re.sub(r'<style id="fps-demo-style">.*?<script id="fps-demo">.*?</script>', '', cs, flags=re.S)
           for old in ['<script src="fps-ui-v2.js"></script>','<script src="fps-osd-method.js"></script>','<script src="fps-osd-enhancements.js"></script>','<script src="fps-osd-adaptive.js"></script>','<script src="fps-config-state.js"></script>','<script src="fps-ui-clean.js"></script>']:
               cs=cs.replace(old,'')
-          for script in ['fps-ui-rebuild.js','fps-demo-v1.js']:
+          for script in ['fps-ui-rebuild.js','fps-ui-final-polish.js','fps-demo-v1.js']:
               tag=f'<script src="{script}"></script>'
               if tag not in cs:
                   if '</body>' not in cs: raise SystemExit('Configurator has no body close')
@@ -50,7 +50,7 @@ jobs:
           if home not in hs:
               if '</body>' not in hs: raise SystemExit('Homepage has no body close')
               h.write_text(hs.replace('</body>',home+'\n</body>',1),encoding='utf-8')
-          print('FPSteVe rebuilt configurator + Demo Mode installed')
+          print('FPSteVe rebuilt configurator + final OSD polish + Demo Mode installed')
           PY
 
       - name: Download firmware releases
