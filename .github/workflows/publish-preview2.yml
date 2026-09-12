@@ -1,0 +1,47 @@
+name: Publish Preview 2
+
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-preview2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install PlatformIO
+        run: pip install platformio
+      - name: Build firmware
+        run: |
+          pio run -e esp32dev
+          pio run -e esp32c3supermini
+          mkdir -p firmware
+          cp .pio/build/esp32dev/bootloader.bin firmware/bootloader-esp32dev.bin
+          cp .pio/build/esp32dev/partitions.bin firmware/partitions-esp32dev.bin
+          cp .pio/build/esp32dev/firmware.bin firmware/firmware-esp32dev.bin
+          cp .pio/build/esp32c3supermini/bootloader.bin firmware/bootloader-esp32c3supermini.bin
+          cp .pio/build/esp32c3supermini/partitions.bin firmware/partitions-esp32c3supermini.bin
+          cp .pio/build/esp32c3supermini/firmware.bin firmware/firmware-esp32c3supermini.bin
+      - name: Publish Preview 2
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git tag -f v1.0.0-preview.2 "$GITHUB_SHA"
+          git push origin refs/tags/v1.0.0-preview.2 --force
+          gh release delete v1.0.0-preview.2 --yes --cleanup-tag 2>/dev/null || true
+          git tag -f v1.0.0-preview.2 "$GITHUB_SHA"
+          git push origin refs/tags/v1.0.0-preview.2 --force
+          gh release create v1.0.0-preview.2 firmware/* --title "FPSteVe Edition V1 Preview — No Really, This One" --notes "Hardware-test Preview 2. GoPro connected keep-alive test interval is 10 seconds. Adds post-flash FreeCLinker configuration guidance and documents power-cycle/automatic GoPro connection behaviour. Still a prerelease: please test before V1." --prerelease
+      - name: Trigger Pages deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --repo ${{ github.repository }}
