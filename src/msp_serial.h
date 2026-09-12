@@ -37,6 +37,8 @@ public:
     void sendCustomOSD2(const CameraData &data, const char *tpl);
     void sendCustomOSD3(const CameraData &data, const char *tpl);
     void sendCustomOSD4(const CameraData &data, const char *tpl);
+    void sendCustomOSDWarnings(uint8_t target, const CameraData &data, const char *tpl);
+    uint8_t warningTarget() const { return _fpvWarningTarget; }
     void sendPilotName(const CameraData &data, const char *tpl);
     void sendCraftName(const CameraData &data, const char *tpl);
     void setFpvDisplayOptions(bool stateMode,
@@ -62,7 +64,13 @@ public:
         _fpvLowBatteryPct = lowBatteryPct > 100 ? 100 : lowBatteryPct;
         _fpvLowBatteryReadyFlash = lowBatteryReadyFlash;
         _fpvLowBatteryRecText = lowBatteryRecText;
-        strlcpy(_fpvLowBatteryText, lowBatteryText ? lowBatteryText : "", sizeof(_fpvLowBatteryText));
+        _fpvWarningTarget = 1;
+        const char *cleanLowBatteryText = lowBatteryText ? lowBatteryText : "";
+        if (cleanLowBatteryText[0] == '@' && cleanLowBatteryText[1] >= '1' && cleanLowBatteryText[1] <= '4' && cleanLowBatteryText[2] == ':') {
+            _fpvWarningTarget = static_cast<uint8_t>(cleanLowBatteryText[1] - '0');
+            cleanLowBatteryText += 3;
+        }
+        strlcpy(_fpvLowBatteryText, cleanLowBatteryText, sizeof(_fpvLowBatteryText));
         _fpvLowRecEnabled = lowRecEnabled;
         _fpvLowRecMinutes = lowRecMinutes;
         _fpvLowRecReady = lowRecReady;
@@ -134,6 +142,7 @@ private:
     bool _fpvLowBatteryReadyFlash = true;
     bool _fpvLowBatteryRecText = true;
     char _fpvLowBatteryText[32] = "BATT LOW";
+    uint8_t _fpvWarningTarget = 1;
     bool _fpvLowRecEnabled = true;
     uint16_t _fpvLowRecMinutes = 5;
     bool _fpvLowRecReady = true;
