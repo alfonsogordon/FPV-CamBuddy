@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -41,6 +43,10 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v0.2.0-fpsteve-test' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'FPSteVe Edition v0.2 Bench Test' }}
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          target_commitish: ${{ github.sha }}
           files: firmware/*
           generate_release_notes: true
       - name: Trigger Pages deployment
