@@ -27,9 +27,7 @@ jobs:
       - uses: actions/configure-pages@v5
 
       - name: Generate FPSteVe Edition web UI
-        run: |
-          python3 tools/build_fps_pages.py
-          python3 tools/build_fps_polish.py
+        run: python3 tools/build_fps_pages.py
 
       - name: Download firmware releases
         run: |
