@@ -1,0 +1,26 @@
+name: Validate FPSteVe Edition
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Generate and validate production web site
+        run: python3 tools/build_fps_site.py
+      - name: Install PlatformIO
+        run: pip install platformio
+      - name: Build ESP32-C3 and ESP32 firmware
+        run: pio run -e esp32c3supermini -e esp32dev
