@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 const q=id=>document.getElementById(id), IDS=['osd1','osd2','osd3','osd4'];
-const countKey='fpsOsdMessageCount', destKey='fpsWarningDestination', legacyDestKey='fpsLegacyTempDestination', defaultsKey='fpsAdaptiveDefaultsV2';
+const countKey='fpsOsdMessageCount', destKey='fpsWarningDestination', legacyDestKey='fpsLegacyTempDestination', defaultsKey='fpsAdaptiveDefaultsV3';
 function setv(id,v){const e=q(id);if(!e)return;e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}))}
 function setc(id,v){const e=q(id);if(!e)return;e.checked=!!v;e.dispatchEvent(new Event('change',{bubbles:true}))}
 function confirmedDefaults(){
@@ -31,7 +31,8 @@ function init(){
  q('fpsAddOsdMessage')?.addEventListener('click',()=>{if(count<4){count++;applyCount()}});q('fpsRemoveOsdMessage')?.addEventListener('click',()=>{if(count>1){count--;applyCount()}});
  dest?.addEventListener('change',()=>{if(q('bf45Compat')?.checked)localStorage.setItem(legacyDestKey,dest.value);else localStorage.setItem(destKey,dest.value)});
  ['pilotEn','craftEn','bf45Compat','fpsCustomEnable','fpvLowBatt'].forEach(id=>q(id)?.addEventListener('change',()=>setTimeout(updateDestination,0)));
- if(!localStorage.getItem(defaultsKey)&&localStorage.getItem('freeclinkerDemoConfig')===null){confirmedDefaults();localStorage.setItem(defaultsKey,'1');count=4}
+ // Apply the confirmed FPSteVe profile once for this defaults revision so the Settings page opens with the requested values already selected.
+ if(!localStorage.getItem(defaultsKey)){confirmedDefaults();localStorage.setItem(defaultsKey,'1');count=4}
  const reset=q('fpsResetDefaults');if(reset){reset.onclick=()=>{if(confirm('Reset the visible FPSteVe settings to the confirmed defaults? You can review them before Apply.')){confirmedDefaults();count=4;applyCount()}}}
  applyCount();updateDestination();
 }
