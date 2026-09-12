@@ -33,6 +33,10 @@ bool startsWith(const char *s, const char *prefix) {
     return s && prefix && strncmp(s, prefix, strlen(prefix)) == 0;
 }
 
+bool templateHasStatus(const char *tpl) {
+    return tpl && (strstr(tpl, "{state}") || strstr(tpl, "{stateonly}"));
+}
+
 void blankRecToken(char *text) {
     if (!text) return;
     for (char *p = strstr(text, "REC"); p; p = strstr(p + 3, "REC")) {
@@ -336,7 +340,7 @@ void MSPSerial::sendCustomOSD(uint8_t textType, const CameraData &data, const ch
 
     const char *state = "RDY";
     if (cameraError) state = "ERR";
-    else if (cameraRecording && (!recOnlyWhenArmed || _armed)) state = "REC";
+    else if (cameraRecording) state = "REC";
 
     const unsigned pct = data.percent > 100 ? 100 : data.percent;
     const bool lowBatt = _fpvLowBatteryEnabled && data.valid && data.has_battery && pct <= _fpvLowBatteryPct;
@@ -372,7 +376,17 @@ void MSPSerial::sendCustomOSD(uint8_t textType, const CameraData &data, const ch
     }
 
     char text[TEXT_LIMIT + 1] = {};
-    expandTemplate(tpl ? tpl : "", data, state, text, sizeof(text));
+    const bool recOnlyTakeover = recOnlyWhenArmed && _armed && cameraRecording &&
+                                 !cameraError && templateHasStatus(tpl);
+    if (recOnlyTakeover) {
+        // Locked V1 behaviour: only a Status-containing destination is
+        // temporarily replaced by REC while armed + recording. All other
+        // destinations remain untouched; the configured template returns
+        // immediately when recording stops or the FC disarms.
+        snprintf(text, sizeof(text), "REC");
+    } else {
+        expandTemplate(tpl ? tpl : "", data, state, text, sizeof(text));
+    }
 
     // Flash only the REC token, not the whole line. Replacing it after template
     // expansion preserves its exact three-character width so adjacent values do
