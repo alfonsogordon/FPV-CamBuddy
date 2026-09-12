@@ -27,18 +27,13 @@ patch = r'''
     if (telemetry) telemetry.insertAdjacentElement('afterend', alertEl);
   }
 
-  // When no C3 is connected, show off the current Betaflight Custom Message
-  // layout rather than the BF4.5 Craft Name compatibility fallback.
+  // Disconnected demo represents the cropped left-hand portion of the OSD,
+  // so all four current-Betaflight Custom Messages are stacked on the left.
   const screen = document.querySelector('.screen');
   const demo = document.createElement('div');
   demo.id = 'bf-latest-demo';
   demo.innerHTML = '<div>CAM:69%</div><div>●REC 00:42</div><div>VIDEO 4K/60 HS</div><div>45m 128GB</div>';
-  demo.style.cssText = 'position:absolute;inset:0;pointer-events:none;font:700 18px Courier New,monospace;color:#fff;text-shadow:2px 2px 2px #000,-1px -1px 2px #000';
-  const rows = demo.children;
-  rows[0].style.cssText='position:absolute;top:10%;left:4%';
-  rows[1].style.cssText='position:absolute;top:10%;right:4%';
-  rows[2].style.cssText='position:absolute;bottom:13%;left:4%';
-  rows[3].style.cssText='position:absolute;bottom:13%;right:4%';
+  demo.style.cssText = 'position:absolute;top:10%;left:4%;pointer-events:none;font:700 18px/1.45 Courier New,monospace;color:#fff;text-align:left;text-shadow:2px 2px 2px #000,-1px -1px 2px #000';
   if (screen) screen.appendChild(demo);
 
   function refreshBenchUi() {
