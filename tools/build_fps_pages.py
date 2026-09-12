@@ -16,7 +16,7 @@ if '<span class="brand">FreeCLinker</span>' in s:
 if 'fps-theme.css' not in s:
     s = s.replace('</head>', '  <link rel="stylesheet" href="fps-theme.css">\n</head>', 1)
 if 'osd-preview-tab' not in s:
-    s = s.replace('  <button class="tab"        data-tab="cli">CLI</button>\n</div>', '  <button class="tab"        data-tab="cli">CLI</button>\n  <a class="tab osd-preview-tab" href="test.html">OSD Preview</a>\n</div>', 1)
+    s = s.replace('  <button class="tab"        data-tab="cli">CLI</button>\n</div>', '  <button class="tab"        data-tab="cli">CLI</button>\n  <button class="tab osd-preview-tab" type="button" onclick="window.location.href=\'test.html\'">OSD Preview</button>\n</div>', 1)
 p.write_text(s, encoding='utf-8')
 
 # OSD Preview bench UX: no board = controls disabled; board/no camera =
