@@ -34,7 +34,7 @@ legacy_scripts = [
 ]
 for script in legacy_scripts:
     cs = cs.replace(f'<script src="{script}"></script>', '')
-for script in ['fps-ui-rebuild.js', 'fps-demo-v1.js', 'fps-integrated-preview.js', 'fps-stage3-parity.js']:
+for script in ['fps-ui-rebuild.js', 'fps-demo-v1.js', 'fps-integrated-preview.js', 'fps-stage3-parity.js', 'fps-autosync.js']:
     tag = f'<script src="{script}"></script>'
     if tag not in cs:
         if '</body>' not in cs:
@@ -65,6 +65,7 @@ for required in [
     '<script src="fps-demo-v1.js"></script>',
     '<script src="fps-integrated-preview.js"></script>',
     '<script src="fps-stage3-parity.js"></script>',
+    '<script src="fps-autosync.js"></script>',
     'fps-theme.css',
 ]:
     if required not in final:
