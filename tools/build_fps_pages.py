@@ -87,7 +87,66 @@ must_replace("  await sendCommand(`set fpv_prearm_show ${Math.max(100, parseInt(
 must_replace("  await sendCommand(`set fpv_prearm_int ${Math.max(100, parseInt(fpvPreArmIntInput.value) || 3000)}`);", "  await sendCommand('set fpv_prearm_int 3000');", 'custom interval apply')
 s = s.replace('fpvRecLowMinInput.disabled = !connectedNow || !fpvRecLowToggle.checked;', 'fpvRecLowMinInput.disabled = !connectedNow || !fpvLowBattToggle.checked;')
 
-for marker in ['id="fpvCustomDurationSec"','placeholder="e.g. CLEAN LENS"','Only before first arm',"await sendCommand('set fpv_state_mode 1')",'set fpv_rect_warn','set fpv_hot_warn','Camera warnings','freeclinkerC3Config','class="tab osd-preview-tab"']:
+# Add a visual builder without changing the firmware's token/template format.
+osd_builder = r'''
+<style id="fps-osd-builder-style">
+.osd-builder{margin:10px 0 16px;padding:12px;border:1px solid #4c1d95;border-radius:10px;background:rgba(76,29,149,.10)}
+.osd-builder-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}.osd-builder-title{font-weight:700}.osd-builder-preview{font-family:monospace;color:#d8b4fe;font-size:12px}
+.osd-token-grid{display:flex;flex-wrap:wrap;gap:6px}.osd-token{padding:5px 8px!important;font-size:11px!important;border:1px solid #6d28d9!important;background:#21152f!important;color:#eee!important;border-radius:7px!important}.osd-token:hover{border-color:#a78bfa!important}.osd-advanced{margin-top:9px;font-size:11px}.osd-advanced summary{cursor:pointer;color:#c4b5fd}
+.demo-banner{display:none;background:#3b1766;color:#f2e8ff;border-bottom:1px solid #8b5cf6;padding:8px 12px;text-align:center;font-weight:700;font-size:12px;letter-spacing:.04em}.demo-on .demo-banner{display:block}.demo-on{outline:2px solid #7c3aed;outline-offset:-2px}.demo-badge{display:none;color:#d8b4fe;font-weight:800}.demo-on .demo-badge{display:inline}
+</style>
+<script id="fps-osd-builder-demo">
+(() => {
+  const tokenDefs = [
+    ['Battery','{bat}'],['Recording','{rec}'],['Duration','{recdur}'],['Mode','{mode}'],['Resolution','{res}'],['FPS','{fps}'],['Stabilisation','{eis}'],['Time left','{rleft}'],['Storage','{rcap}']
+  ];
+  const samples = {'{bat}':'69%','{rec}':'REC','{recdur}':'00:42','{mode}':'VIDEO','{res}':'4K','{fps}':'60','{eis}':'HS','{rleft}':'45m','{rcap}':'128GB'};
+  function sample(t){ let out=t || ''; for(const [k,v] of Object.entries(samples)) out=out.split(k).join(v); return out.replace(/\s+/g,' ').trim() || '(empty)'; }
+  ['osd1','osd2','osd3','osd4'].forEach((id,i) => {
+    const input=document.getElementById(id); if(!input) return;
+    const box=document.createElement('div'); box.className='osd-builder';
+    box.innerHTML=`<div class="osd-builder-head"><span class="osd-builder-title">Message ${i+1} builder</span><span class="osd-builder-preview"></span></div><div class="osd-token-grid"></div><details class="osd-advanced"><summary>Advanced / raw template</summary><div class="raw-slot"></div></details>`;
+    input.parentNode.insertBefore(box,input);
+    box.querySelector('.raw-slot').appendChild(input);
+    const grid=box.querySelector('.osd-token-grid'), preview=box.querySelector('.osd-builder-preview');
+    const refresh=()=>{preview.textContent=sample(input.value)};
+    tokenDefs.forEach(([name,token])=>{ const b=document.createElement('button'); b.type='button'; b.className='osd-token'; b.textContent='+ '+name; b.title=token; b.onclick=()=>{ const spacer=input.value && !input.value.endsWith(' ')?' ':''; input.value+=spacer+token; input.dispatchEvent(new Event('input',{bubbles:true})); refresh(); }; grid.appendChild(b); });
+    const clear=document.createElement('button'); clear.type='button'; clear.className='osd-token'; clear.textContent='Clear'; clear.onclick=()=>{input.value='';input.dispatchEvent(new Event('input',{bubbles:true}));refresh()}; grid.appendChild(clear);
+    input.addEventListener('input',refresh); refresh();
+  });
+
+  const MODE='freeclinkerDemoMode', CFG='freeclinkerDemoConfig';
+  let demo=localStorage.getItem(MODE)==='1';
+  const banner=document.createElement('div'); banner.className='demo-banner'; banner.textContent='🧪 PREVIEW / DEMO MODE — NO HARDWARE CONNECTED'; document.body.insertBefore(banner,document.body.firstChild);
+  const btn=document.createElement('button'); btn.type='button'; btn.id='demoModeBtn'; btn.textContent=demo?'Exit Demo':'Demo Mode'; btn.style.cssText='border-color:#8b5cf6!important;color:#d8b4fe!important';
+  const connect=document.getElementById('connectBtn'); if(connect) connect.parentNode.insertBefore(btn,connect);
+  const badge=document.createElement('span'); badge.className='demo-badge'; badge.textContent='DEMO'; if(connect) connect.parentNode.insertBefore(badge,btn);
+  const fields=()=>[...document.querySelectorAll('#panel-config input[id],#panel-config select[id]')].filter(e=>e.id!=='caddxPass');
+  const snap=()=>Object.fromEntries(fields().map(e=>[e.id,e.type==='checkbox'?e.checked:e.value]));
+  function save(){if(demo){localStorage.setItem(CFG,JSON.stringify(snap()));localStorage.setItem('freeclinkerC3Config',JSON.stringify(Object.fromEntries(['osd1','osd2','osd3','osd4'].map(id=>[id,document.getElementById(id)?.value||'']))));}}
+  function restore(){try{const d=JSON.parse(localStorage.getItem(CFG)||'{}'); for(const [id,v] of Object.entries(d)){const e=document.getElementById(id);if(e){if(e.type==='checkbox')e.checked=!!v;else e.value=v; e.dispatchEvent(new Event('input',{bubbles:true}));}}}catch{}}
+  function demoUi(){
+    document.body.classList.toggle('demo-on',demo); if(!demo)return;
+    if(typeof statusText!=='undefined'){statusText.textContent='DEMO';statusText.className='connected'} if(typeof dot!=='undefined'){dot.classList.add('connected');dot.style.background='#8b5cf6'}
+    if(connectBtn)connectBtn.disabled=true;if(disconnectBtn)disconnectBtn.disabled=true;if(baudSelect)baudSelect.disabled=true;
+    fields().forEach(e=>e.disabled=false);
+    [applyBtn,auxApplyBtn,osdApplyBtn,bf45ApplyBtn,caddxApplyBtn].filter(Boolean).forEach(e=>{e.disabled=false;e.textContent='Save Demo'});
+    if(readBtn){readBtn.disabled=false;readBtn.textContent='Load Demo Settings'}
+    if(camRefreshBtn)camRefreshBtn.disabled=true;if(camClearBtn)camClearBtn.disabled=true;if(cmdInput)cmdInput.disabled=true;if(sendBtn)sendBtn.disabled=true;
+  }
+  btn.onclick=()=>{ if(!demo){localStorage.setItem(MODE,'1');localStorage.setItem(CFG,JSON.stringify(snap()));}else{save();localStorage.setItem(MODE,'0');} location.reload(); };
+  document.addEventListener('input',e=>{if(demo&&e.target.closest('#panel-config'))save()}); document.addEventListener('change',e=>{if(demo&&e.target.closest('#panel-config'))save()});
+  document.addEventListener('click',e=>{if(!demo)return;if(e.target===readBtn){e.preventDefault();e.stopImmediatePropagation();restore();save()}if([applyBtn,auxApplyBtn,osdApplyBtn,bf45ApplyBtn,caddxApplyBtn].includes(e.target)){e.preventDefault();e.stopImmediatePropagation();save();}},true);
+  if(demo){restore();demoUi();save();setInterval(demoUi,300)}
+})();
+</script>
+'''
+must_replace('</body>', osd_builder + '\n</body>', 'body close for builder/demo')
+
+# Preserve demo state when following the OSD Preview link.
+s = s.replace('href="test.html">OSD Preview</a>', 'href="test.html" onclick="if(localStorage.getItem(\'freeclinkerDemoMode\')===\'1\') localStorage.setItem(\'freeclinkerDemoMode\',\'1\')">OSD Preview</a>')
+
+for marker in ['id="fpvCustomDurationSec"','placeholder="e.g. CLEAN LENS"','Only before first arm',"await sendCommand('set fpv_state_mode 1')",'set fpv_rect_warn','set fpv_hot_warn','Camera warnings','freeclinkerC3Config','class="tab osd-preview-tab"','fps-osd-builder-demo','freeclinkerDemoMode','Message 1 builder']:
     if marker not in s:
         raise SystemExit(f'Generated configurator missing expected marker: {marker}')
 if '<strong>CLEAN LENS reminder</strong>' in s or '<div>Camera status (ERR / RDY / REC)</div>' in s or 'FPSteVe Camera OSD' in s or '>OSD Simulator<' in s:
