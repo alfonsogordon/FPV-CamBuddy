@@ -13,8 +13,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
-      - name: Apply deterministic source patch
-        run: python tools/apply_osd_warning_patch.py
+      - name: Restore clean firmware baseline
+        run: git checkout main -- src/config_manager.h src/config_manager.cpp src/msp_serial.h src/msp_serial.cpp src/main.cpp
+      - name: Prepare finalized OSD firmware sources
+        run: python tools/finalize_osd_sources.py
       - name: Validate configurator
         run: python tools/build_fps_pages.py
       - name: Install PlatformIO
