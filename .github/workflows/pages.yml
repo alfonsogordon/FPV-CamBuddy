@@ -42,6 +42,7 @@ jobs:
           c=Path('web/config.html')
           cs=c.read_text(encoding='utf-8')
           adaptive='<script src="fps-osd-adaptive.js"></script>'
+          state='<script src="fps-config-state.js"></script>'
           cleanup='<link rel="stylesheet" href="fps-osd-cleanup.css">'
           if cleanup not in cs:
               cs=cs.replace('</head>', cleanup+'\n</head>', 1)
@@ -49,6 +50,8 @@ jobs:
               if '</body>' not in cs:
                   raise SystemExit('Configurator has no body close')
               cs=cs.replace('</body>', adaptive+'\n</body>', 1)
+          if state not in cs:
+              cs=cs.replace('</body>', state+'\n</body>', 1)
           c.write_text(cs,encoding='utf-8')
           h=Path('web/index.html')
           hs=h.read_text(encoding='utf-8')
@@ -58,7 +61,7 @@ jobs:
                   raise SystemExit('Homepage has no body close')
               hs=hs.replace('</body>', home+'\n</body>', 1)
               h.write_text(hs,encoding='utf-8')
-          print('FPSteVe preview, adaptive OSD UI and homepage updates installed')
+          print('FPSteVe preview, authoritative config state, adaptive OSD UI and homepage updates installed')
           PY
 
       - name: Download firmware releases
