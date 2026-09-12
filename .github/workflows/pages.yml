@@ -39,7 +39,15 @@ jobs:
                   raise SystemExit('OSD Preview has no body close')
               s=s.replace('</body>', marker+'\n</body>', 1)
               p.write_text(s,encoding='utf-8')
-          print('OSD Preview demo helper installed')
+          h=Path('web/index.html')
+          hs=h.read_text(encoding='utf-8')
+          home='<script src="fps-home-updates.js"></script>'
+          if home not in hs:
+              if '</body>' not in hs:
+                  raise SystemExit('Homepage has no body close')
+              hs=hs.replace('</body>', home+'\n</body>', 1)
+              h.write_text(hs,encoding='utf-8')
+          print('OSD Preview demo helper and homepage updates installed')
           PY
 
       - name: Download firmware releases
