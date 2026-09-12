@@ -29,10 +29,9 @@ jobs:
 
       - name: Apply FPSteVe Edition configurator UI
         run: |
-          # The builder title is generated dynamically as Message ${i+1} builder.
-          # Validate the static builder hook rather than a runtime-rendered title.
           sed -i "s/,'Message 1 builder'//" tools/build_fps_pages.py
           python3 tools/build_fps_pages.py
+          python3 tools/build_fps_polish.py
 
       - name: Download firmware releases
         run: |
