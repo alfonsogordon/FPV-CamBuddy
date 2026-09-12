@@ -1,6 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include "telemetry.h"
+
 #define MSP_STATUS 101
 #define MSP_RC 105
 #define MSP2_SET_TEXT 0x3007
@@ -11,15 +12,140 @@
 #define MSP_TEXT_CUSTOM_3 9
 #define MSP_TEXT_CUSTOM_4 10
 #define MSP2_CAMERA_BATTERY 0x3001
-struct __attribute__((packed)) MSP2CameraPayload{uint8_t percent,camera_mode,recording,temp_over,eis_mode;uint16_t record_time;uint32_t remain_cap_mb,remain_time;};
-static_assert(sizeof(MSP2CameraPayload)==15,"Camera payload size mismatch");
-using ArmCallback=void(*)(bool);using AuxSwitchCallback=void(*)(bool);
-class MSPSerial{
+
+struct __attribute__((packed)) MSP2CameraPayload {
+    uint8_t percent;
+    uint8_t camera_mode;
+    uint8_t recording;
+    uint8_t temp_over;
+    uint8_t eis_mode;
+    uint16_t record_time;
+    uint32_t remain_cap_mb;
+    uint32_t remain_time;
+};
+static_assert(sizeof(MSP2CameraPayload) == 15, "Camera payload size mismatch");
+
+using ArmCallback = void (*)(bool armed);
+using AuxSwitchCallback = void (*)(bool high);
+
+class MSPSerial {
 public:
- void begin(HardwareSerial&);void update();void sendCameraStatus(const CameraData&);void sendCustomOSD1(const CameraData&,const char*);void sendCustomOSD2(const CameraData&,const char*);void sendCustomOSD3(const CameraData&,const char*);void sendCustomOSD4(const CameraData&,const char*);void sendCustomOSDWarnings(uint8_t,const CameraData&,const char*);uint8_t warningTarget()const{return _fpvWarningTarget;}void sendPilotName(const CameraData&,const char*);void sendCraftName(const CameraData&,const char*);
- void setFpvDisplayOptions(bool sm,bool ee,const char*et,bool re,const char*rt,bool rce,const char*rct,bool fr,bool lbe,uint8_t lbp,bool lbr,bool lbrec,const char*lbt,bool lre,uint16_t lrm,bool lrr,bool lrrec,const char*lrt,bool he,bool hr,bool hrec,const char*ht,bool pae,const char*pat,uint16_t pas,uint16_t pai){_fpvStateMode=sm;_fpvErrorEnabled=ee;strlcpy(_fpvErrorText,et?et:"",sizeof(_fpvErrorText));_fpvReadyEnabled=re;strlcpy(_fpvReadyText,rt?rt:"",sizeof(_fpvReadyText));_fpvRecordingEnabled=rce;strlcpy(_fpvRecordingText,rct?rct:"",sizeof(_fpvRecordingText));_fpvRecFlash=fr;_fpvLowBatteryEnabled=lbe;_fpvLowBatteryPct=lbp>100?100:lbp;_fpvLowBatteryReadyFlash=lbr;_fpvLowBatteryRecText=lbrec;const char*clean=lbt?lbt:"";_fpvWarningTarget=1;if(clean[0]=='@'&&clean[1]>='1'&&clean[1]<='4'&&clean[2]==':'){_fpvWarningTarget=(uint8_t)(clean[1]-'0');clean+=3;}strlcpy(_fpvLowBatteryText,clean,sizeof(_fpvLowBatteryText));_fpvLowRecEnabled=lre;_fpvLowRecMinutes=lrm;_fpvLowRecReady=lrr;_fpvLowRecRecording=lrrec;strlcpy(_fpvLowRecText,lrt?lrt:"",sizeof(_fpvLowRecText));_fpvHotEnabled=he;_fpvHotReady=hr;_fpvHotRecording=hrec;strlcpy(_fpvHotText,ht?ht:"",sizeof(_fpvHotText));_fpvPreArmEnabled=pae;strlcpy(_fpvPreArmText,pat?pat:"",sizeof(_fpvPreArmText));_fpvPreArmShowMs=pas<100?100:pas;_fpvPreArmIntervalMs=pai<_fpvPreArmShowMs?_fpvPreArmShowMs:pai;}
- bool isArmed()const{return _armed;}void simulateArmState(bool a){if(a)_hasArmedSinceBoot=true;if(_armed==a)return;_armed=a;if(_armCb)_armCb(a);}void simulateAuxSwitch(bool h){if(_auxHigh==h)return;_auxHigh=h;if(_auxSwitchCb)_auxSwitchCb(h);}void setArmCallback(ArmCallback c){_armCb=c;}void setAuxChannel(uint8_t);void setAuxSwitchCallback(AuxSwitchCallback c){_auxSwitchCb=c;}
+    void begin(HardwareSerial &serial);
+    void update();
+    void sendCameraStatus(const CameraData &data);
+    void sendCustomOSD1(const CameraData &data, const char *tpl);
+    void sendCustomOSD2(const CameraData &data, const char *tpl);
+    void sendCustomOSD3(const CameraData &data, const char *tpl);
+    void sendCustomOSD4(const CameraData &data, const char *tpl);
+    void sendPilotName(const CameraData &data, const char *tpl);
+    void sendCraftName(const CameraData &data, const char *tpl);
+    void setFpvDisplayOptions(bool stateMode,
+                              bool errorEnabled, const char *errorTpl,
+                              bool readyEnabled, const char *readyTpl,
+                              bool recordingEnabled, const char *recordingTpl,
+                              bool flashRec, bool lowBatteryEnabled,
+                              uint8_t lowBatteryPct, bool lowBatteryReadyFlash,
+                              bool lowBatteryRecText, const char *lowBatteryText,
+                              bool lowRecEnabled, uint16_t lowRecMinutes,
+                              bool lowRecReady, bool lowRecRecording, const char *lowRecText,
+                              bool hotEnabled, bool hotReady, bool hotRecording, const char *hotText,
+                              bool preArmEnabled, const char *preArmText, uint16_t preArmShowMs, uint16_t preArmIntervalMs) {
+        _fpvStateMode = stateMode;
+        _fpvErrorEnabled = errorEnabled;
+        strlcpy(_fpvErrorText, errorTpl ? errorTpl : "", sizeof(_fpvErrorText));
+        _fpvReadyEnabled = readyEnabled;
+        strlcpy(_fpvReadyText, readyTpl ? readyTpl : "", sizeof(_fpvReadyText));
+        _fpvRecordingEnabled = recordingEnabled;
+        strlcpy(_fpvRecordingText, recordingTpl ? recordingTpl : "", sizeof(_fpvRecordingText));
+        _fpvRecFlash = flashRec;
+        _fpvLowBatteryEnabled = lowBatteryEnabled;
+        _fpvLowBatteryPct = lowBatteryPct > 100 ? 100 : lowBatteryPct;
+        _fpvLowBatteryReadyFlash = lowBatteryReadyFlash;
+        _fpvLowBatteryRecText = lowBatteryRecText;
+        strlcpy(_fpvLowBatteryText, lowBatteryText ? lowBatteryText : "", sizeof(_fpvLowBatteryText));
+        _fpvLowRecEnabled = lowRecEnabled;
+        _fpvLowRecMinutes = lowRecMinutes;
+        _fpvLowRecReady = lowRecReady;
+        _fpvLowRecRecording = lowRecRecording;
+        strlcpy(_fpvLowRecText, lowRecText ? lowRecText : "", sizeof(_fpvLowRecText));
+        _fpvHotEnabled = hotEnabled;
+        _fpvHotReady = hotReady;
+        _fpvHotRecording = hotRecording;
+        strlcpy(_fpvHotText, hotText ? hotText : "", sizeof(_fpvHotText));
+        _fpvPreArmEnabled = preArmEnabled;
+        strlcpy(_fpvPreArmText, preArmText ? preArmText : "", sizeof(_fpvPreArmText));
+        _fpvPreArmShowMs = preArmShowMs < 100 ? 100 : preArmShowMs;
+        _fpvPreArmIntervalMs = preArmIntervalMs < _fpvPreArmShowMs ? _fpvPreArmShowMs : preArmIntervalMs;
+    }
+    bool isArmed() const { return _armed; }
+    // USB bench simulation uses the same state/callback path as MSP responses.
+    // RAM-only: reboot clears it and it can never arm a real flight controller.
+    void simulateArmState(bool armed) {
+        if (armed) _hasArmedSinceBoot = true;
+        if (_armed == armed) return;
+        _armed = armed;
+        if (_armCb) _armCb(armed);
+    }
+    void simulateAuxSwitch(bool high) {
+        if (_auxHigh == high) return;
+        _auxHigh = high;
+        if (_auxSwitchCb) _auxSwitchCb(high);
+    }
+    void setArmCallback(ArmCallback cb) { _armCb = cb; }
+    void setAuxChannel(uint8_t channel);
+    void setAuxSwitchCallback(AuxSwitchCallback cb) { _auxSwitchCb = cb; }
+
 private:
- void sendFrame(uint16_t,const uint8_t*,uint16_t,char='>');void sendRequest(uint16_t);void sendCustomText(uint8_t,const char*);void sendCustomOSD(uint8_t,const CameraData&,const char*,const char*=nullptr);void feedByte(uint8_t);void processResponse();void handleStatusResponse();void handleRcResponse();enum class RxState:uint8_t{IDLE,HDR_X,HDR_DIR,FLAG,CMD_LO,CMD_HI,SZ_LO,SZ_HI,PAYLOAD,CRC};static constexpr uint8_t RX_BUF_SIZE=32;RxState _rxState=RxState::IDLE;uint8_t _rxBuf[RX_BUF_SIZE]{};uint16_t _rxCmd=0,_rxSize=0,_rxPos=0;uint8_t _rxCrc=0;static uint8_t crc8DvbS2(uint8_t,uint8_t);static uint8_t crc8DvbS2Buf(uint8_t,const uint8_t*,uint16_t);HardwareSerial*_serial=nullptr;bool _armed=false;ArmCallback _armCb=nullptr;uint32_t _lastPollMs=0;uint8_t _auxChannel=0;bool _auxHigh=false;AuxSwitchCallback _auxSwitchCb=nullptr;
- bool _fpvStateMode=true,_fpvErrorEnabled=true;char _fpvErrorText[32]="{state}";bool _fpvReadyEnabled=true;char _fpvReadyText[32]="{state} B:{batn} T:{rect}";bool _fpvRecordingEnabled=true;char _fpvRecordingText[32]="{state}";bool _fpvRecFlash=true,_fpvLowBatteryEnabled=true;uint8_t _fpvLowBatteryPct=10;bool _fpvLowBatteryReadyFlash=true,_fpvLowBatteryRecText=true;char _fpvLowBatteryText[32]="BATT LOW";uint8_t _fpvWarningTarget=1;bool _fpvLowRecEnabled=true;uint16_t _fpvLowRecMinutes=5;bool _fpvLowRecReady=true,_fpvLowRecRecording=true;char _fpvLowRecText[32]="REC LOW";bool _fpvHotEnabled=true,_fpvHotReady=true,_fpvHotRecording=true;char _fpvHotText[32]="CAM HOT";bool _fpvPreArmEnabled=true;char _fpvPreArmText[32]="";uint16_t _fpvPreArmShowMs=1000,_fpvPreArmIntervalMs=3000;bool _hasArmedSinceBoot=false;
+    void sendFrame(uint16_t cmd, const uint8_t *payload, uint16_t length, char dir = '>');
+    void sendRequest(uint16_t cmd);
+    void sendCustomText(uint8_t textType, const char *text);
+    void sendCustomOSD(uint8_t textType, const CameraData &data, const char *tpl, const char *stateOverride = nullptr);
+    void feedByte(uint8_t b);
+    void processResponse();
+    void handleStatusResponse();
+    void handleRcResponse();
+    enum class RxState : uint8_t { IDLE, HDR_X, HDR_DIR, FLAG, CMD_LO, CMD_HI, SZ_LO, SZ_HI, PAYLOAD, CRC };
+    static constexpr uint8_t RX_BUF_SIZE = 32;
+    RxState _rxState = RxState::IDLE;
+    uint8_t _rxBuf[RX_BUF_SIZE]{};
+    uint16_t _rxCmd = 0;
+    uint16_t _rxSize = 0;
+    uint16_t _rxPos = 0;
+    uint8_t _rxCrc = 0;
+    static uint8_t crc8DvbS2(uint8_t crc, uint8_t byte);
+    static uint8_t crc8DvbS2Buf(uint8_t seed, const uint8_t *buf, uint16_t length);
+    HardwareSerial *_serial = nullptr;
+    bool _armed = false;
+    ArmCallback _armCb = nullptr;
+    uint32_t _lastPollMs = 0;
+    uint8_t _auxChannel = 0;
+    bool _auxHigh = false;
+    AuxSwitchCallback _auxSwitchCb = nullptr;
+    bool _fpvStateMode = true;
+    bool _fpvErrorEnabled = true;
+    char _fpvErrorText[32] = "{state}";
+    bool _fpvReadyEnabled = true;
+    char _fpvReadyText[32] = "{state} B:{batn} T:{rect}";
+    bool _fpvRecordingEnabled = true;
+    char _fpvRecordingText[32] = "{state}";
+    bool _fpvRecFlash = true;
+    bool _fpvLowBatteryEnabled = true;
+    uint8_t _fpvLowBatteryPct = 10;
+    bool _fpvLowBatteryReadyFlash = true;
+    bool _fpvLowBatteryRecText = true;
+    char _fpvLowBatteryText[32] = "BATT LOW";
+    bool _fpvLowRecEnabled = true;
+    uint16_t _fpvLowRecMinutes = 5;
+    bool _fpvLowRecReady = true;
+    bool _fpvLowRecRecording = true;
+    char _fpvLowRecText[32] = "REC LOW";
+    bool _fpvHotEnabled = true;
+    bool _fpvHotReady = true;
+    bool _fpvHotRecording = true;
+    char _fpvHotText[32] = "CAM HOT";
+    bool _fpvPreArmEnabled = true;
+    char _fpvPreArmText[32] = "";
+    uint16_t _fpvPreArmShowMs = 1000;
+    uint16_t _fpvPreArmIntervalMs = 3000;
+    bool _hasArmedSinceBoot = false;
 };
