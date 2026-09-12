@@ -25,18 +25,20 @@ public:
         uint32_t wifiApStartDelaySec; // seconds after boot/disconnect before the config-portal AP auto-starts
         bool     wifiApEnabled;      // false = never auto-start the AP (BOOT-button force-AP still works — see main.cpp)
         // OSD custom message templates — tokens: {bat} {rec} {mode} {res} {fps} {eis} {rleft} {rcap}
-        char osd1Tpl[OSD_TPL_LEN];
-        char osd2Tpl[OSD_TPL_LEN];
-        char osd3Tpl[OSD_TPL_LEN];
-        char osd4Tpl[OSD_TPL_LEN];
-        // Legacy Betaflight uses Pilot Name and Craft Name instead of Custom
-        // Message 1-4. The configurator selects exactly one method at a time.
+        char osd1Tpl[OSD_TPL_LEN];  // Custom Message 1
+        char osd2Tpl[OSD_TPL_LEN];  // Custom Message 2
+        char osd3Tpl[OSD_TPL_LEN];  // Custom Message 3
+        char osd4Tpl[OSD_TPL_LEN];  // Custom Message 4
+        // Betaflight 4.5 has Pilot Name and Craft Name but not the Custom
+        // Message 1-4 fields (added in 4.6). When enabled, the four osdN
+        // templates above are not sent at all and pilotNameTpl/craftNameTpl
+        // are sent to Pilot Name/Craft Name instead.
         bool     bf45Compat;
-        bool     pilotNameEnabled;
+        bool     pilotNameEnabled;  // false = skip sending Pilot Name even when bf45Compat is on
         char     pilotNameTpl[OSD_TPL_LEN];
-        bool     craftNameEnabled;
+        bool     craftNameEnabled;  // false = skip sending Craft Name even when bf45Compat is on
         char     craftNameTpl[OSD_TPL_LEN];
-        // Shared state/warning behaviour used by every active OSD destination.
+        // Shared state-aware presentation used by Stage 3 OSD rendering.
         bool     fpvStateMode;
         bool     fpvErrorEnabled;
         char     fpvErrorText[OSD_TPL_LEN];
@@ -63,24 +65,26 @@ public:
         char     fpvPreArmReminderText[OSD_TPL_LEN];
         uint16_t fpvPreArmReminderShowMs;
         uint16_t fpvPreArmReminderIntervalMs;
+        // No Caddx SSID/password here — those live in CameraRegistry
+        // (see setCaddxSsid()/setCaddxPass()), same storage every other
+        // camera's connection identity uses.
     };
 
     static constexpr uint32_t DEFAULT_DISARM_STOP_DELAY_MS = 5000;
     static constexpr bool     DEFAULT_STOP_ON_DISARM       = true;
     static constexpr uint8_t  DEFAULT_AUX_CHANNEL          = 0;
-    static constexpr uint8_t  DEFAULT_AUX_MODE             = 0x00;
-    static constexpr uint8_t  DEFAULT_CAMERA_TYPE          = 1;
-    static constexpr uint8_t  DEFAULT_CAMERA_MATCH_MODE    = 0;
+    static constexpr uint8_t  DEFAULT_AUX_MODE             = 0x00;  // slow motion
+    static constexpr uint8_t  DEFAULT_CAMERA_TYPE          = 1;     // GoPro
+    static constexpr uint8_t  DEFAULT_CAMERA_MATCH_MODE    = 0;     // CAM_MATCH_FALLBACK
     static constexpr bool     DEFAULT_CAMERA_WAKE_GUARD    = true;
     static constexpr bool     DEFAULT_DEBUG_BLE            = false;
     static constexpr bool     DEFAULT_LOW_POWER_MODE       = true;
     static constexpr uint32_t DEFAULT_WIFI_AP_START_DELAY_SEC = 30;
     static constexpr bool     DEFAULT_WIFI_AP_ENABLED      = false;
 
-    // Stage-3/V1 OSD defaults mirror a fresh configurator session: the complete
-    // OSD feature is effectively OFF until the user enables OSD Templates and
-    // presses Apply. Current-BF is the default method; legacy Pilot/Craft has a
-    // useful Pilot default ready for when that method is selected.
+    // Stage-3/V1 OSD defaults mirror a fresh configurator session: OSD output,
+    // temporary messages and warnings are OFF until the user enables OSD
+    // Templates and applies settings. Current-BF is the default method.
     static constexpr const char *DEFAULT_OSD1_TPL = "";
     static constexpr const char *DEFAULT_OSD2_TPL = "";
     static constexpr const char *DEFAULT_OSD3_TPL = "";
@@ -90,7 +94,6 @@ public:
     static constexpr const char *DEFAULT_PILOT_NAME_TPL  = "{stateonly} {batt} {rectf}";
     static constexpr bool     DEFAULT_CRAFT_NAME_ENABLED = false;
     static constexpr const char *DEFAULT_CRAFT_NAME_TPL  = "";
-
     static constexpr bool     DEFAULT_FPV_STATE_MODE          = true;
     static constexpr bool     DEFAULT_FPV_ERROR_ENABLED       = true;
     static constexpr const char *DEFAULT_FPV_ERROR_TEXT       = "{state}";
@@ -99,8 +102,6 @@ public:
     static constexpr bool     DEFAULT_FPV_RECORDING_ENABLED   = true;
     static constexpr const char *DEFAULT_FPV_RECORDING_TEXT   = "{state}"; // REC-only OFF
     static constexpr bool     DEFAULT_FPV_REC_FLASH           = true;
-
-    // Warnings are OFF until explicitly enabled in the configurator.
     static constexpr bool     DEFAULT_FPV_LOW_BATTERY_ENABLED = false;
     static constexpr uint8_t  DEFAULT_FPV_LOW_BATTERY_PCT     = 10;
     static constexpr bool     DEFAULT_FPV_LOW_BAT_READY_FLASH = true;
@@ -115,9 +116,8 @@ public:
     static constexpr bool     DEFAULT_FPV_HOT_READY            = true;
     static constexpr bool     DEFAULT_FPV_HOT_RECORDING        = true;
     static constexpr const char *DEFAULT_FPV_HOT_TEXT          = "CAM HOT";
-
-    // Temporary Message master is represented by a non-empty reminder text;
-    // empty text means OFF. This bool is the "Only before first arm" behaviour.
+    // This boolean is the "Only before first arm" behaviour. The Temporary
+    // Message master itself is represented by a non-empty reminder text.
     static constexpr bool     DEFAULT_FPV_PREARM_ENABLED       = true;
     static constexpr const char *DEFAULT_FPV_PREARM_TEXT       = "";
     static constexpr uint16_t DEFAULT_FPV_PREARM_SHOW_MS       = 1000;
@@ -126,12 +126,16 @@ public:
     void begin(Stream &serial);
     void update();
     void setRegistry(CameraRegistry *reg) { _registry = reg; }
+    // `data` must outlive the ConfigManager — main.cpp passes the address of
+    // its file-scope CameraData, refreshed on every camera callback.
     void setCamera(Camera *cam, const CameraData *data) { _camera = cam; _cameraData = data; }
 
     const Config &config() const { return _cfg; }
 
+    // Process a single CLI command, writing response to `out`.
     void processCommand(const char *line, Stream &out);
 
+    // Individual setters — each persists to NVS immediately.
     void setCameraType(uint8_t v);
     void setDisarmDelay(uint32_t ms);
     void setStopOnDisarm(bool v);
@@ -143,7 +147,7 @@ public:
     void setLowPowerMode(bool v);
     void setWifiApStartDelay(uint32_t sec);
     void setWifiApEnabled(bool v);
-    void setOsdTemplate(uint8_t n, const char *tpl);
+    void setOsdTemplate(uint8_t n, const char *tpl);  // n = 1..4
     void setBf45Compat(bool v);
     void setPilotNameEnabled(bool v);
     void setPilotNameTemplate(const char *tpl);
@@ -175,23 +179,26 @@ public:
     void setFpvPreArmReminderText(const char *text);
     void setFpvPreArmReminderShowMs(uint16_t ms);
     void setFpvPreArmReminderIntervalMs(uint16_t ms);
-
-    void setCaddxSsid(const char *ssid);
-    void setCaddxPass(const char *pass);
-
-    void setCameraRegistry(CameraRegistry *r) { _registry = r; }
-    void setCameraPtr(Camera *c) { _camera = c; }
-    void setCameraDataPtr(const CameraData *d) { _cameraData = d; }
+    // Both write into the registry's preferred/newest Caddx entry, not NVS
+    // (see CameraEntry) — return false if there's nothing to write to yet
+    // (setCaddxPass before any setCaddxSsid) or ssid is empty.
+    bool setCaddxSsid(const char *ssid);
+    bool setCaddxPass(const char *pass);
 
 private:
     void load();
-    void printAll(Stream &out) const;
-    void handleSet(const char *rest, Stream &out);
+    void save();
+    void printAll(Stream &out);
+    void handleLine(const char *line, Stream &out);
+    void handleCamerasCmd(const char *sub, Stream &out);
+    void handleWifiCmd(const char *sub, Stream &out);
 
-    Preferences _prefs;
-    Config _cfg{};
-    Stream *_serial = nullptr;
-    CameraRegistry *_registry = nullptr;
-    Camera *_camera = nullptr;
+    Preferences       _prefs;
+    Config            _cfg{};
+    CameraRegistry   *_registry   = nullptr;
+    Camera           *_camera     = nullptr;
     const CameraData *_cameraData = nullptr;
+    Stream           *_serial     = nullptr;
+    char            _buf[80];
+    uint8_t         _len = 0;
 };
