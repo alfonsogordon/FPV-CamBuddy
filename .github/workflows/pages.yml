@@ -28,7 +28,6 @@ jobs:
 
       - name: Generate FPSteVe Edition web UI
         run: |
-          sed -i "s/,'Message 1 builder'//" tools/build_fps_pages.py
           python3 tools/build_fps_pages.py
           python3 tools/build_fps_polish.py
 
