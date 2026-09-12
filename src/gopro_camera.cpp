@@ -57,6 +57,13 @@ void GoProCamera::update() {
     // cannot remain stuck at their last-good values.
     if (_gpConnected && _queryChar) {
         const uint32_t now = millis();
+        // Open GoPro requires a periodic Keep Alive while a client owns the BLE
+        // session. This prevents Auto Power Down while we are already connected,
+        // but is never sent while scanning, so sleeping nearby GoPros remain asleep.
+        if (now - _lastKeepAliveMs >= 3000) {
+            _lastKeepAliveMs = now;
+            sendKeepAlive();
+        }
         if (now - _lastStatusPollMs >= 1000) {
             _lastStatusPollMs = now;
             sendStatusPoll();
@@ -73,6 +80,14 @@ void GoProCamera::update() {
 
     if (millis() - _lastAttemptMs > BLE_RECONNECT_DELAY_MS)
         startScan();
+}
+
+void GoProCamera::sendKeepAlive() {
+    if (!_settingChar || !_bleConnected) return;
+    // Official Open GoPro keep-alive signal: LED setting (ID 91) with the
+    // reserved non-functional value 66. It refreshes the camera's client
+    // keep-alive timer without changing the user's LED setting.
+    sendSetting(91, 66);
 }
 
 // ─── Scan ────────────────────────────────────────────────────────────────────
@@ -277,6 +292,7 @@ bool GoProCamera::connectAndSetup() {
         _targetFound   = false;
         _lastAttemptMs = millis();
     _lastStatusPollMs = 0;
+    _lastKeepAliveMs = 0;
         return false;
     }
 

@@ -71,6 +71,7 @@ private:
     void sendRegisterSettings();
     void sendRegisterStatus();
     void sendStatusPoll();
+    void sendKeepAlive();
 
     // ── Notification handling ─────────────────────────────────────────────────
     void handleCmdNotification(uint8_t *data, size_t len);
@@ -108,6 +109,7 @@ private:
     bool                     _legacyProtocol = false;  // HERO4/5-Session-era status IDs/mode command
     uint32_t                 _lastAttemptMs = 0;
     uint32_t                 _lastStatusPollMs = 0;
+    uint32_t                 _lastKeepAliveMs = 0;
 
     // First GoPro seen during scan — fallback when preferred addr isn't found
     std::string              _candidateAddr;
