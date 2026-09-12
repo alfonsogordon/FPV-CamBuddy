@@ -78,6 +78,19 @@ public:
         _fpvPreArmIntervalMs = preArmIntervalMs < _fpvPreArmShowMs ? _fpvPreArmShowMs : preArmIntervalMs;
     }
     bool isArmed() const { return _armed; }
+    // USB bench simulation uses the same state/callback path as MSP responses.
+    // RAM-only: reboot clears it and it can never arm a real flight controller.
+    void simulateArmState(bool armed) {
+        if (armed) _hasArmedSinceBoot = true;
+        if (_armed == armed) return;
+        _armed = armed;
+        if (_armCb) _armCb(armed);
+    }
+    void simulateAuxSwitch(bool high) {
+        if (_auxHigh == high) return;
+        _auxHigh = high;
+        if (_auxSwitchCb) _auxSwitchCb(high);
+    }
     void setArmCallback(ArmCallback cb) { _armCb = cb; }
     void setAuxChannel(uint8_t channel);
     void setAuxSwitchCallback(AuxSwitchCallback cb) { _auxSwitchCb = cb; }
