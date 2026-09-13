@@ -47,6 +47,8 @@ public:
     // radio. Applies to BLE power on the BLE-based backends and, for
     // CaddxCamera (the only Wi-Fi backend), Wi-Fi TX power.
     void setLowPowerMode(bool v)              { _lowPowerMode = v; }
+    void setScanEnabled(bool v)                { _scanEnabled = v; }
+    bool scanEnabled() const                    { return _scanEnabled; }
 
 protected:
     CameraCallback  _cameraCb     = nullptr;
@@ -55,4 +57,5 @@ protected:
     bool            _wakeGuard    = true;
     bool            _debugBle     = false;  // when true, log raw BLE packets
     bool            _lowPowerMode = true;
+    bool            _scanEnabled  = true;
 };

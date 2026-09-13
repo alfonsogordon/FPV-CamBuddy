@@ -7,6 +7,7 @@
 #include "ble_camera.h"
 #include "gopro_camera.h"
 #include "multi_gopro_camera.h"
+#include "multi_camera_coordinator.h"
 #include "caddx_camera.h"
 #include "sony_camera.h"
 #include "blackmagic_camera.h"
@@ -22,6 +23,7 @@ static CaddxCamera      caddxCamera;
 static SonyCamera       sonyCamera;
 static BlackmagicCamera blackmagicCamera;
 static Insta360Camera   insta360Camera;
+static MultiCameraCoordinator multiCameraCoordinator(multiGoProCamera, djiCamera, sonyCamera, blackmagicCamera, insta360Camera, caddxCamera);
 static Camera          *activeCamera = nullptr;
 
 static CameraRegistry   cameraRegistry;
@@ -87,7 +89,7 @@ static void updateStatusLed(uint32_t now, bool camConnected, bool apRunning) {
 }
 
 static void onAuxSwitch(bool high) {
-    const bool isGoPro = (configManager.config().cameraType == 1);
+    const bool isGoPro = (configManager.config().cameraType == 1) && !configManager.config().multiCamSync;
     if (isGoPro && currentCamera.recording) {
         if (high) {
             DBG_SERIAL.println("[main] AUX high + GoPro recording -> Burst Slo-Mo");
@@ -173,21 +175,18 @@ void setup() {
 
     const uint8_t camType = configManager.config().cameraType;
     const char *camTypeName;
-    switch (camType) {
-        case 1:
-            if (configManager.config().multiCamSync) {
-                activeCamera = &multiGoProCamera;
-                camTypeName = "GoPro Multi";
-            } else {
-                activeCamera = &goProCamera;
-                camTypeName = "GoPro Single";
-            }
-            break;
-        case 2:  activeCamera = &caddxCamera;       camTypeName = "Caddx Orca"; break;
-        case 3:  activeCamera = &sonyCamera;        camTypeName = "Sony Alpha"; break;
-        case 4:  activeCamera = &blackmagicCamera;  camTypeName = "Blackmagic"; break;
-        case 5:  activeCamera = &insta360Camera;    camTypeName = "Insta360"; break;
-        default: activeCamera = &djiCamera;         camTypeName = "DJI Action"; break;
+    if (configManager.config().multiCamSync) {
+        activeCamera = &multiCameraCoordinator;
+        camTypeName = "Multi Brand / Multi Cam";
+    } else {
+        switch (camType) {
+            case 1:  activeCamera = &goProCamera;       camTypeName = "GoPro Single"; break;
+            case 2:  activeCamera = &caddxCamera;       camTypeName = "Caddx Orca"; break;
+            case 3:  activeCamera = &sonyCamera;        camTypeName = "Sony Alpha"; break;
+            case 4:  activeCamera = &blackmagicCamera;  camTypeName = "Blackmagic"; break;
+            case 5:  activeCamera = &insta360Camera;    camTypeName = "Insta360"; break;
+            default: activeCamera = &djiCamera;         camTypeName = "DJI Action"; break;
+        }
     }
 
     DBG_SERIAL.printf("[main] Camera type: %s\n", camTypeName);

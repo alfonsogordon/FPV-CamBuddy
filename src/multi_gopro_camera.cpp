@@ -49,6 +49,7 @@ int MultiGoProCamera::slotForNotify(BLERemoteCharacteristic *ch) const {
 }
 
 void MultiGoProCamera::startScan(uint8_t slot) {
+    if (!_scanEnabled) return;
     if (_scanning || slot >= MAX_MULTI_GOPRO_SLOTS || _slots[slot].ready || _slots[slot].bleConnected) return;
     _scanSlot = static_cast<int8_t>(slot);
     _scanning = true;

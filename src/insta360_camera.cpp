@@ -31,6 +31,7 @@ void Insta360Camera::update() {
 // ─── Scan ────────────────────────────────────────────────────────────────────
 
 void Insta360Camera::startScan() {
+    if (!_scanEnabled) return;
     _targetFound   = false;
     _scanning      = true;
     _candidateAddr = "";

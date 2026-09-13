@@ -93,6 +93,7 @@ void GoProCamera::sendKeepAlive() {
 // ─── Scan ────────────────────────────────────────────────────────────────────
 
 void GoProCamera::startScan() {
+    if (!_scanEnabled) return;
     _targetFound   = false;
     _scanning      = true;
     _candidateAddr = "";
