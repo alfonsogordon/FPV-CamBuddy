@@ -127,7 +127,7 @@ See the [Quick Start Guide](QUICKSTART.md) before powering the installation.
 
 ## GoPro pairing note
 
-When switching to a GoPro that FreeCLinker has not paired with before, you may need to open that camera's **Pair** menu for the first connection. For example, after a HERO11 Black Mini had already been connected, a MAX2 needed to be placed in its Pair menu the first time it was used. Once paired, normal automatic connection/reconnection can resume.
+When switching to a GoPro that FreeCLinker has not paired with before, you may need to open that camera's **Pair** menu for the first connection. As one example from V1 testing, after a HERO11 Black Mini had already been connected, a MAX2 needed to be placed in its Pair menu the first time it was used. **The HERO11 Black Mini and MAX2 are examples of the observed behaviour, not a requirement or limitation to those specific models.** Once paired, normal automatic connection/reconnection can resume.
 
 ## Help & feedback
 
