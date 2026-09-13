@@ -382,23 +382,17 @@
         </label>
       </div>
 
-      <!-- Debug BLE -->
-      <div class="cfg-field">
-        <div class="cfg-field-text">
-          <div class="cfg-field-name">BLE debug logging</div>
-          <div class="cfg-field-desc">Log raw BLE TX/RX packets to the serial console (DJI/GoPro only). Verbose — leave off unless debugging.</div>
-        </div>
-        <label class="switch" title="BLE debug logging">
-          <input type="checkbox" id="debugBle" disabled>
-          <span class="track"><span class="thumb"></span></span>
-        </label>
+      <!-- BLE debug is intentionally hidden for V1. The setting remains in the
+           DOM/config protocol so a post-V1 Advanced / Experimental UI can expose it. -->
+      <div class="cfg-field" style="display:none" aria-hidden="true">
+        <input type="checkbox" id="debugBle" disabled>
       </div>
 
       <!-- Low power mode -->
       <div class="cfg-field">
         <div class="cfg-field-text">
           <div class="cfg-field-name">Low power mode</div>
-          <div class="cfg-field-desc">Minimum BLE TX power (Wi-Fi TX power too, for Caddx Orca) — shorter range, but less RF interference with the flight controller's RC receiver. On by default. Reboot required to apply.</div>
+          <div class="cfg-field-desc">Low BLE TX power: -12 dBm (about 0.063 mW). Normal mode uses +9 dBm (about 7.9 mW). Lower power means shorter range but less RF interference with the flight controller's RC receiver. On by default. Reboot required to apply.</div>
         </div>
         <label class="switch" title="Low power mode">
           <input type="checkbox" id="lowPower" checked disabled>
@@ -419,17 +413,6 @@
         <div class="num-wrap">
           <input type="number" id="wifiApDelay" min="0" max="3600" step="5" value="30" disabled>
           <span class="num-unit">s start delay</span>
-        </div>
-      </div>
-
-      <!-- Disarm delay -->
-      <div class="cfg-field" style="flex-direction:column; align-items:flex-start;">
-        <div class="cfg-field-name">Disarm delay</div>
-        <div class="cfg-field-desc">Delay between FC disarm and stopping the recording. 0 = stop immediately.</div>
-        <div class="num-wrap">
-          <input type="number" id="disarmDelay" min="0" max="60000" step="500" value="0" disabled>
-          <span class="num-unit">ms</span>
-          <span class="num-equiv" id="delayEquiv"></span>
         </div>
       </div>
 
