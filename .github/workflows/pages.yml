@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - fps-integrated-osd-preview
+      - experimental
   workflow_dispatch:
 
 permissions:
@@ -25,12 +25,21 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: stable
+      - uses: actions/checkout@v4
+        with:
+          ref: experimental
+          path: experiment
       - uses: actions/configure-pages@v5
 
-      - name: Generate FPSteVe Edition site
+      - name: Generate stable V1 site
+        working-directory: stable
         run: python3 tools/build_fps_site.py
 
-      - name: Download firmware releases
+      - name: Download stable firmware releases
+        working-directory: stable
         run: |
           mkdir -p web/firmware
           tags=$(gh release list --repo ${{ github.repository }} --limit 15 --json tagName --jq '.[].tagName')
@@ -42,9 +51,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - name: Generate experimental site
+        working-directory: experiment
+        run: python3 tools/build_fps_site.py
+
+      - name: Stage isolated experimental environment
+        run: |
+          rm -rf stable/web/experimental
+          mkdir -p stable/web/experimental
+          cp -a experiment/web/. stable/web/experimental/
+
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: web/
+          path: stable/web/
 
       - uses: actions/deploy-pages@v4
         id: deploy
