@@ -2,11 +2,15 @@
 'use strict';
 const $=id=>document.getElementById(id);
 let readTimer=null,readRequested=false;
+const CRAFT_DEFAULT='{res} {fps}';
 function legacyMode(){return $('fpsBfMode')?.value==='legacy'}
 function connected(){return !!$('connectBtn')?.disabled}
 function stripTarget(value){const s=String(value||'');const m=s.match(/^@([1-4]):(.*)$/s);return m?{target:parseInt(m[1],10),text:m[2]}:{target:1,text:s}}
 function fire(id,type='change'){const e=$(id);if(e)e.dispatchEvent(new Event(type,{bubbles:true}))}
 function setSelectTarget(id,target){const s=$(id);if(!s)return;const value=legacyMode()?(target===2?'craft':'pilot'):String(target);if([...s.options].some(o=>o.value===value)){s.value=value;fire(id)}}
+function craftTemplateIsOff(){const v=String($('craftTpl')?.value||'').trim().toLowerCase();return !v||v==='off'||v==='{off}'}
+function healCraftTemplate(){if(!$('fpsCraftMaster')?.checked||!$('craftTpl')||!craftTemplateIsOff())return false;$('craftTpl').value=CRAFT_DEFAULT;fire('craftTpl','input');return true}
+function syncGoProNote(){const n=$('fpsGoProConnectionNote');if(!n)return;n.style.display=$('wakeGuard')?.checked?'':'none'}
 function syncMetadataFromDevice(){
  if(!readRequested||!connected())return;
  window.fpsBoardSyncing=true;
@@ -14,7 +18,7 @@ function syncMetadataFromDevice(){
  const bf=$('bf45Compat');
  if($('fpsBfMode')&&bf){$('fpsBfMode').value=bf.checked?'legacy':'current';fire('fpsBfMode')}
  if($('fpsPilotMaster')&&$('pilotEn')){$('fpsPilotMaster').checked=$('pilotEn').checked;fire('fpsPilotMaster')}
- if($('fpsCraftMaster')&&$('craftEn')){$('fpsCraftMaster').checked=$('craftEn').checked;fire('fpsCraftMaster')}
+ if($('fpsCraftMaster')&&$('craftEn')){$('fpsCraftMaster').checked=$('craftEn').checked;healCraftTemplate();fire('fpsCraftMaster')}
  // Existing firmware persists the Full Edition OSD master in fpv_state_mode.
  if($('fpsOsdMaster')){$('fpsOsdMaster').checked=!!$('fpvStateMode')?.checked;fire('fpsOsdMaster')}
  for(let n=1;n<=4;n++){
@@ -40,6 +44,7 @@ function syncMetadataFromDevice(){
  setSelectTarget('fpsWarnDest',w.target);
  if($('fpsAuxMaster')&&$('auxChannel')){$('fpsAuxMaster').checked=parseInt($('auxChannel').value,10)>0;fire('fpsAuxMaster')}
  fire('fpvFlash');fire('fpvPreArm');fire('fpvLowPct','input');fire('fpvRecLowMin','input');
+ syncGoProNote();
  window.fpsBoardSyncing=false;
  document.dispatchEvent(new CustomEvent('fps-config-read-complete'));
 }
@@ -47,6 +52,6 @@ function scheduleReadSync(){if(!readRequested)return;clearTimeout(readTimer);rea
 function installReadCompletionHook(){if(typeof parseConfigLine!=='function'||parseConfigLine.__fpsWrapped)return;const original=parseConfigLine;const wrapped=function(line){original(line);if(readRequested&&/^\[cfg\]\s+\w+\s*=/.test(String(line||'')))scheduleReadSync()};wrapped.__fpsWrapped=true;parseConfigLine=wrapped}
 function requestRead(){readRequested=true;clearTimeout(readTimer)}
 window.fpsRequestBoardRead=requestRead;
-function init(){installReadCompletionHook();$('readBtn')?.addEventListener('click',requestRead,true)}
+function init(){installReadCompletionHook();$('readBtn')?.addEventListener('click',requestRead,true);$('fpsCraftMaster')?.addEventListener('change',()=>{if(healCraftTemplate())fire('fpsCraftMaster')});$('wakeGuard')?.addEventListener('change',syncGoProNote);syncGoProNote()}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(init,450));else setTimeout(init,450);
 })();
