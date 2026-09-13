@@ -84,13 +84,13 @@ A camera that FreeCLinker has not paired with before may need to be placed in it
 
 ## Final release checklist
 
-- README and Quick Start finalised
-- Homepage and OSD demonstration visually signed off
-- Squadding Quads Discord support invite added to public documentation
-- Final validation/build/site review
-- Publish final `v1.0.0` release as **V1.0.0**
-- Verify release firmware assets and live Web Flasher release selection
-- Retire the hardware-test preview release after V1.0.0 is verified
+- [x] README and Quick Start finalised
+- [x] Homepage and OSD demonstration visually signed off
+- [x] Squadding Quads Discord support invite added to public documentation/site
+- [ ] Final validation/build/site review
+- [ ] Publish final `v1.0.0` release as **V1.0.0**
+- [ ] Verify release firmware assets and live Web Flasher release selection
+- [ ] Retire the hardware-test preview release after V1.0.0 is verified
 
 ## Post-V1 candidates
 
