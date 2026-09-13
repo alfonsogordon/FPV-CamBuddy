@@ -61,6 +61,7 @@ struct CameraData {
     bool     has_remain_time = false;
     bool     has_media_ready = false;   // true when backend can report record-media readiness
     bool     media_ready     = true;    // false = missing/full/busy/error media; only valid when has_media_ready
+    uint8_t  connected_cameras = 0;    // 0=not supplied/single backend; Multi Cam reports live count
     uint8_t  percent      = 0;      // battery 0–100 %
     bool     recording    = false;  // true while actively recording
     uint8_t  camera_mode  = 0;      // DJI_MODE_* or mapped equivalent
