@@ -23,23 +23,19 @@ jobs:
           from pathlib import Path
           p = Path('src/gopro_camera.cpp')
           s = p.read_text()
-          old = '''            } else if (family == 0x03) {
-                // MAX2: 0x01=awake, 0x00=sleeping
-                knownFamily = true;
-                awake = (state == 0x01);
-            }'''
-          new = '''            } else if (family == 0x03) {
-                // MAX2: 0x01/0x05=awake, 0x00=sleeping
-                knownFamily = true;
-                awake = (state == 0x01 || state == 0x05);
-            }'''
-          if new in s:
+          old_comment = '// MAX2: 0x01=awake, 0x00=sleeping'
+          new_comment = '// MAX2: 0x01/0x05=awake, 0x00=sleeping'
+          old_guard = 'awake = (state == 0x01);'
+          new_guard = 'awake = (state == 0x01 || state == 0x05);'
+          if new_comment in s and new_guard in s:
               print('MAX2 patch already present')
-          elif old in s:
-              p.write_text(s.replace(old, new, 1))
+          elif old_comment in s and old_guard in s:
+              s = s.replace(old_comment, new_comment, 1)
+              s = s.replace(old_guard, new_guard, 1)
+              p.write_text(s)
               print('Applied MAX2 wake-state patch')
           else:
-              raise SystemExit('Expected MAX2 wake-guard block not found; refusing to patch')
+              raise SystemExit('Expected MAX2 wake-guard lines not found; refusing to patch')
 
       - name: Commit MAX2 fix to RC branch
         run: |
