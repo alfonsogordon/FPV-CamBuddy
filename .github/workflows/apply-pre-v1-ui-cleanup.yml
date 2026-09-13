@@ -1,0 +1,55 @@
+name: Apply pre-V1 UI cleanup
+on:
+  push:
+    branches: [pre-v1-ui-cleanup]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: pre-v1-ui-cleanup
+      - name: Apply UI cleanup
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p = Path('web/config.html')
+          s = p.read_text()
+          old = '''      <!-- Debug BLE -->\n      <div class="cfg-field">\n        <div class="cfg-field-text">\n          <div class="cfg-field-name">BLE debug logging</div>\n          <div class="cfg-field-desc">Log raw BLE TX/RX packets to the serial console (DJI/GoPro only). Verbose — leave off unless debugging.</div>\n        </div>\n        <label class="switch" title="BLE debug logging">\n          <input type="checkbox" id="debugBle" disabled>\n          <span class="track"><span class="thumb"></span></span>\n        </label>\n      </div>'''
+          new = '''      <!-- BLE debug is intentionally hidden for V1. The setting remains in the\n           DOM/config protocol so a post-V1 Advanced / Experimental UI can expose it. -->\n      <div class="cfg-field" style="display:none" aria-hidden="true">\n        <input type="checkbox" id="debugBle" disabled>\n      </div>'''
+          assert old in s
+          s = s.replace(old, new)
+          s = s.replace('Minimum BLE TX power (Wi-Fi TX power too, for Caddx Orca) — shorter range, but less RF interference with the flight controller\'s RC receiver. On by default. Reboot required to apply.', 'Low BLE TX power: -12 dBm (about 0.063 mW). Normal mode uses +9 dBm (about 7.9 mW). Lower power means shorter range but less RF interference with the flight controller\'s RC receiver. On by default. Reboot required to apply.')
+          # Remove the native disarm-delay row; the friendly UI moves this same control into Camera Mode Switch.
+          start = s.index('      <!-- Disarm delay -->')
+          end = s.index('      <div class="card-footer">', start)
+          s = s[:start] + s[end:]
+          p.write_text(s)
+
+          p = Path('web/fps-ui-rebuild.js')
+          s = p.read_text()
+          s = s.replace("craftEn:false,craftTpl:'',recOnly:false", "craftEn:false,craftTpl:'{res} {fps}',recOnly:false")
+          # Heal old/browser/board legacy values so enabling Craft never produces the static word 'off'.
+          s = s.replace("function load(){migrate();const d=localStorage.getItem(DEMO)==='1'?parse(DEMOCFG):parse(STORE);st={...DEF,...d};", "function load(){migrate();const d=localStorage.getItem(DEMO)==='1'?parse(DEMOCFG):parse(STORE);st={...DEF,...d};if(!st.craftTpl||String(st.craftTpl).trim().toLowerCase()==='off'||String(st.craftTpl).trim()==='{off}')st.craftTpl=DEF.craftTpl;")
+          # Put the GoPro connection note inside the normal padded settings row styling.
+          s = s.replace("n.className='fps-note';n.textContent='GoPro connection:", "n.className='cfg-field fps-gopro-connection-note';n.textContent='GoPro connection:")
+          # Move the existing disarmDelay control into the AUX card, outside the optional AUX body.
+          old = "const aux=$('auxChannel'),auxCard=aux?.closest('.config-card');if(auxCard){const rows=[...auxCard.querySelectorAll(':scope > .cfg-field')];const head=auxCard.querySelector('.card-header');head.innerHTML='<h2>Camera Mode Switch</h2>';const a=section('AUX Camera Controls','Use a Betaflight AUX channel to control camera behaviour. Leave this off if you only want arming/disarming the quad to start and stop recording.','fpsAuxMaster',rows);head.after(a);put('fpsAuxMaster',st.auxEnabled)}"
+          new = "const aux=$('auxChannel'),auxCard=aux?.closest('.config-card');if(auxCard){const rows=[...auxCard.querySelectorAll(':scope > .cfg-field')];const head=auxCard.querySelector('.card-header');head.innerHTML='<h2>Camera Mode Switch</h2>';const delay=$('disarmDelay');if(delay){const delayRow=field('Disarm delay',delay);delayRow.classList.add('fps-disarm-delay-row');const txt=delayRow.querySelector('label');if(txt){txt.innerHTML='<strong>Disarm delay</strong><div class=\"fps-inline-desc\">Delay between FC disarm and stopping recording. This applies to the normal arm-switch workflow too, so it remains available when AUX Camera Controls is off.</div>';}head.after(delayRow)}const a=section('AUX Camera Controls','Use a Betaflight AUX channel to control camera behaviour. Leave this off if you only want arming/disarming the quad to start and stop recording.','fpsAuxMaster',rows);delayRow?.insertAdjacentElement('afterend',a);put('fpsAuxMaster',st.auxEnabled)}"
+          assert old in s
+          s = s.replace(old, new)
+          p.write_text(s)
+      - name: Remove one-shot workflow
+        run: rm .github/workflows/apply-pre-v1-ui-cleanup.yml
+      - name: Commit changes
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add web/config.html web/fps-ui-rebuild.js .github/workflows/apply-pre-v1-ui-cleanup.yml
+          git commit -m "Apply pre-V1 configurator UI cleanup"
+          git push origin pre-v1-ui-cleanup
