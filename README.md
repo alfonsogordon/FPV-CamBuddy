@@ -1,98 +1,138 @@
 # FreeCLinker — FPSteVe Edition
 
-**FreeCLinker — FPSteVe Edition** is my fork of **[FreeCLinker](https://github.com/sheeprine/freeclinker)**, the ESP32 camera-to-Betaflight bridge. It keeps the original project's camera control and telemetry workflow while adding the FPSteVe OSD/status, warning, Temporary Message, bench-testing and configurator work.
+**Automatic action-camera control and Betaflight OSD telemetry from an ESP32-C3 Super Mini.**
 
-## FPSteVe hosted tools
+FreeCLinker connects a supported action camera to your flight controller without adding another control to your pre-flight routine. Power the quad, let the C3 find the camera, arm and fly. Recording can start automatically on arm and stop after a configurable delay on disarm, while camera status is shown directly in the Betaflight OSD.
 
-- **[Open the FPSteVe Configurator](https://alfonsogordon.github.io/freeclinker/config.html)** — configure the ESP32 over Web Serial, select the Betaflight OSD method and set camera/status behaviour.
-- **[Open OSD Preview](https://alfonsogordon.github.io/freeclinker/test.html)** — preview the selected OSD layout and use Demo Mode without a flight controller or ESP32 attached.
-- **[Open the browser flasher](https://alfonsogordon.github.io/freeclinker/flash.html)** — flash published FPSteVe Edition firmware releases.
-- **[FPSteVe Edition project site](https://alfonsogordon.github.io/freeclinker/)** — project overview, wiring and current feature/test status.
+> FPSteVe Edition builds on the original FreeCLinker project with a simplified configurator, GoPro-focused flight behaviour, richer OSD, warnings, automatic recording and extensive bench/flight testing.
 
-> This is a fork under active development. **[FreeCLinker](https://github.com/sheeprine/freeclinker)** is the original upstream project by sheeprine. Upstream describes the project as open source, but this fork does not assume a licence beyond what the upstream repository explicitly grants. Please check the upstream repository/licensing status before redistributing modified builds.
+## Start here
 
-## What the FPSteVe Edition adds
+- **Configurator:** https://alfonsogordon.github.io/freeclinker/config.html
+- **Web flasher:** https://alfonsogordon.github.io/freeclinker/flash.html
+- **Quick start:** [QUICKSTART.md](QUICKSTART.md)
+- **Project website:** https://alfonsogordon.github.io/freeclinker/
 
-The fork currently focuses on making camera telemetry useful as a state-aware FPV OSD rather than just forwarding fixed text. The configurator supports the newer Betaflight Custom Message workflow as well as the Pilot Name/Craft Name fallback used by older Betaflight releases.
+## See the OSD in action
 
-- State-aware `ERR`, `RDY` and `REC` display with optional flashing REC state.
-- Camera battery and remaining-record-time information.
-- Camera warnings including low battery, low recording time and camera-hot status when telemetry is available.
-- **Temporary Message** support, for messages such as `CLEAN LENS`, with display duration and an **Only before first arm** option.
-- Adaptive Temporary Message/warning destination: Pilot Name or Craft Name on legacy Betaflight, or one of up to four Custom Message slots on newer Betaflight.
-- Browser **Demo Mode** and OSD Preview for testing settings without arming a flight controller.
-- Safe USB bench arm/AUX simulation in FPSteVe firmware builds that include the simulator commands.
-- FPSteVe-specific browser configurator and flasher hosted through GitHub Pages.
+A short V1 OSD demo is being added here using the real FPSteVe defaults. It will show the normal flight sequence at a glance: **ERR → GoPro connects → RDY → ARM/record → flashing REC → DISARM → delayed stop → RDY**, including the first-arm **CLEAN LENS** reminder.
 
-### Betaflight OSD modes
+Until the animation asset is added, the same behaviour can be exercised interactively in the **OSD Preview** inside the configurator.
 
-**Betaflight 4.4 through 2025.12.x** uses `MSP2_SET_TEXT` with **Pilot Name** and **Craft Name**. The FPSteVe default is Pilot Name enabled with Status + Battery + Time Remaining; REC-only and REC flashing are enabled while recording. Craft Name is disabled by default. Temporary Message defaults to `CLEAN LENS`, enabled only before first arm, with a 1.0 second display duration. Camera warnings default to enabled with a 10% low-battery threshold and 5-minute low-recording-time threshold.
+## What it does
 
-**Betaflight 2026.6+** uses up to four **Custom Messages**. The original four-line camera layout remains the default: battery; recording state/duration; mode/resolution/FPS/stabilisation; and remaining recording time/storage.
+### Camera control
+- Automatic camera discovery and reconnect
+- GoPro BLE control with wake/sleep-aware connection behaviour
+- Start recording automatically when Betaflight arms
+- Configurable delayed stop after disarm — **5 seconds by default**
+- Optional AUX camera-mode control
+- GoPro Burst Slo-Mo support through AUX while recording
+- GoPro BLE keepalive while connected
+- Camera matching for multi-camera setups
+- Low-power radio mode to reduce RF output near the flight-control/RC system
 
-The browser UI keeps these modes separate so you only configure fields available on the Betaflight generation you're actually using.
+### Betaflight OSD
+- Camera state: **ERR / RDY / REC**
+- Camera battery percentage
+- Recording duration
+- Remaining recording time/capacity where reported by the camera
+- Camera mode, resolution, frame rate and stabilisation telemetry where available
+- Configurable OSD templates/tokens
+- **REC-only while armed + recording** for a clean flight display
+- Optional **1 Hz flashing REC**
+- First-arm temporary reminder — default **CLEAN LENS**
+- Camera warnings: **BATT LOW / REC LOW / CAM HOT**
+- Warning → temporary message → REC-only → normal OSD priority handling
 
-## How it works
+### Betaflight compatibility
+- **Betaflight 4.5:** Pilot Name / Craft Name compatibility mode
+- **Betaflight 2026.6+:** Custom Messages 1–4 support
+- Automatic arm-state polling over MSP
+- Configurable UART/AUX integration
 
-```text
-Camera ←— BLE / camera protocol —→ ESP32 ←— MSP Serial —→ Betaflight FC
-```
+### FPSteVe Easy Config
+- Browser-based configuration over USB
+- Automatic settings read when connected
+- One **SAVE / APPLY SETTINGS** action for the complete configuration
+- Read-back verification after saving
+- Settings stored on the C3 and retained across power cycles
+- Integrated live OSD Preview
+- Preview controls for ARM, recording, camera errors/hot state and first-arm reset
+- Fresh-board defaults designed to be useful without a long setup session
 
-The ESP32 connects to a supported camera, receives available camera status/telemetry, polls Betaflight for arm state, starts recording when the FC arms and optionally stops recording after disarm. Camera/status information is then formatted for the selected Betaflight OSD method.
+### Flashing & board behaviour
+- Browser-based ESP32-C3 flashing
+- Clear post-flash power-cycle/configuration flow
+- Wi-Fi AP configuration remains available as an optional/fallback feature
+- BOOT-button force-AP recovery
+- Status LED for scanning/connection/AP state
 
-## ESP32-C3 Super Mini wiring
+## Default OSD setup
 
-| ESP32-C3 | Flight controller |
+FPSteVe Edition ships with sensible flight defaults. On **BF 4.5**, Pilot Name is enabled by default with:
+
+`{stateonly} {batt} {rectf}`
+
+On **BF 2026.6+**, the four Custom Message defaults are:
+
+| Message | Default template |
 |---|---|
-| 5V | 5V BEC |
-| GND | GND |
+| 1 | `{batt}` |
+| 2 | `{state} {recdur}` |
+| 3 | `{mode} {res} {fps} {eis}` |
+| 4 | `{rectf} {rcap}` |
+
+REC-only, flashing REC, CLEAN LENS and camera warnings are enabled by default on a fresh FPSteVe Edition configuration.
+
+## Tested for V1 🤘
+
+The following have been physically confirmed on the FPSteVe Edition hardware-test setup:
+
+- ESP32-C3 Super Mini + GoPro BLE connection and automatic reconnect
+- GoPro control from a real Betaflight 4.5 flight controller
+- ARM → automatic recording
+- DISARM → immediate normal OSD restoration → 5-second delayed recording stop → RDY
+- BF 4.5 Pilot/Craft OSD output and live **ERR / RDY / REC** state
+- REC-only while armed + recording, including flashing REC
+- First-arm **CLEAN LENS** behaviour
+- Configurator read, save, read-back verification and settings persistence after reconnect/power cycle
+- GoPro keepalive: camera stays connected while FreeCLinker is powered and returns to normal camera auto-power-off behaviour when FreeCLinker is removed
+- Web flasher and post-flash configuration flow
+
+Camera-warning behaviour and priority have been validated in the integrated Preview/firmware logic; individual warning conditions have not all been forced on the installed flight-test camera.
+
+## Implemented, but not yet hardware-tested
+
+**Betaflight 2026.6+ Custom Messages 1–4** are implemented and exercised through the FPSteVe OSD Preview/firmware logic, but have **not yet been physically tested against a flight controller running that Betaflight generation**. The V1 hardware available for testing currently runs Betaflight 4.5, so this distinction is intentional.
+
+Some telemetry fields also depend on what a particular camera/model reports over its protocol.
+
+## Quick hardware connection
+
+Default ESP32-C3 Super Mini ↔ flight-controller UART wiring:
+
+| C3 | Flight controller |
+|---|---|
 | GPIO4 TX | UART RX |
 | GPIO5 RX | UART TX |
+| GND | GND |
+| 5V | suitable 5V supply |
 
-Configure that flight-controller UART for **MSP at 115200 baud**.
+MSP UART speed: **115200 baud**.
 
-The project also supports the standard ESP32 target; see the source configuration and [Quickstart guide](QUICKSTART.md) for board-specific details.
+See the [Quick Start Guide](QUICKSTART.md) before powering the installation.
 
-## Supported camera families
+## Help & feedback
 
-The underlying **[FreeCLinker](https://github.com/sheeprine/freeclinker)** project contains support for DJI Action, GoPro, Caddx Orca, Sony Alpha, Blackmagic and Insta360 camera families. Protocol capabilities differ by camera, so not every camera can provide every OSD value.
+A dedicated **Squadding Quads Discord** help/feedback thread is planned for FPSteVe Edition. The direct thread link will be added here and to the project website as soon as it is available.
 
-For the FPSteVe Edition, distinguish **supported in code** from **physically tested**. Current FPSteVe hardware testing includes GoPro HERO11 Black Mini and GoPro MAX2. Other camera families should be treated as needing additional hardware validation unless explicitly marked tested on the project site.
+Bug reports and useful real-world compatibility results are especially welcome — please include the camera model, Betaflight version and C3 board where possible.
 
-## GoPro wake protection
+## Credits
 
-The fork retains the GoPro wake-guard behaviour developed for mounted FPV cameras. For known advertisement formats, the ESP32 can avoid automatically connecting to a GoPro that is advertising while asleep, preventing an unwanted BLE connection from waking a camera the pilot deliberately left powered down. Manual camera selection can bypass this protection.
+FPSteVe Edition is based on **FreeCLinker** and retains the work and supported-camera foundations of the upstream project. Thanks to the original FreeCLinker contributors and the camera/protocol projects that make this possible.
 
-## Configuration and firmware
+---
 
-Runtime settings are persisted on the ESP32. The recommended interface for this fork is the **[FPSteVe Configurator](https://alfonsogordon.github.io/freeclinker/config.html)** rather than the upstream hosted configurator.
-
-The USB serial CLI remains available for diagnostics and direct settings. Useful commands include `status`, `show`, `help`, `record start`, `record stop` and `reboot`. FPSteVe test firmware may additionally expose safe RAM-only simulator commands such as `sim arm 1`, `sim arm 0`, `sim aux high`, `sim aux low`, `sim status` and `sim off`.
-
-## Building
-
-The firmware uses PlatformIO. Typical local commands are:
-
-```bash
-pio run
-pio run -e esp32c3supermini
-pio run -e esp32dev
-```
-
-Published test builds are produced through this repository's GitHub Actions release workflow. The hosted flasher downloads release assets from **this fork**, not from upstream.
-
-## Project status
-
-The FPSteVe Edition is currently in active test/development. Browser UI, OSD Preview, Demo Mode, defaults and persistence are being validated before the next C3 test firmware is promoted for hardware testing. Do not interpret a supported-camera entry as confirmation that FPSteVe has physically tested that model.
-
-## Upstream credit
-
-This work is based on **[FreeCLinker](https://github.com/sheeprine/freeclinker)** by sheeprine. The upstream project established the core ESP32 camera/Betaflight bridge, camera protocol implementations and original web interface. FPSteVe Edition builds on that work with the features described above.
-
-FPSteVe: [YouTube](https://www.youtube.com/@FPSteVe) · [Instagram](https://www.instagram.com/fpvsteve/)
-
-### GoPro first connection
-
-After flashing an ESP32-C3, **power-cycle the FreeCLinker board**. With the GoPro awake, FreeCLinker should discover and connect to it automatically; during current HERO11 Mini/MAX2 testing there is **no need to put the GoPro into its Pair/Connect Device screen**. Wake Guard is intended to ignore a sleeping GoPro rather than wake it during scanning.
-
-While connected, FPSteVe Edition currently sends an experimental Open GoPro keep-alive every **10 seconds**. This interval is under real-hardware validation and may change before V1.0.
+**FPSteVe Edition V1.0 — Actually Final** 🤘
