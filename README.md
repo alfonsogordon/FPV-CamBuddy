@@ -2,9 +2,11 @@
 
 **Automatic action-camera control and Betaflight OSD telemetry from an ESP32-C3 Super Mini.**
 
+> **Based on the original [FreeCLinker by sheeprine](https://github.com/sheeprine/freeclinker).** Visit the [original FreeCLinker project site](https://sheeprine.github.io/freeclinker/) for the upstream project, its supported-camera foundations and original documentation.
+
 FreeCLinker connects a supported action camera to your flight controller without adding another control to your pre-flight routine. Power the quad, let the C3 find the camera, arm and fly. Recording can start automatically on arm and stop after a configurable delay on disarm, while camera status is shown directly in the Betaflight OSD.
 
-> FPSteVe Edition builds on the original FreeCLinker project with a simplified configurator, GoPro-focused flight behaviour, richer OSD, warnings, automatic recording and extensive bench/flight testing.
+FPSteVe Edition builds on that foundation with a simplified configurator, GoPro-focused flight behaviour, richer OSD, warnings, automatic recording and extensive bench/flight testing.
 
 ## Start here
 
@@ -15,9 +17,9 @@ FreeCLinker connects a supported action camera to your flight controller without
 
 ## See the OSD in action
 
-A short V1 OSD demo is being added here using the real FPSteVe defaults. It will show the normal flight sequence at a glance: **ERR → GoPro connects → RDY → ARM/record → flashing REC → DISARM → delayed stop → RDY**, including the first-arm **CLEAN LENS** reminder.
+The project homepage includes a compact animated demonstration using the same background image and **BF 4.5 Pilot Name default** as the integrated Easy Config OSD Preview: **ERR → RDY → CLEAN LENS → ARM/flashing REC → DISARM/full Pilot line while the camera is still recording → delayed stop → RDY**.
 
-Until the animation asset is added, the same behaviour can be exercised interactively in the **OSD Preview** inside the configurator.
+You can exercise the same behaviour interactively in the **OSD Preview** inside the configurator.
 
 ## What it does
 
@@ -131,7 +133,7 @@ Bug reports and useful real-world compatibility results are especially welcome �
 
 ## Credits
 
-FPSteVe Edition is based on **FreeCLinker** and retains the work and supported-camera foundations of the upstream project. Thanks to the original FreeCLinker contributors and the camera/protocol projects that make this possible.
+FPSteVe Edition is based on **[FreeCLinker by sheeprine](https://github.com/sheeprine/freeclinker)** and retains the work and supported-camera foundations of the upstream project. Thanks to the original FreeCLinker contributors and the camera/protocol projects that make this possible.
 
 ---
 
