@@ -71,18 +71,6 @@ jobs:
                   p.write_text(s.replace(marker,tag+'\n'+marker))
           PY
 
-      - name: Download experimental firmware artifacts
-        working-directory: experiment
-        run: |
-          mkdir -p ../stable/web/experimental/firmware/experimental
-          run_id=$(gh run list --repo ${{ github.repository }} --branch experimental --workflow "Validate FPSteVe Edition" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
-          if [ -n "$run_id" ]; then
-            gh run download "$run_id" --repo ${{ github.repository }} --dir /tmp/exp-artifacts || true
-            find /tmp/exp-artifacts -type f -name '*.bin' -exec cp {} ../stable/web/experimental/firmware/experimental/ \; 2>/dev/null || true
-          fi
-        env:
-          GH_TOKEN: ${{ github.token }}
-
       - uses: actions/upload-pages-artifact@v3
         with:
           path: stable/web/
