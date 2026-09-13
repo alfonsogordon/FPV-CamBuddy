@@ -2,7 +2,7 @@
 'use strict';
 const $=id=>document.getElementById(id);
 let readTimer=null,readRequested=false;
-const CRAFT_DEFAULT='{res} {fps}';
+const CRAFT_DEFAULT='{res} {fps}',CURRENT_DEFAULTS=['','{batt}','{state} {recdur}','{mode} {res} {fps} {eis}','{rectf} {rcap}'];
 function legacyMode(){return $('fpsBfMode')?.value==='legacy'}
 function connected(){return !!$('connectBtn')?.disabled}
 function stripTarget(value){const s=String(value||'');const m=s.match(/^@([1-4]):(.*)$/s);return m?{target:parseInt(m[1],10),text:m[2]}:{target:1,text:s}}
@@ -13,45 +13,35 @@ function healCraftTemplate(){if(!$('fpsCraftMaster')?.checked||!$('craftTpl')||!
 function syncGoProNote(){const n=$('fpsGoProConnectionNote');if(!n)return;n.style.display=$('wakeGuard')?.checked?'':'none'}
 function syncMetadataFromDevice(){
  if(!readRequested||!connected())return;
- window.fpsBoardSyncing=true;
- readRequested=false;
- const bf=$('bf45Compat');
- if($('fpsBfMode')&&bf){$('fpsBfMode').value=bf.checked?'legacy':'current';fire('fpsBfMode')}
+ window.fpsBoardSyncing=true;readRequested=false;
+ const bf=$('bf45Compat');if($('fpsBfMode')&&bf){$('fpsBfMode').value=bf.checked?'legacy':'current';fire('fpsBfMode')}
  if($('fpsPilotMaster')&&$('pilotEn')){$('fpsPilotMaster').checked=$('pilotEn').checked;fire('fpsPilotMaster')}
  if($('fpsCraftMaster')&&$('craftEn')){$('fpsCraftMaster').checked=$('craftEn').checked;healCraftTemplate();fire('fpsCraftMaster')}
- // Existing firmware persists the Full Edition OSD master in fpv_state_mode.
- if($('fpsOsdMaster')){$('fpsOsdMaster').checked=!!$('fpvStateMode')?.checked;fire('fpsOsdMaster')}
+ const osdOn=!!$('fpvStateMode')?.checked;if($('fpsOsdMaster')){$('fpsOsdMaster').checked=osdOn;fire('fpsOsdMaster')}
+ const rawMsgs=[1,2,3,4].map(n=>String($('osd'+n)?.value||'').trim());
+ const freshEmpty=!osdOn&&rawMsgs.every(v=>!v||v==='{off}');
  for(let n=1;n<=4;n++){
   const input=$('osd'+n),master=$('fpsMsg'+n);if(!input||!master)continue;
   const wire=String(input.value||'').trim(),off=!wire||wire==='{off}';
-  master.checked=!off;
-  if(off&&!String(input.dataset.fpsLastTemplate||'').trim()) input.dataset.fpsLastTemplate=['','{batt}','{state} {recdur}','{mode} {res} {fps} {eis}','{rectf} {rcap}'][n];
-  if(!off) input.dataset.fpsLastTemplate=wire;
-  if(off) input.value=input.dataset.fpsLastTemplate||'';
+  // A factory-fresh board intentionally stores no active OSD transport while
+  // the OSD master is OFF. Rehydrate the agreed V1 templates as latent UI
+  // defaults so enabling OSD produces a useful four-message layout.
+  master.checked=freshEmpty?true:!off;
+  if((off||freshEmpty)&&!String(input.dataset.fpsLastTemplate||'').trim())input.dataset.fpsLastTemplate=CURRENT_DEFAULTS[n];
+  if(!off)input.dataset.fpsLastTemplate=wire;
+  if(off)input.value=input.dataset.fpsLastTemplate||CURRENT_DEFAULTS[n];
   fire('osd'+n,'input');fire('fpsMsg'+n);
  }
- const recordMeta=String($('fpvRecordText')?.value||'');
- if($('fpsRecOnly')){$('fpsRecOnly').checked=recordMeta.startsWith('@ARM:');fire('fpsRecOnly')}
- // fpv_prearm is ONLY the "before first arm" behaviour. Presence of text is
- // the Temporary Message master, so the two controls round-trip independently.
- const p=stripTarget($('fpvPreArmText')?.value);
- if($('fpvPreArmText')){$('fpvPreArmText').value=p.text||'CLEAN LENS';fire('fpvPreArmText','input')}
- if($('fpsTempMaster')){$('fpsTempMaster').checked=!!p.text;fire('fpsTempMaster')}
- setSelectTarget('fpsTempDest',p.target);
+ const recordMeta=String($('fpvRecordText')?.value||'');if($('fpsRecOnly')){$('fpsRecOnly').checked=recordMeta.startsWith('@ARM:');fire('fpsRecOnly')}
+ const p=stripTarget($('fpvPreArmText')?.value);if($('fpvPreArmText')){$('fpvPreArmText').value=p.text||'CLEAN LENS';fire('fpvPreArmText','input')}if($('fpsTempMaster')){$('fpsTempMaster').checked=!!p.text;fire('fpsTempMaster')}setSelectTarget('fpsTempDest',p.target);
  if($('fpvCustomDurationSec')&&$('fpvPreArmShow')){const ms=Math.max(100,parseInt($('fpvPreArmShow').value,10)||1000);$('fpvCustomDurationSec').value=(ms/1000).toFixed(ms%1000===0?0:1);fire('fpvCustomDurationSec','input')}
- const w=stripTarget($('fpvLowText')?.value);
- if($('fpsWarnMaster')){$('fpsWarnMaster').checked=!!$('fpvLowBatt')?.checked||!!$('fpvRecLow')?.checked||!!$('fpvHot')?.checked;fire('fpsWarnMaster')}
- setSelectTarget('fpsWarnDest',w.target);
+ const w=stripTarget($('fpvLowText')?.value);if($('fpsWarnMaster')){$('fpsWarnMaster').checked=!!$('fpvLowBatt')?.checked||!!$('fpvRecLow')?.checked||!!$('fpvHot')?.checked;fire('fpsWarnMaster')}setSelectTarget('fpsWarnDest',w.target);
  if($('fpsAuxMaster')&&$('auxChannel')){$('fpsAuxMaster').checked=parseInt($('auxChannel').value,10)>0;fire('fpsAuxMaster')}
- fire('fpvFlash');fire('fpvPreArm');fire('fpvLowPct','input');fire('fpvRecLowMin','input');
- syncGoProNote();
- window.fpsBoardSyncing=false;
- document.dispatchEvent(new CustomEvent('fps-config-read-complete'));
+ fire('fpvFlash');fire('fpvPreArm');fire('fpvLowPct','input');fire('fpvRecLowMin','input');syncGoProNote();window.fpsBoardSyncing=false;document.dispatchEvent(new CustomEvent('fps-config-read-complete'));
 }
 function scheduleReadSync(){if(!readRequested)return;clearTimeout(readTimer);readTimer=setTimeout(syncMetadataFromDevice,220)}
 function installReadCompletionHook(){if(typeof parseConfigLine!=='function'||parseConfigLine.__fpsWrapped)return;const original=parseConfigLine;const wrapped=function(line){original(line);if(readRequested&&/^\[cfg\]\s+\w+\s*=/.test(String(line||'')))scheduleReadSync()};wrapped.__fpsWrapped=true;parseConfigLine=wrapped}
-function requestRead(){readRequested=true;clearTimeout(readTimer)}
-window.fpsRequestBoardRead=requestRead;
+function requestRead(){readRequested=true;clearTimeout(readTimer)}window.fpsRequestBoardRead=requestRead;
 function init(){installReadCompletionHook();$('readBtn')?.addEventListener('click',requestRead,true);$('fpsCraftMaster')?.addEventListener('change',()=>{if(healCraftTemplate())fire('fpsCraftMaster')});$('wakeGuard')?.addEventListener('change',syncGoProNote);syncGoProNote()}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(init,450));else setTimeout(init,450);
 })();
