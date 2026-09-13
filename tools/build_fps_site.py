@@ -2,13 +2,19 @@ from pathlib import Path
 import re
 import runpy
 
-runpy.run_path('tools/build_fps_pages.py', run_name='__main__')
-
 def read(path):
     return Path(path).read_text(encoding='utf-8')
 
 def write(path, text):
     Path(path).write_text(text, encoding='utf-8')
+
+# build_fps_pages.py is a one-way source-to-FPSteVe transformer. The repository
+# currently carries the already-generated FPSteVe configurator, so do not run
+# that transformer a second time. Running it twice used to fail at the original
+# page-title marker before validation could even begin.
+source_config = read('web/config.html')
+if '<title>FreeCLinker — FPSteVe Edition Config</title>' not in source_config:
+    runpy.run_path('tools/build_fps_pages.py', run_name='__main__')
 
 c = Path('web/config.html')
 cs = read(c)
@@ -44,7 +50,6 @@ if 'href="test.html"' in final or 'osd-preview-tab' in final: raise SystemExit('
 if "setTimeout(() => sendCommand('show'), 300)" in final or "target === 'config'  && port" in final: raise SystemExit('Automatic device read reintroduced')
 for required in ['<script src="fps-ui-rebuild.js"></script>','<script src="fps-demo-v1.js"></script>','<script src="fps-integrated-preview.js"></script>','<script src="fps-stage3-parity.js"></script>','<script src="fps-autosync.js"></script>','fps-theme.css']:
     if required not in final: raise SystemExit(f'Generated configurator missing: {required}')
-
 
 # Pre-V1 UI regression guards
 if 'id="disarmDelay"' not in final:
