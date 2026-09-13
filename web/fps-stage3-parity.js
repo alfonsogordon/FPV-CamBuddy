@@ -14,22 +14,25 @@ function healCraftTemplate(){if(!$('fpsCraftMaster')?.checked||!$('craftTpl')||!
 function syncGoProNote(){const n=$('fpsGoProConnectionNote');if(!n)return;n.style.display=$('wakeGuard')?.checked?'':'none'}
 function installExperimentalUi(){
  if($('fpsExperimentalMaster'))return;
- const panel=$('panel-config');if(!panel)return;
+ const panel=$('panel-config'),header=document.querySelector('header');if(!panel||!header)return;
  const style=document.createElement('style');style.textContent=`
-  :root{--fps-exp:#facc15;--fps-exp-bg:rgba(250,204,21,.08);--fps-exp-border:rgba(250,204,21,.55)}
-  .fps-exp-master{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 10px;padding:8px 11px;border:1px solid #303744;border-radius:8px;background:#0f151f;transition:.2s}
-  .fps-exp-master strong{display:block;font-size:12px}.fps-exp-master .fps-exp-desc{font-size:10px;color:#778292;margin-top:2px}
-  .fps-exp-master.is-on{border-color:var(--fps-exp-border);background:var(--fps-exp-bg);box-shadow:0 0 0 1px rgba(250,204,21,.08) inset}
-  .fps-exp-master.is-on strong,.fps-exp-master.is-on .fps-exp-desc{color:var(--fps-exp)}
-  .fps-exp-feature{display:none;margin-top:10px;border:1px solid var(--fps-exp-border)!important;background:var(--fps-exp-bg)!important;box-shadow:0 0 0 1px rgba(250,204,21,.05) inset}
-  .fps-exp-feature *{border-color:rgba(250,204,21,.35)}.fps-exp-feature .fps-exp-title,.fps-exp-feature strong{color:var(--fps-exp)!important}
-  .fps-exp-badge{display:inline-block;margin-left:7px;padding:1px 6px;border:1px solid var(--fps-exp-border);border-radius:999px;color:var(--fps-exp);font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
-  .fps-exp-feature .fps-inline-desc,.fps-exp-feature .fps-exp-help{color:#cbbd77!important}.fps-exp-feature.is-visible{display:block}
-  .fps-exp-confirm-backdrop{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:20px;background:rgba(0,0,0,.68);backdrop-filter:blur(3px)}
-  .fps-exp-confirm{width:min(470px,100%);padding:20px;border:1px solid var(--fps-exp-border);border-radius:12px;background:#111722;box-shadow:0 18px 60px #000b}.fps-exp-confirm h3{margin:0 0 8px;color:var(--fps-exp)}.fps-exp-confirm p{margin:0 0 10px;color:#c7cfda;font-size:13px;line-height:1.5}.fps-exp-confirm .fps-exp-warning{color:#e5d28a}.fps-exp-confirm-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+  :root{--fps-exp:#f5ff00;--fps-exp-bg:rgba(245,255,0,.09);--fps-exp-border:rgba(245,255,0,.72);--fps-exp-glow:rgba(245,255,0,.28)}
+  .fps-exp-master{display:flex;align-items:center;gap:6px;padding:3px 7px;border:1px solid transparent;border-radius:6px;background:transparent;transition:.18s;white-space:nowrap}
+  .fps-exp-master strong{font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.02em}.fps-exp-master .switch{transform:scale(.72);transform-origin:center}
+  .fps-exp-master.is-on{border-color:var(--fps-exp-border);background:var(--fps-exp-bg);box-shadow:0 0 10px var(--fps-exp-glow),inset 0 0 8px rgba(245,255,0,.06)}
+  .fps-exp-master.is-on strong{color:var(--fps-exp);text-shadow:0 0 7px var(--fps-exp-glow)}
+  .fps-exp-master.is-on .track{background:var(--fps-exp)!important;box-shadow:0 0 9px var(--fps-exp-glow)}
+  .fps-exp-master.is-on .thumb{background:#101318!important}
+  .fps-exp-feature{display:none;margin-top:10px;border:1px solid var(--fps-exp-border)!important;background:var(--fps-exp-bg)!important;box-shadow:0 0 12px rgba(245,255,0,.08),inset 0 0 0 1px rgba(245,255,0,.04)}
+  .fps-exp-feature *{border-color:rgba(245,255,0,.42)}.fps-exp-feature .fps-exp-title,.fps-exp-feature strong{color:var(--fps-exp)!important;text-shadow:0 0 6px rgba(245,255,0,.18)}
+  .fps-exp-badge{display:inline-block;margin-left:7px;padding:1px 6px;border:1px solid var(--fps-exp-border);border-radius:999px;color:var(--fps-exp);font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;box-shadow:0 0 7px rgba(245,255,0,.12)}
+  .fps-exp-feature .fps-inline-desc,.fps-exp-feature .fps-exp-help{color:#dfe58b!important}.fps-exp-feature.is-visible{display:block}
+  .fps-exp-confirm-backdrop{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:20px;background:rgba(0,0,0,.72);backdrop-filter:blur(3px)}
+  .fps-exp-confirm{width:min(470px,100%);padding:20px;border:1px solid var(--fps-exp-border);border-radius:12px;background:#10151d;box-shadow:0 0 26px rgba(245,255,0,.12),0 18px 60px #000b}.fps-exp-confirm h3{margin:0 0 8px;color:var(--fps-exp);text-shadow:0 0 8px var(--fps-exp-glow)}.fps-exp-confirm p{margin:0 0 10px;color:#c7cfda;font-size:13px;line-height:1.5}.fps-exp-confirm .fps-exp-warning{color:#edf59b}.fps-exp-confirm-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+  @media(max-width:760px){.fps-exp-master strong{display:none}.fps-exp-master{padding:2px 4px}}
  `;document.head.appendChild(style);
- const master=document.createElement('div');master.id='fpsExperimentalMasterWrap';master.className='fps-exp-master';master.innerHTML=`<div><strong>Experimental Features</strong><div class="fps-exp-desc">Reveal optional development features.</div></div><label class="switch"><input type="checkbox" id="fpsExperimentalMaster"><span class="track"><span class="thumb"></span></span></label>`;
- const firstCard=panel.querySelector('.config-card');if(firstCard)panel.insertBefore(master,firstCard);else panel.prepend(master);
+ const master=document.createElement('div');master.id='fpsExperimentalMasterWrap';master.className='fps-exp-master';master.title='Experimental Features';master.innerHTML=`<strong>Experimental</strong><label class="switch" title="Experimental Features"><input type="checkbox" id="fpsExperimentalMaster"><span class="track"><span class="thumb"></span></span></label>`;
+ const connect=$('connectBtn');if(connect)header.insertBefore(master,connect);else header.appendChild(master);
  const wake=$('wakeGuard'),cameraCard=wake?.closest('.config-card');if(cameraCard){const box=document.createElement('div');box.id='fpsMultiCamSyncWrap';box.className='cfg-field fps-exp-feature';box.innerHTML=`<div><div class="fps-exp-title"><strong>Multi Cam Sync</strong><span class="fps-exp-badge">Experimental</span></div><div class="fps-inline-desc fps-exp-help">Connect and control up to two supported cameras from one C3. Test target includes GoPro + GoPro, DJI + DJI and mixed GoPro + DJI.</div></div><label class="switch"><input type="checkbox" id="fpsMultiCamSync"><span class="track"><span class="thumb"></span></span></label>`;const note=$('fpsGoProConnectionNote');if(note)note.insertAdjacentElement('afterend',box);else cameraCard.appendChild(box)}
  const masterInput=$('fpsExperimentalMaster'),multi=$('fpsMultiCamSync');masterInput.checked=localStorage.getItem(EXP_KEY)==='1';if(multi)multi.checked=localStorage.getItem(MULTI_KEY)==='1';
  function applyExp(on){localStorage.setItem(EXP_KEY,on?'1':'0');master.classList.toggle('is-on',on);document.querySelectorAll('.fps-exp-feature').forEach(x=>x.classList.toggle('is-visible',on));if(!on&&multi){multi.checked=false;localStorage.setItem(MULTI_KEY,'0')}document.dispatchEvent(new Event('change',{bubbles:true}))}
