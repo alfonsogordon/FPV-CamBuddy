@@ -222,9 +222,9 @@ void GoProCamera::onResult(BLEAdvertisedDevice device) {
                 knownFamily = true;
                 awake = (state == 0x05 || state == 0x01);
             } else if (family == 0x03) {
-                // MAX2: 0x01=awake, 0x00=sleeping
+                // MAX2: 0x01/0x05=awake, 0x00=sleeping
                 knownFamily = true;
-                awake = (state == 0x01);
+                awake = (state == 0x01 || state == 0x05);
             }
 
             if (knownFamily)

@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+  workflow_run:
+    workflows:
+      - Validate FPSteVe Edition
+    types:
+      - completed
+    branches:
       - experimental
   workflow_dispatch:
 
@@ -19,6 +25,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -96,18 +103,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Make experimental flasher use experimental firmware only
+      - name: Make legacy experimental flasher use experimental firmware only
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('stable/web/experimental/flash.html')
           s=p.read_text()
-          start=s.index("fetch(GH_API).then")
-          end=s.index("function showPostFlash", start)
-          replacement="""releases=[{tag_name:'experimental',published_at:new Date().toISOString(),html_url:'https://github.com/alfonsogordon/freeclinker/tree/experimental'}];versionSelect.innerHTML='<option value=\"experimental\">experimental — latest successful test build</option>';versionSelect.disabled=true;selectRelease(releases[0]);\n"""
-          s=s[:start]+replacement+s[end:]
-          s=s.replace("<h1>Flash Firmware</h1>","<h1>Flash Experimental Firmware</h1>")
-          p.write_text(s)
+          marker="fetch(GH_API).then"
+          if marker in s:
+              start=s.index(marker)
+              end=s.index("function showPostFlash", start)
+              replacement="""releases=[{tag_name:'experimental',published_at:new Date().toISOString(),html_url:'https://github.com/alfonsogordon/freeclinker/tree/experimental'}];versionSelect.innerHTML='<option value=\"experimental\">experimental — latest successful test build</option>';versionSelect.disabled=true;selectRelease(releases[0]);\n"""
+              s=s[:start]+replacement+s[end:]
+              s=s.replace("<h1>Flash Firmware</h1>","<h1>Flash Experimental Firmware</h1>")
+              p.write_text(s)
+          else:
+              print('Standalone experimental flasher detected; leaving its manifest unchanged')
           PY
 
       - uses: actions/upload-pages-artifact@v3
