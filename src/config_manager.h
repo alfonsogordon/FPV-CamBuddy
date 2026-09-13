@@ -91,13 +91,13 @@ public:
     static constexpr bool DEFAULT_FPV_READY_ENABLED = true;
     static constexpr const char *DEFAULT_FPV_READY_TEXT = "{state}";
     static constexpr bool DEFAULT_FPV_RECORDING_ENABLED = true;
-    static constexpr const char *DEFAULT_FPV_RECORDING_TEXT = "{state}";
+    static constexpr const char *DEFAULT_FPV_RECORDING_TEXT = "@ARM:{state}";
     static constexpr bool DEFAULT_FPV_REC_FLASH = true;
     static constexpr bool DEFAULT_FPV_LOW_BATTERY_ENABLED = true;
     static constexpr uint8_t DEFAULT_FPV_LOW_BATTERY_PCT = 10;
     static constexpr bool DEFAULT_FPV_LOW_BAT_READY_FLASH = true;
     static constexpr bool DEFAULT_FPV_LOW_BAT_REC_TEXT = true;
-    static constexpr const char *DEFAULT_FPV_LOW_BATTERY_TEXT = "BATT LOW";
+    static constexpr const char *DEFAULT_FPV_LOW_BATTERY_TEXT = "@1:BATT LOW";
     static constexpr bool DEFAULT_FPV_LOW_REC_ENABLED = true;
     static constexpr uint16_t DEFAULT_FPV_LOW_REC_MIN = 5;
     static constexpr bool DEFAULT_FPV_LOW_REC_READY = true;
@@ -108,7 +108,7 @@ public:
     static constexpr bool DEFAULT_FPV_HOT_RECORDING = true;
     static constexpr const char *DEFAULT_FPV_HOT_TEXT = "CAM HOT";
     static constexpr bool DEFAULT_FPV_PREARM_ENABLED = true;
-    static constexpr const char *DEFAULT_FPV_PREARM_TEXT = "";
+    static constexpr const char *DEFAULT_FPV_PREARM_TEXT = "@2:CLEAN LENS";
     static constexpr uint16_t DEFAULT_FPV_PREARM_SHOW_MS = 1000;
     static constexpr uint16_t DEFAULT_FPV_PREARM_INTERVAL_MS = 3000;
 
