@@ -94,7 +94,7 @@ void MultiGoProCamera::onResult(BLEAdvertisedDevice device) {
         if (mfr.size() >= 4 && (uint8_t)mfr[0] == GP_MANUFACTURER_ID_HI && (uint8_t)mfr[1] == GP_MANUFACTURER_ID_LO) {
             const uint8_t family = (uint8_t)mfr[2], state = (uint8_t)mfr[3];
             if (family == 0x02) { knownFamily = true; awake = (state == 0x05 || state == 0x01); }
-            else if (family == 0x03) { knownFamily = true; awake = (state == 0x01); }
+            else if (family == 0x03) { knownFamily = true; awake = (state == 0x01 || state == 0x05); }
         }
         if (!knownFamily || !awake) return;
     }
