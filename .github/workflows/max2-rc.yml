@@ -1,0 +1,89 @@
+name: Build MAX2 V1.0.1 RC
+
+on:
+  push:
+    branches:
+      - max2-stable-patch
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-max2-rc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: max2-stable-patch
+
+      - name: Apply isolated MAX2 wake-state fix
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('src/gopro_camera.cpp')
+          s = p.read_text()
+          old = '''            } else if (family == 0x03) {
+                // MAX2: 0x01=awake, 0x00=sleeping
+                knownFamily = true;
+                awake = (state == 0x01);
+            }'''
+          new = '''            } else if (family == 0x03) {
+                // MAX2: 0x01/0x05=awake, 0x00=sleeping
+                knownFamily = true;
+                awake = (state == 0x01 || state == 0x05);
+            }'''
+          if new in s:
+              print('MAX2 patch already present')
+          elif old in s:
+              p.write_text(s.replace(old, new, 1))
+              print('Applied MAX2 wake-state patch')
+          else:
+              raise SystemExit('Expected MAX2 wake-guard block not found; refusing to patch')
+
+      - name: Commit MAX2 fix to RC branch
+        run: |
+          if git diff --quiet -- src/gopro_camera.cpp; then
+            echo 'No source diff to commit'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add src/gopro_camera.cpp
+            git commit -m 'Fix GoPro MAX2 awake state detection'
+            git push origin HEAD:max2-stable-patch
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Generate and validate production web site
+        run: python3 tools/build_fps_site.py
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build ESP32-C3 and ESP32 firmware
+        run: pio run -e esp32c3supermini -e esp32dev
+
+      - name: Publish ESP32-C3 MAX2 RC firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: freeclinker-v1.0.1-rc-max2-esp32c3
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            .pio/build/esp32c3supermini/firmware.bin
+            .pio/build/esp32c3supermini/bootloader.bin
+            .pio/build/esp32c3supermini/partitions.bin
+
+      - name: Publish ESP32 MAX2 RC firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: freeclinker-v1.0.1-rc-max2-esp32
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            .pio/build/esp32dev/firmware.bin
+            .pio/build/esp32dev/bootloader.bin
+            .pio/build/esp32dev/partitions.bin
