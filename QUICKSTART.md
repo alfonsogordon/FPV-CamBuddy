@@ -2,6 +2,8 @@
 
 The simple route from a fresh **ESP32-C3 Super Mini** to automatic GoPro recording and camera status in your Betaflight OSD.
 
+> FPSteVe Edition is based on **[FreeCLinker by sheeprine](https://github.com/sheeprine/freeclinker)**. You can also visit the [original FreeCLinker project site](https://sheeprine.github.io/freeclinker/).
+
 **No CLI setup is required for the normal FPSteVe Edition setup.** Flash it in the browser, configure it in FPSteVe Easy Config, then set up the flight-controller UART and OSD in Betaflight Configurator.
 
 ## 1. Flash FreeCLinker
