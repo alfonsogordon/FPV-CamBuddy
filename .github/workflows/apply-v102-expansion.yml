@@ -1,0 +1,417 @@
+name: Apply V1.0.2 multi-brand expansion
+
+on:
+  push:
+    branches: [experimental]
+    paths:
+      - .github/workflows/apply-v102-expansion.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experimental
+      - name: Add multi-brand coordinator
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def read(p): return Path(p).read_text()
+          def write(p,s): Path(p).write_text(s)
+          def repl(s,a,b,label):
+              if a not in s:
+                  raise SystemExit(f'missing patch anchor: {label}')
+              return s.replace(a,b,1)
+
+          # Give the coordinator ownership of BLE scan permission so the
+          # protocol backends cannot fight over the single ESP32 scanner.
+          p='src/camera.h'; s=read(p)
+          s=repl(s,
+              '    void setLowPowerMode(bool v)              { _lowPowerMode = v; }\n',
+              '    void setLowPowerMode(bool v)              { _lowPowerMode = v; }\n    void setScanEnabled(bool v)                { _scanEnabled = v; }\n    bool scanEnabled() const                    { return _scanEnabled; }\n',
+              'camera scan gate setter')
+          s=repl(s,
+              '    bool            _lowPowerMode = true;\n',
+              '    bool            _lowPowerMode = true;\n    bool            _scanEnabled  = true;\n',
+              'camera scan gate state')
+          write(p,s)
+
+          scan_sigs={
+              'src/ble_camera.cpp':'void BLECamera::startScan() {',
+              'src/gopro_camera.cpp':'void GoProCamera::startScan() {',
+              'src/sony_camera.cpp':'void SonyCamera::startScan() {',
+              'src/blackmagic_camera.cpp':'void BlackmagicCamera::startScan() {',
+              'src/insta360_camera.cpp':'void Insta360Camera::startScan() {',
+              'src/multi_gopro_camera.cpp':'void MultiGoProCamera::startScan(uint8_t slot) {',
+          }
+          for p,sig in scan_sigs.items():
+              s=read(p)
+              if sig not in s:
+                  raise SystemExit(f'missing startScan signature in {p}')
+              guarded=sig+'\n    if (!_scanEnabled) return;'
+              if guarded not in s:
+                  s=s.replace(sig,guarded,1)
+              write(p,s)
+
+          Path('src/multi_camera_coordinator.h').write_text(r'''#pragma once
+#include <Arduino.h>
+#include "camera.h"
+#include "ble_camera.h"
+#include "multi_gopro_camera.h"
+#include "sony_camera.h"
+#include "blackmagic_camera.h"
+#include "insta360_camera.h"
+#include "caddx_camera.h"
+
+class MultiCameraCoordinator : public Camera {
+public:
+    MultiCameraCoordinator(MultiGoProCamera &gopro,
+                           BLECamera &dji,
+                           SonyCamera &sony,
+                           BlackmagicCamera &blackmagic,
+                           Insta360Camera &insta360,
+                           CaddxCamera &caddx);
+
+    void begin() override;
+    void update() override;
+    bool isConnected() const override;
+    bool startRecording() override;
+    bool stopRecording() override;
+    bool switchCameraMode(uint8_t mode) override;
+
+    uint8_t connectedCount() const;
+
+private:
+    enum Family : uint8_t { GOPRO=0, DJI=1, SONY=2, BLACKMAGIC=3, INSTA360=4, CADDX=5, FAMILY_COUNT=6 };
+    static constexpr uint8_t BLE_FAMILY_COUNT = 5;
+    static constexpr uint32_t SCAN_OWNER_WINDOW_MS = 8000;
+
+    MultiGoProCamera &_gopro;
+    BLECamera &_dji;
+    SonyCamera &_sony;
+    BlackmagicCamera &_blackmagic;
+    Insta360Camera &_insta360;
+    CaddxCamera &_caddx;
+    Camera *_all[FAMILY_COUNT];
+    Camera *_ble[BLE_FAMILY_COUNT];
+
+    CameraData _latest[FAMILY_COUNT]{};
+    bool _seenData[FAMILY_COUNT]{};
+    bool _wasConnected[FAMILY_COUNT]{};
+    bool _recordingRequested = false;
+    bool _stopRequested = false;
+    uint32_t _recordStartedMs = 0;
+    uint8_t _scanOwner = 0;
+    uint32_t _scanOwnerSince = 0;
+    CameraData _camera{};
+
+    static MultiCameraCoordinator *_instance;
+    static void cbGoPro(const CameraData &d);
+    static void cbDji(const CameraData &d);
+    static void cbSony(const CameraData &d);
+    static void cbBlackmagic(const CameraData &d);
+    static void cbInsta360(const CameraData &d);
+    static void cbCaddx(const CameraData &d);
+
+    void onSubData(uint8_t family, const CameraData &d);
+    void publishState();
+    void rotateScanOwner(bool force=false);
+    bool familyWantsScan(uint8_t family) const;
+    uint8_t familyConnectedCount(uint8_t family) const;
+    void syncNewConnection(uint8_t family);
+};
+''')
+
+          Path('src/multi_camera_coordinator.cpp').write_text(r'''#include "multi_camera_coordinator.h"
+#include "config.h"
+
+MultiCameraCoordinator *MultiCameraCoordinator::_instance = nullptr;
+
+MultiCameraCoordinator::MultiCameraCoordinator(MultiGoProCamera &gopro,
+                                               BLECamera &dji,
+                                               SonyCamera &sony,
+                                               BlackmagicCamera &blackmagic,
+                                               Insta360Camera &insta360,
+                                               CaddxCamera &caddx)
+    : _gopro(gopro), _dji(dji), _sony(sony), _blackmagic(blackmagic),
+      _insta360(insta360), _caddx(caddx) {
+    _all[GOPRO] = &_gopro;
+    _all[DJI] = &_dji;
+    _all[SONY] = &_sony;
+    _all[BLACKMAGIC] = &_blackmagic;
+    _all[INSTA360] = &_insta360;
+    _all[CADDX] = &_caddx;
+    _ble[0] = &_gopro;
+    _ble[1] = &_dji;
+    _ble[2] = &_sony;
+    _ble[3] = &_blackmagic;
+    _ble[4] = &_insta360;
+}
+
+void MultiCameraCoordinator::begin() {
+    _instance = this;
+
+    _gopro.setCameraCallback(cbGoPro);
+    _dji.setCameraCallback(cbDji);
+    _sony.setCameraCallback(cbSony);
+    _blackmagic.setCameraCallback(cbBlackmagic);
+    _insta360.setCameraCallback(cbInsta360);
+    _caddx.setCameraCallback(cbCaddx);
+
+    for (uint8_t i=0;i<BLE_FAMILY_COUNT;++i) _ble[i]->setScanEnabled(false);
+    _scanOwner = 0;
+    _ble[_scanOwner]->setScanEnabled(true);
+    _scanOwnerSince = millis();
+
+    // Start every backend. Only the current BLE scan owner is allowed to scan;
+    // Caddx is Wi-Fi and may associate independently.
+    _gopro.begin();
+    _dji.begin();
+    _sony.begin();
+    _blackmagic.begin();
+    _insta360.begin();
+    _caddx.begin();
+
+    DBG_SERIAL.println("[MULTI] Multi-brand coordinator active: GoPro/DJI/Sony/Blackmagic/Insta360/Caddx");
+    publishState();
+}
+
+uint8_t MultiCameraCoordinator::familyConnectedCount(uint8_t family) const {
+    if (family == GOPRO) return _gopro.connectedCount();
+    return _all[family]->isConnected() ? 1 : 0;
+}
+
+uint8_t MultiCameraCoordinator::connectedCount() const {
+    uint16_t n = 0;
+    for (uint8_t i=0;i<FAMILY_COUNT;++i) n += familyConnectedCount(i);
+    return n > 255 ? 255 : static_cast<uint8_t>(n);
+}
+
+bool MultiCameraCoordinator::isConnected() const {
+    return connectedCount() > 0;
+}
+
+bool MultiCameraCoordinator::familyWantsScan(uint8_t family) const {
+    if (family >= BLE_FAMILY_COUNT) return false;
+    if (family == GOPRO) return _gopro.connectedCount() < MAX_MULTI_GOPRO_SLOTS;
+    return !_all[family]->isConnected();
+}
+
+void MultiCameraCoordinator::rotateScanOwner(bool force) {
+    const uint32_t now = millis();
+    if (!force && now - _scanOwnerSince < SCAN_OWNER_WINDOW_MS) return;
+
+    for (uint8_t i=0;i<BLE_FAMILY_COUNT;++i) _ble[i]->setScanEnabled(false);
+
+    for (uint8_t step=1; step<=BLE_FAMILY_COUNT; ++step) {
+        const uint8_t candidate = (_scanOwner + step) % BLE_FAMILY_COUNT;
+        if (familyWantsScan(candidate)) {
+            _scanOwner = candidate;
+            _ble[_scanOwner]->setScanEnabled(true);
+            _scanOwnerSince = now;
+            DBG_SERIAL.printf("[MULTI] BLE scan owner -> family %u\n", _scanOwner);
+            return;
+        }
+    }
+
+    // Nothing else needs discovery right now. Leave GoPro eligible so another
+    // GoPro can still be discovered later without rebooting.
+    _scanOwner = GOPRO;
+    _ble[_scanOwner]->setScanEnabled(true);
+    _scanOwnerSince = now;
+}
+
+void MultiCameraCoordinator::syncNewConnection(uint8_t family) {
+    if (_recordingRequested) {
+        _all[family]->startRecording();
+    } else if (_stopRequested) {
+        _all[family]->stopRecording();
+    }
+}
+
+void MultiCameraCoordinator::update() {
+    for (uint8_t i=0;i<FAMILY_COUNT;++i) _all[i]->update();
+
+    for (uint8_t i=0;i<FAMILY_COUNT;++i) {
+        const bool nowConnected = _all[i]->isConnected();
+        if (nowConnected && !_wasConnected[i]) {
+            DBG_SERIAL.printf("[MULTI] family %u joined; syncing requested record state\n", i);
+            syncNewConnection(i);
+        }
+        _wasConnected[i] = nowConnected;
+    }
+
+    // A non-GoPro family only owns one camera; move on promptly once it joins.
+    if (_scanOwner != GOPRO && _all[_scanOwner]->isConnected() && millis() - _scanOwnerSince > 500) {
+        rotateScanOwner(true);
+    } else {
+        rotateScanOwner(false);
+    }
+
+    if (_camera.recording) {
+        _camera.record_time = static_cast<uint16_t>((millis() - _recordStartedMs) / 1000UL);
+        if (_cameraCb) _cameraCb(_camera);
+    }
+}
+
+bool MultiCameraCoordinator::startRecording() {
+    _recordingRequested = true;
+    _stopRequested = false;
+    _recordStartedMs = millis();
+    bool any = false;
+    for (uint8_t i=0;i<FAMILY_COUNT;++i) any = _all[i]->startRecording() || any;
+    publishState();
+    return any;
+}
+
+bool MultiCameraCoordinator::stopRecording() {
+    _recordingRequested = false;
+    _stopRequested = true;
+    bool any = false;
+    for (uint8_t i=0;i<FAMILY_COUNT;++i) any = _all[i]->stopRecording() || any;
+    publishState();
+    return any;
+}
+
+bool MultiCameraCoordinator::switchCameraMode(uint8_t mode) {
+    bool any = false;
+    for (uint8_t i=0;i<FAMILY_COUNT;++i) any = _all[i]->switchCameraMode(mode) || any;
+    return any;
+}
+
+void MultiCameraCoordinator::onSubData(uint8_t family, const CameraData &d) {
+    if (family >= FAMILY_COUNT) return;
+    _latest[family] = d;
+    _seenData[family] = true;
+    publishState();
+}
+
+void MultiCameraCoordinator::publishState() {
+    CameraData out{};
+    const uint8_t count = connectedCount();
+    out.valid = count > 0;
+    out.connected_cameras = count;
+    out.has_recording = true;
+    out.recording = _recordingRequested && count > 0;
+    out.record_time = out.recording ? static_cast<uint16_t>((millis() - _recordStartedMs) / 1000UL) : 0;
+
+    bool haveBatt=false, haveRemain=false, haveTemp=false, haveMedia=false;
+    uint8_t minBatt=100, hottest=0;
+    uint32_t minRemain=0;
+
+    for (uint8_t i=0;i<FAMILY_COUNT;++i) {
+        if (!_seenData[i] || !_all[i]->isConnected()) continue;
+        const CameraData &d = _latest[i];
+        if (d.has_battery) {
+            if (!haveBatt || d.percent < minBatt) minBatt = d.percent;
+            haveBatt = true;
+        }
+        if (d.has_remain_time) {
+            if (!haveRemain || d.remain_time < minRemain) minRemain = d.remain_time;
+            haveRemain = true;
+        }
+        if (d.has_temperature) {
+            if (!haveTemp || d.temp_over > hottest) hottest = d.temp_over;
+            haveTemp = true;
+        }
+        if (d.has_media_ready) {
+            out.media_ready = haveMedia ? (out.media_ready && d.media_ready) : d.media_ready;
+            haveMedia = true;
+        }
+        if (out.camera_mode == 0 && d.camera_mode != 0) out.camera_mode = d.camera_mode;
+        if (out.resolution == CAM_RES_UNKNOWN && d.resolution != CAM_RES_UNKNOWN) out.resolution = d.resolution;
+        if (out.fps_idx == CAM_FPS_UNKNOWN && d.fps_idx != CAM_FPS_UNKNOWN) out.fps_idx = d.fps_idx;
+        if (out.eis_mode == CAM_EIS_UNKNOWN && d.eis_mode != CAM_EIS_UNKNOWN) out.eis_mode = d.eis_mode;
+    }
+
+    out.has_battery = haveBatt; if (haveBatt) out.percent = minBatt;
+    out.has_remain_time = haveRemain; if (haveRemain) out.remain_time = minRemain;
+    out.has_temperature = haveTemp; if (haveTemp) out.temp_over = hottest;
+    out.has_media_ready = haveMedia;
+
+    _camera = out;
+    if (_cameraCb) _cameraCb(_camera);
+}
+
+void MultiCameraCoordinator::cbGoPro(const CameraData &d)      { if (_instance) _instance->onSubData(GOPRO,d); }
+void MultiCameraCoordinator::cbDji(const CameraData &d)        { if (_instance) _instance->onSubData(DJI,d); }
+void MultiCameraCoordinator::cbSony(const CameraData &d)       { if (_instance) _instance->onSubData(SONY,d); }
+void MultiCameraCoordinator::cbBlackmagic(const CameraData &d) { if (_instance) _instance->onSubData(BLACKMAGIC,d); }
+void MultiCameraCoordinator::cbInsta360(const CameraData &d)   { if (_instance) _instance->onSubData(INSTA360,d); }
+void MultiCameraCoordinator::cbCaddx(const CameraData &d)      { if (_instance) _instance->onSubData(CADDX,d); }
+''')
+
+          p='src/main.cpp'; s=read(p)
+          s=repl(s,'#include "multi_gopro_camera.h"\n', '#include "multi_gopro_camera.h"\n#include "multi_camera_coordinator.h"\n','main coordinator include')
+          s=repl(s,
+              'static Insta360Camera   insta360Camera;\nstatic Camera          *activeCamera = nullptr;\n',
+              'static Insta360Camera   insta360Camera;\nstatic MultiCameraCoordinator multiCameraCoordinator(multiGoProCamera, djiCamera, sonyCamera, blackmagicCamera, insta360Camera, caddxCamera);\nstatic Camera          *activeCamera = nullptr;\n',
+              'main coordinator instance')
+
+          old=r'''    const uint8_t camType = configManager.config().cameraType;
+    const char *camTypeName;
+    switch (camType) {
+        case 1:
+            if (configManager.config().multiCamSync) {
+                activeCamera = &multiGoProCamera;
+                camTypeName = "GoPro Multi";
+            } else {
+                activeCamera = &goProCamera;
+                camTypeName = "GoPro Single";
+            }
+            break;
+        case 2:  activeCamera = &caddxCamera;       camTypeName = "Caddx Orca"; break;
+        case 3:  activeCamera = &sonyCamera;        camTypeName = "Sony Alpha"; break;
+        case 4:  activeCamera = &blackmagicCamera;  camTypeName = "Blackmagic"; break;
+        case 5:  activeCamera = &insta360Camera;    camTypeName = "Insta360"; break;
+        default: activeCamera = &djiCamera;         camTypeName = "DJI Action"; break;
+    }
+'''
+          new=r'''    const uint8_t camType = configManager.config().cameraType;
+    const char *camTypeName;
+    if (configManager.config().multiCamSync) {
+        activeCamera = &multiCameraCoordinator;
+        camTypeName = "Multi Brand / Multi Cam";
+    } else {
+        switch (camType) {
+            case 1:  activeCamera = &goProCamera;       camTypeName = "GoPro Single"; break;
+            case 2:  activeCamera = &caddxCamera;       camTypeName = "Caddx Orca"; break;
+            case 3:  activeCamera = &sonyCamera;        camTypeName = "Sony Alpha"; break;
+            case 4:  activeCamera = &blackmagicCamera;  camTypeName = "Blackmagic"; break;
+            case 5:  activeCamera = &insta360Camera;    camTypeName = "Insta360"; break;
+            default: activeCamera = &djiCamera;         camTypeName = "DJI Action"; break;
+        }
+    }
+'''
+          s=repl(s,old,new,'main active camera selection')
+          s=repl(s,
+              '    const bool isGoPro = (configManager.config().cameraType == 1);\n',
+              '    const bool isGoPro = (configManager.config().cameraType == 1) && !configManager.config().multiCamSync;\n',
+              'aux single gopro guard')
+          write(p,s)
+
+          # Update the experimental UI copy wherever the old two-GoPro wording
+          # still exists. This is deliberately text-only; the actual feature
+          # gate and setting key remain unchanged.
+          for p in ['web/config.html','web/fps-ui-rebuild.js','web/fps-stage3-parity.js','web/fps-autosync.js']:
+              s=read(p)
+              s=s.replace('connect/control up to two GoPros', 'connect/control multiple cameras across supported brands')
+              s=s.replace('connect and control up to two GoPros', 'connect and control multiple cameras across supported brands')
+              s=s.replace('up to two GoPros', 'multiple supported cameras')
+              s=s.replace('GoPro Multi Cam', 'Multi Brand / Multi Cam')
+              write(p,s)
+
+          Path('.github/workflows/apply-v102-expansion.yml').unlink()
+          PY
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Add multi-brand Multi Cam coordinator'
+          git push origin experimental
