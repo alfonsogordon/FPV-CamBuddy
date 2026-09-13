@@ -60,7 +60,7 @@ jobs:
         run: pip install platformio
 
       - name: Build ESP32-C3 and ESP32 firmware
-        run: pio run -e esp32c3supermini -e esp32dev
+        run: pio run -e esp32-c3-devkitm-1 -e esp32dev
 
       - name: Publish ESP32-C3 MAX2 RC firmware
         uses: actions/upload-artifact@v4
@@ -69,9 +69,9 @@ jobs:
           if-no-files-found: error
           retention-days: 14
           path: |
-            .pio/build/esp32c3supermini/firmware.bin
-            .pio/build/esp32c3supermini/bootloader.bin
-            .pio/build/esp32c3supermini/partitions.bin
+            .pio/build/esp32-c3-devkitm-1/firmware.bin
+            .pio/build/esp32-c3-devkitm-1/bootloader.bin
+            .pio/build/esp32-c3-devkitm-1/partitions.bin
 
       - name: Publish ESP32 MAX2 RC firmware
         uses: actions/upload-artifact@v4
