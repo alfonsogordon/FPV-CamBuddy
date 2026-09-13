@@ -96,10 +96,11 @@ The following have been physically confirmed on the FPSteVe Edition hardware-tes
 - BF 4.5 Pilot/Craft OSD output and live **ERR / RDY / REC** state
 - REC-only while armed + recording, including flashing REC
 - First-arm **CLEAN LENS** behaviour
-- Camera warning behaviour and priority logic in the Preview/firmware test flow
 - Configurator read, save, read-back verification and settings persistence after reconnect/power cycle
 - GoPro keepalive: camera stays connected while FreeCLinker is powered and returns to normal camera auto-power-off behaviour when FreeCLinker is removed
 - Web flasher and post-flash configuration flow
+
+Camera-warning behaviour and priority have been validated in the integrated Preview/firmware logic; individual warning conditions have not all been forced on the installed flight-test camera.
 
 ## Implemented, but not yet hardware-tested
 
