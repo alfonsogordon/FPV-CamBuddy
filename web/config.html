@@ -957,8 +957,7 @@ async function connect() {
   setConnected(true);
   log(`Connected at ${baudSelect.value} baud`, 'sys');
   startReading();
-  // Populate Easy Config fields after a brief settle time
-  setTimeout(() => sendCommand('show'), 300);
+  // Full Edition owns the single automatic board read after connection.
 }
 
 async function disconnect() {
