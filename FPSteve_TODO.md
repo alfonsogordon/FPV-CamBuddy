@@ -1,6 +1,6 @@
 # FPSteVe Edition — V1 Release Status
 
-This file previously tracked active FPSteVe Edition development. The core V1 behaviour is now feature-complete and the project is in documentation/release preparation.
+The core V1 behaviour is feature-complete and the project is in final validation/release preparation.
 
 ## Hardware-confirmed for V1 🤘
 
@@ -78,13 +78,19 @@ Priority:
 
 **Warning → Temporary Message → REC-only → normal configured OSD**
 
-## Remaining release-prep work
+## V1 pairing observation
 
-- Finish README / website / Quick Start documentation refresh
-- Add short OSD demonstration asset showing the default ERR → RDY → REC → delayed-stop flow
-- Add direct Squadding Quads Discord help/feedback thread URL once supplied
-- Final validation/build/site review
-- Create final `v1.0.0` release as **FPSteVe Edition V1.0 — Actually Final**
+A camera that FreeCLinker has not paired with before may need to be placed in its **Pair** menu for the initial connection. A HERO11 Black Mini followed by a MAX2 is one example observed during V1 testing; those models are examples, not a restriction to those specific cameras.
+
+## Final release checklist
+
+- [x] README and Quick Start finalised
+- [x] Homepage and OSD demonstration visually signed off
+- [x] Squadding Quads Discord support invite added to public documentation/site
+- [ ] Final validation/build/site review
+- [ ] Publish final `v1.0.0` release as **V1.0.0**
+- [ ] Verify release firmware assets and live Web Flasher release selection
+- [ ] Retire the hardware-test preview release after V1.0.0 is verified
 
 ## Post-V1 candidates
 

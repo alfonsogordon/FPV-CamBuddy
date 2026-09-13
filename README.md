@@ -125,9 +125,13 @@ MSP UART speed: **115200 baud**.
 
 See the [Quick Start Guide](QUICKSTART.md) before powering the installation.
 
+## GoPro pairing note
+
+When switching to a GoPro that FreeCLinker has not paired with before, you may need to open that camera's **Pair** menu for the first connection. As one example from V1 testing, after a HERO11 Black Mini had already been connected, a MAX2 needed to be placed in its Pair menu the first time it was used. **The HERO11 Black Mini and MAX2 are examples of the observed behaviour, not a requirement or limitation to those specific models.** Once paired, normal automatic connection/reconnection can resume.
+
 ## Help & feedback
 
-A dedicated **Squadding Quads Discord** help/feedback thread is planned for FPSteVe Edition. The direct thread link will be added here and to the project website as soon as it is available.
+Need help? Join the **Squadding Quads Discord** and ask for **FPSteVe**: https://discord.gg/eE6DkgEnjU
 
 Bug reports and useful real-world compatibility results are especially welcome — please include the camera model, Betaflight version and C3 board where possible.
 
@@ -137,4 +141,4 @@ FPSteVe Edition is based on **[FreeCLinker by sheeprine](https://github.com/shee
 
 ---
 
-**FPSteVe Edition V1.0 — Actually Final** 🤘
+**FPSteVe Edition V1.0** 🤘
