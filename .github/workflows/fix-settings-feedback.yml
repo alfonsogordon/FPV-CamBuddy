@@ -1,0 +1,51 @@
+name: Fix settings transaction feedback
+on:
+  push:
+    branches: [fix-read-save-state-feedback]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix-read-save-state-feedback
+      - name: Patch settings plumbing
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p=Path('web/fps-autosync.js')
+          s=p.read_text()
+          s=s.replace("async function strictCmd(text){if(!writer)throw new Error('Serial port is not writable');log('> '+text,'cmd');await writer.write(new TextEncoder().encode(text+'\\r\\n'))}", "async function strictCmd(text){if(!writer)throw new Error('Serial port is not writable');log('> '+text,'cmd');await writer.write(new TextEncoder().encode(text+'\\r\\n'));await new Promise(r=>setTimeout(r,25))}")
+          s=s.replace("stateText('Written — verifying every setting from C3…');await strictCmd('show')", "stateText('Written — waiting for C3, then verifying every setting…');await new Promise(r=>setTimeout(r,250));await strictCmd('show')")
+          s=s.replace("else if(dirty)stateText('Unsaved changes — SAVE / APPLY before disconnecting');", "else if(dirty&&!$('fpsDeviceState')?.textContent.startsWith('VERIFY FAILED'))stateText('Unsaved changes — SAVE / APPLY before disconnecting');")
+          p.write_text(s)
+
+          p=Path('web/fps-stage3-parity.js')
+          s=p.read_text()
+          s=s.replace("function syncMetadataFromDevice(){\n if(!readRequested||!connected())return;", "function syncMetadataFromDevice(){\n if(!readRequested||!connected())return;\n window.fpsBoardSyncing=true;")
+          s=s.replace(" document.dispatchEvent(new CustomEvent('fps-config-read-complete'));\n}", " window.fpsBoardSyncing=false;\n document.dispatchEvent(new CustomEvent('fps-config-read-complete'));\n}")
+          p.write_text(s)
+
+          p=Path('web/fps-ui-rebuild.js')
+          s=p.read_text()
+          s=s.replace("function save(){capture();", "function save(){if(window.fpsBoardSyncing)return;capture();")
+          p.write_text(s)
+
+          p=Path('web/config.html')
+          s=p.read_text()
+          s=s.replace("  // Populate Easy Config fields after a brief settle time\n  setTimeout(() => sendCommand('show'), 300);\n", "  // Full Edition owns the single automatic board read after connection.\n")
+          p.write_text(s)
+          PY
+      - name: Remove one-shot workflow
+        run: rm .github/workflows/fix-settings-feedback.yml
+      - name: Commit fixes
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add web .github/workflows/fix-settings-feedback.yml
+          git commit -m "Fix settings save/read feedback and serial pacing"
+          git push origin HEAD:fix-read-save-state-feedback
