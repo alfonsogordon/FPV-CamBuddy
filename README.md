@@ -13,6 +13,12 @@ FreeCLinker connects a supported action camera to your flight controller without
 - **Quick start:** [QUICKSTART.md](QUICKSTART.md)
 - **Project website:** https://alfonsogordon.github.io/freeclinker/
 
+## See the OSD in action
+
+A short V1 OSD demo is being added here using the real FPSteVe defaults. It will show the normal flight sequence at a glance: **ERR → GoPro connects → RDY → ARM/record → flashing REC → DISARM → delayed stop → RDY**, including the first-arm **CLEAN LENS** reminder.
+
+Until the animation asset is added, the same behaviour can be exercised interactively in the **OSD Preview** inside the configurator.
+
 ## What it does
 
 ### Camera control
