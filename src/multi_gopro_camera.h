@@ -41,6 +41,7 @@ private:
         bool bleConnected = false;
         bool ready = false;
         bool pendingHwInfo = false;
+        bool needsStopOnReconnect = false;
         uint32_t lastAttemptMs = 0;
         GpRxAssembler rx;
     };
@@ -53,6 +54,7 @@ private:
     bool connectSlot(uint8_t slot);
     void sendHardwareInfo(uint8_t slot);
     bool sendShutter(uint8_t slot, bool on);
+    void syncSlotToDesiredState(uint8_t slot);
     void publishState();
     bool addressAlreadyUsed(const std::string &addr) const;
     int slotForClient(BLEClient *client) const;
