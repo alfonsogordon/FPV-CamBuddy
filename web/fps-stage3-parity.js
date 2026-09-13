@@ -3,7 +3,7 @@
 const $=id=>document.getElementById(id);
 const DEMO='freeclinkerDemoMode';
 const DEFAULT_TPL=['','{batt}','{state} {recdur}','{mode} {res} {fps} {eis}','{rectf} {rcap}'];
-let syncing=false;
+let syncing=false,readTimer=null;
 
 function legacyMode(){return $('fpsBfMode')?.value==='legacy'}
 function connected(){return !!$('connectBtn')?.disabled}
@@ -51,6 +51,7 @@ async function disableHardwareOsd(showStatus=true){
     await cmd('set fpv_low_batt 0');
     await cmd('set fpv_rect_warn 0');
     await cmd('set fpv_hot_warn 0');
+    document.dispatchEvent(new CustomEvent('fps-settings-applied'));
     if(showStatus){setStatus('OSD disabled on C3 ✓');setTimeout(()=>setStatus(''),1400)}
   }catch(e){setStatus('Disable failed — '+e.message,true)}
 }
@@ -58,6 +59,7 @@ async function disableHardwareOsd(showStatus=true){
 async function applyParity(){
   if(localStorage.getItem(DEMO)==='1'){
     setStatus('Saved in Demo ✓');
+    document.dispatchEvent(new CustomEvent('fps-settings-applied'));
     setTimeout(()=>setStatus(''),1200);
     return;
   }
@@ -95,6 +97,7 @@ async function applyParity(){
     await cmd(`set craft_en ${craftOn?1:0}`);
     await cmd(`set craft_tpl ${String($('craftTpl')?.value||'').trim()||'{off}'}`);
 
+    // fpv_state_mode is the persisted, authoritative OSD master flag.
     await cmd('set fpv_state_mode 1');
     await cmd('set fpv_error 1');
     await cmd('set fpv_err_text {state}');
@@ -124,6 +127,7 @@ async function applyParity(){
     await cmd('set fpv_hot_record 1');
     await cmd('set fpv_hot_text CAM HOT');
 
+    document.dispatchEvent(new CustomEvent('fps-settings-applied'));
     setStatus('Applied to C3 ✓');
     setTimeout(()=>setStatus(''),1600);
   }catch(e){
@@ -145,21 +149,17 @@ function syncMetadataFromDevice(){
     if($('fpsPilotMaster')&&$('pilotEn')){$('fpsPilotMaster').checked=$('pilotEn').checked;fire('fpsPilotMaster')}
     if($('fpsCraftMaster')&&$('craftEn')){$('fpsCraftMaster').checked=$('craftEn').checked;fire('fpsCraftMaster')}
 
-    const rawCurrent=[1,2,3,4].map(n=>String($('osd'+n)?.value||'').trim());
-    const currentActive=rawCurrent.some(v=>v&&v!=='{off}');
-    const legacyActive=!!bf?.checked&&(!!$('pilotEn')?.checked||!!$('craftEn')?.checked);
-    const statusActive=!!$('fpvStateMode')?.checked||!!$('fpvError')?.checked||!!$('fpvReady')?.checked||!!$('fpvRecord')?.checked;
-    const warningActive=!!$('fpvLowBatt')?.checked||!!$('fpvRecLow')?.checked||!!$('fpvHot')?.checked;
-    const tempActive=!!$('fpvPreArm')?.checked||!!String($('fpvPreArmText')?.value||'').replace(/^@[1-4]:/,'').trim();
-    const osdOn=bf?.checked?legacyActive:(currentActive||statusActive||warningActive||tempActive);
+    // Do not infer the OSD master from templates/warnings. The board already
+    // persists fpv_state_mode, so Read Settings must reflect that exact value.
+    const osdOn=!!$('fpvStateMode')?.checked;
     if($('fpsOsdMaster')){$('fpsOsdMaster').checked=osdOn;fire('fpsOsdMaster')}
 
     for(let n=1;n<=4;n++){
       const input=$('osd'+n),master=$('fpsMsg'+n); if(!input||!master)continue;
       const wire=String(input.value||'').trim();
-      const off=wire==='{off}';
-      if(!osdOn&&!wire){master.checked=true;input.value=DEFAULT_TPL[n]}
-      else {master.checked=!off;if(off)input.value=DEFAULT_TPL[n]}
+      const off=!wire||wire==='{off}';
+      master.checked=!off;
+      if(off)input.value=DEFAULT_TPL[n];
       input.dispatchEvent(new Event('input',{bubbles:true}));
       master.dispatchEvent(new Event('change',{bubbles:true}));
     }
@@ -171,21 +171,51 @@ function syncMetadataFromDevice(){
     if($('fpvPreArmText')){$('fpvPreArmText').value=p.text||'CLEAN LENS';fire('fpvPreArmText','input')}
     if($('fpsTempMaster')){$('fpsTempMaster').checked=!!p.text;fire('fpsTempMaster')}
     setSelectTarget('fpsTempDest',p.target);
+    if($('fpvCustomDurationSec')&&$('fpvPreArmShow')){
+      const ms=Math.max(100,parseInt($('fpvPreArmShow').value,10)||1000);
+      $('fpvCustomDurationSec').value=(ms/1000).toFixed(ms%1000===0?0:1);
+      fire('fpvCustomDurationSec','input');
+    }
 
     const w=stripTarget($('fpvLowText')?.value);
     if($('fpsWarnMaster')&&$('fpvLowBatt')){$('fpsWarnMaster').checked=$('fpvLowBatt').checked;fire('fpsWarnMaster')}
     setSelectTarget('fpsWarnDest',w.target);
 
-    fire('fpvFlash'); fire('fpvPreArm'); fire('fpvCustomDurationSec','input');
-    fire('fpvLowPct','input'); fire('fpvRecLowMin','input');
+    if($('fpsAuxMaster')&&$('auxChannel')){
+      $('fpsAuxMaster').checked=parseInt($('auxChannel').value,10)>0;
+      fire('fpsAuxMaster');
+    }
+
+    fire('fpvFlash'); fire('fpvPreArm'); fire('fpvLowPct','input'); fire('fpvRecLowMin','input');
     setStatus('Read from C3 ✓');
+    document.dispatchEvent(new CustomEvent('fps-config-read-complete'));
     setTimeout(()=>setStatus(''),1200);
   }finally{syncing=false}
+}
+
+function scheduleReadSync(){
+  clearTimeout(readTimer);
+  readTimer=setTimeout(syncMetadataFromDevice,180);
+}
+
+function installReadCompletionHook(){
+  // The native parser is the canonical board -> native-control path. Wrap it
+  // only to know when the stream of [cfg] lines has gone quiet, then translate
+  // those already-parsed values into the friendly FPSteVe controls.
+  if(typeof parseConfigLine!=='function'||parseConfigLine.__fpsWrapped)return;
+  const original=parseConfigLine;
+  const wrapped=function(line){
+    original(line);
+    if(/^\[cfg\]\s+\w+\s*=/.test(String(line||''))) scheduleReadSync();
+  };
+  wrapped.__fpsWrapped=true;
+  parseConfigLine=wrapped;
 }
 
 function init(){
   const apply=$('fpsApplyAll');
   if(apply) apply.onclick=applyParity;
+  installReadCompletionHook();
 
   document.addEventListener('change',e=>{
     if(e.target?.id==='fpsCraftMaster'&&e.target.checked){
@@ -197,7 +227,10 @@ function init(){
     }
   });
 
-  $('readBtn')?.addEventListener('click',()=>setTimeout(syncMetadataFromDevice,850));
+  // Fallback for browsers where the global parser cannot be wrapped.
+  $('readBtn')?.addEventListener('click',()=>setTimeout(()=>{
+    if(connected())syncMetadataFromDevice();
+  },1200));
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(init,450));
