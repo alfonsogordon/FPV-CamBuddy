@@ -1,0 +1,248 @@
+name: Apply V1.0.2 expansion
+
+on:
+  push:
+    branches: [experimental]
+    paths:
+      - .github/workflows/apply-v102-expansion.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experimental
+      - name: Expand Multi GoPro and add armed/disarmed BLE TX power
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def read(p): return Path(p).read_text()
+          def write(p,s): Path(p).write_text(s)
+          def repl(s,a,b,label):
+              if a not in s:
+                  raise SystemExit(f'missing patch anchor: {label}')
+              return s.replace(a,b)
+
+          # Multi-GoPro: remove the old two-slot application limit. Six slots is
+          # deliberately above the normal ESP32-C3 BLE connection budget; the
+          # runtime count reflects however many links the hardware can maintain.
+          p='src/multi_gopro_camera.h'; s=read(p)
+          s=repl(s,'#include "gopro_protocol.h"\n\nclass MultiGoProCamera', '#include "gopro_protocol.h"\n\nstatic constexpr uint8_t MAX_MULTI_GOPRO_SLOTS = 6;\n\nclass MultiGoProCamera','multi header constant')
+          s=repl(s,'    Slot _slots[2];','    Slot _slots[MAX_MULTI_GOPRO_SLOTS];','multi slot array')
+          write(p,s)
+
+          p='src/multi_gopro_camera.cpp'; s=read(p)
+          s=s.replace('for (int i = 0; i < 2; ++i)', 'for (int i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i)')
+          s=s.replace('for (uint8_t i = 0; i < 2; ++i)', 'for (uint8_t i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i)')
+          s=s.replace('slot > 1', 'slot >= MAX_MULTI_GOPRO_SLOTS')
+          s=s.replace('_scanSlot > 1', '_scanSlot >= MAX_MULTI_GOPRO_SLOTS')
+          if '< 2; ++i' in s or 'slot > 1' in s:
+              raise SystemExit('two-slot loop/bounds check still present')
+          write(p,s)
+
+          # Add experimental dynamic BLE TX power config alongside the existing
+          # fixed low_power setting. Dynamic mode is opt-in to preserve V1.0.1
+          # behaviour when disabled.
+          p='src/config_manager.h'; s=read(p)
+          s=repl(s,
+              '        bool lowPowerMode;\n        bool multiCamSync;',
+              '        bool lowPowerMode;\n        bool dynamicTxPower;\n        int8_t armedTxPowerDbm;\n        int8_t disarmedTxPowerDbm;\n        bool multiCamSync;',
+              'config power fields')
+          s=repl(s,
+              '    static constexpr bool DEFAULT_LOW_POWER_MODE = true;\n    static constexpr bool DEFAULT_MULTI_CAM_SYNC = false;',
+              '    static constexpr bool DEFAULT_LOW_POWER_MODE = true;\n    static constexpr bool DEFAULT_DYNAMIC_TX_POWER = false;\n    static constexpr int8_t DEFAULT_ARMED_TX_POWER_DBM = -12;\n    static constexpr int8_t DEFAULT_DISARMED_TX_POWER_DBM = 9;\n    static constexpr bool DEFAULT_MULTI_CAM_SYNC = false;',
+              'power defaults')
+          s=repl(s,
+              '    void setLowPowerMode(bool v);\n    void setMultiCamSync(bool v);',
+              '    void setLowPowerMode(bool v);\n    void setDynamicTxPower(bool v);\n    void setArmedTxPowerDbm(int8_t dbm);\n    void setDisarmedTxPowerDbm(int8_t dbm);\n    void setMultiCamSync(bool v);',
+              'power setters')
+          write(p,s)
+
+          Path('src/config_v101.cpp').write_text(r'''#include "config_manager.h"
+#include <cstring>
+#include <cstdlib>
+
+namespace {
+constexpr const char *KEY_MULTI_CAM = "multi_cam";
+constexpr const char *KEY_DYNAMIC_POWER = "dyn_power";
+constexpr const char *KEY_ARMED_POWER = "arm_dbm";
+constexpr const char *KEY_DISARMED_POWER = "dis_dbm";
+
+int8_t clampPower(long v) {
+    if (v < -12) v = -12;
+    if (v > 9) v = 9;
+    return static_cast<int8_t>(v);
+}
+}
+
+void ConfigManager::loadV101Extras() {
+    _cfg.multiCamSync = _prefs.getBool(KEY_MULTI_CAM, DEFAULT_MULTI_CAM_SYNC);
+    _cfg.dynamicTxPower = _prefs.getBool(KEY_DYNAMIC_POWER, DEFAULT_DYNAMIC_TX_POWER);
+    _cfg.armedTxPowerDbm = clampPower(_prefs.getInt(KEY_ARMED_POWER, DEFAULT_ARMED_TX_POWER_DBM));
+    _cfg.disarmedTxPowerDbm = clampPower(_prefs.getInt(KEY_DISARMED_POWER, DEFAULT_DISARMED_TX_POWER_DBM));
+}
+
+void ConfigManager::printV101Extras(Stream &out) {
+    out.printf("[cfg] multi_cam       = %s\n", _cfg.multiCamSync ? "true" : "false");
+    out.printf("[cfg] dyn_power       = %s\n", _cfg.dynamicTxPower ? "true" : "false");
+    out.printf("[cfg] arm_dbm         = %d dBm\n", _cfg.armedTxPowerDbm);
+    out.printf("[cfg] dis_dbm         = %d dBm\n", _cfg.disarmedTxPowerDbm);
+}
+
+void ConfigManager::setMultiCamSync(bool v) {
+    _cfg.multiCamSync = v;
+    _prefs.putBool(KEY_MULTI_CAM, v);
+}
+
+void ConfigManager::setDynamicTxPower(bool v) {
+    _cfg.dynamicTxPower = v;
+    _prefs.putBool(KEY_DYNAMIC_POWER, v);
+}
+
+void ConfigManager::setArmedTxPowerDbm(int8_t dbm) {
+    _cfg.armedTxPowerDbm = clampPower(dbm);
+    _prefs.putInt(KEY_ARMED_POWER, _cfg.armedTxPowerDbm);
+}
+
+void ConfigManager::setDisarmedTxPowerDbm(int8_t dbm) {
+    _cfg.disarmedTxPowerDbm = clampPower(dbm);
+    _prefs.putInt(KEY_DISARMED_POWER, _cfg.disarmedTxPowerDbm);
+}
+
+void ConfigManager::updateV101() {
+    if (!_serial) return;
+
+    while (_serial->available()) {
+        const char c = static_cast<char>(_serial->read());
+        if (c == '\r') continue;
+        if (c == '\n') {
+            _buf[_len] = '\0';
+            const char *line = _buf;
+            while (*line == ' ') line++;
+
+            if (strncmp(line, "set multi_cam ", 14) == 0) {
+                const char *val = line + 14; while (*val == ' ') val++;
+                setMultiCamSync(strtoul(val, nullptr, 10) != 0);
+                _serial->printf("[cfg] multi_cam = %s (saved — reboot to apply)\n", _cfg.multiCamSync ? "true" : "false");
+            } else if (strncmp(line, "set dyn_power ", 14) == 0) {
+                const char *val = line + 14; while (*val == ' ') val++;
+                setDynamicTxPower(strtoul(val, nullptr, 10) != 0);
+                _serial->printf("[cfg] dyn_power = %s (saved — applies on next arm-state change)\n", _cfg.dynamicTxPower ? "true" : "false");
+            } else if (strncmp(line, "set arm_dbm ", 12) == 0) {
+                const char *val = line + 12; while (*val == ' ') val++;
+                setArmedTxPowerDbm((int8_t)strtol(val, nullptr, 10));
+                _serial->printf("[cfg] arm_dbm = %d dBm (saved)\n", _cfg.armedTxPowerDbm);
+            } else if (strncmp(line, "set dis_dbm ", 12) == 0) {
+                const char *val = line + 12; while (*val == ' ') val++;
+                setDisarmedTxPowerDbm((int8_t)strtol(val, nullptr, 10));
+                _serial->printf("[cfg] dis_dbm = %d dBm (saved)\n", _cfg.disarmedTxPowerDbm);
+            } else if (strcmp(line, "show") == 0) {
+                processCommand(line, *_serial);
+                printV101Extras(*_serial);
+            } else if (strcmp(line, "help") == 0) {
+                processCommand(line, *_serial);
+                _serial->println("  set multi_cam <0|1>        - experimental Multi Cam mode; scans/controls all supported ready cameras (reboot required)");
+                _serial->println("  set dyn_power <0|1>        - use separate BLE TX powers for armed and disarmed states");
+                _serial->println("  set arm_dbm <-12..9>       - BLE TX power while armed (default -12 dBm)");
+                _serial->println("  set dis_dbm <-12..9>       - BLE TX power while disarmed (default +9 dBm)");
+            } else if (strcmp(line, "reset") == 0) {
+                processCommand(line, *_serial);
+                loadV101Extras();
+                printV101Extras(*_serial);
+            } else {
+                processCommand(line, *_serial);
+            }
+            _len = 0;
+        } else if (_len < sizeof(_buf) - 1) {
+            _buf[_len++] = c;
+        }
+    }
+}
+''')
+
+          # Runtime BLE power switching. The ESP32 Arduino BLE API exposes the
+          # standard -12/-9/-6/-3/0/+3/+6/+9 dBm levels. Values entered between
+          # them are rounded up to the next supported level.
+          p='src/main.cpp'; s=read(p)
+          if '#include <BLEDevice.h>' not in s:
+              s=s.replace('#include <Arduino.h>\n', '#include <Arduino.h>\n#include <BLEDevice.h>\n')
+          anchor='static bool ledState = false;\n'
+          helper=r'''
+
+static esp_power_level_t blePowerForDbm(int8_t dbm) {
+    if (dbm <= -12) return ESP_PWR_LVL_N12;
+    if (dbm <= -9)  return ESP_PWR_LVL_N9;
+    if (dbm <= -6)  return ESP_PWR_LVL_N6;
+    if (dbm <= -3)  return ESP_PWR_LVL_N3;
+    if (dbm <= 0)   return ESP_PWR_LVL_N0;
+    if (dbm <= 3)   return ESP_PWR_LVL_P3;
+    if (dbm <= 6)   return ESP_PWR_LVL_P6;
+    return ESP_PWR_LVL_P9;
+}
+
+static void applyConfiguredBleTxPower(bool armed) {
+    const auto &cfg = configManager.config();
+    if (!cfg.dynamicTxPower) return;
+    const int8_t dbm = armed ? cfg.armedTxPowerDbm : cfg.disarmedTxPowerDbm;
+    BLEDevice::setPower(blePowerForDbm(dbm));
+    DBG_SERIAL.printf("[power] BLE TX -> %d dBm (%s)\n", dbm, armed ? "ARMED" : "DISARMED");
+}
+'''
+          s=repl(s,anchor,anchor+helper,'main power helper')
+          s=repl(s,'static void onArmStateChange(bool armed) {\n    if (armed) {', 'static void onArmStateChange(bool armed) {\n    applyConfiguredBleTxPower(armed);\n    if (armed) {','arm power hook')
+          s=repl(s,'    activeCamera->begin();\n\n    wifiDelayOriginMs = millis();', '    activeCamera->begin();\n    applyConfiguredBleTxPower(false);\n\n    wifiDelayOriginMs = millis();','boot power hook')
+          write(p,s)
+
+          # Native parser learns the three new settings so Read Settings is a
+          # true board->UI round trip.
+          p='web/config.html'; s=read(p)
+          s=repl(s,
+              "  } else if (key === 'low_power') {\n    lowPowerToggle.checked = (val === 'true');\n  } else if (key === 'wifi_ap_enabled') {",
+              "  } else if (key === 'low_power') {\n    lowPowerToggle.checked = (val === 'true');\n  } else if (key === 'dyn_power') {\n    const e=document.getElementById('fpsDynamicPower'); if(e)e.checked=(val === 'true');\n  } else if (key === 'arm_dbm') {\n    const e=document.getElementById('fpsArmedPower'); if(e)e.value=String(parseInt(val)||0);\n  } else if (key === 'dis_dbm') {\n    const e=document.getElementById('fpsDisarmedPower'); if(e)e.value=String(parseInt(val)||0);\n  } else if (key === 'wifi_ap_enabled') {",
+              'config parser power')
+          write(p,s)
+
+          # Add the experimental power controls to the rebuilt UI. Keep the old
+          # fixed low-power toggle as the fallback when dynamic mode is disabled.
+          p='web/fps-ui-rebuild.js'; s=read(p)
+          s=repl(s,
+              "debugBle:false,lowPower:true,wifiApEnabled:false};",
+              "debugBle:false,lowPower:true,dynamicPower:false,armedTxPower:'-12',disarmedTxPower:'9',wifiApEnabled:false};",
+              'ui defaults')
+          s=repl(s,
+              "if(st.auxEnabled)st.auxChannel=get('auxChannel')||'1';return st}",
+              "if(st.auxEnabled)st.auxChannel=get('auxChannel')||'1';st.dynamicPower=!!$('fpsDynamicPower')?.checked;st.armedTxPower=$('fpsArmedPower')?.value||st.armedTxPower;st.disarmedTxPower=$('fpsDisarmedPower')?.value||st.disarmedTxPower;return st}",
+              'ui capture power')
+          ui_anchor=" const wake=$('wakeGuard');"
+          ui_block=r''' const lp=$('lowPower');if(lp&&!$('fpsDynamicPowerWrap')){const row=lp.closest('.cfg-field');if(row){const wrap=document.createElement('div');wrap.id='fpsDynamicPowerWrap';wrap.className='fps-section';const opts=['-12','-9','-6','-3','0','3','6','9'].map(v=>`<option value="${v}">${Number(v)>0?'+':''}${v} dBm</option>`).join('');wrap.innerHTML=`<div class="fps-section-head"><div><strong>Armed / Disarmed TX Power <span style="font-size:10px;color:#b45309">EXPERIMENTAL</span></strong><div class="fps-section-desc">Use minimum BLE power in flight, then raise power after disarm so nearby cameras are easier to reacquire and can receive the stop command. When off, the normal Low Power Mode setting above is used.</div></div>${sw('fpsDynamicPower')}</div><div class="fps-section-body"><div class="fps-row"><label>Armed BLE power</label><select id="fpsArmedPower">${opts}</select></div><div class="fps-row"><label>Disarmed BLE power</label><select id="fpsDisarmedPower">${opts}</select></div><div class="fps-note">ESP32 BLE supports discrete -12 to +9 dBm steps. Default experimental profile: -12 dBm armed / +9 dBm disarmed.</div></div>`;row.insertAdjacentElement('afterend',wrap);put('fpsDynamicPower',st.dynamicPower);put('fpsArmedPower',st.armedTxPower);put('fpsDisarmedPower',st.disarmedTxPower);const sync=()=>{const en=$('fpsDynamicPower').checked;$('fpsArmedPower').disabled=!en;$('fpsDisarmedPower').disabled=!en};$('fpsDynamicPower').addEventListener('change',()=>{sync();save()});$('fpsArmedPower').addEventListener('change',save);$('fpsDisarmedPower').addEventListener('change',save);sync();}}
+'''
+          s=repl(s,ui_anchor,ui_block+ui_anchor,'ui power section')
+          write(p,s)
+
+          # Include the dynamic power fields in strict Save/Read/Verify.
+          p='web/fps-autosync.js'; s=read(p)
+          s=repl(s,
+              "cameraType:val('cameraType','1'),cameraMatch:val('cameraMatch','0'),wakeGuard:chk('wakeGuard'),debugBle:chk('debugBle'),lowPower:chk('lowPower'),multiCamSync:chk('fpsMultiCamSync'),wifiApEnabled:chk('wifiApEnabled')",
+              "cameraType:val('cameraType','1'),cameraMatch:val('cameraMatch','0'),wakeGuard:chk('wakeGuard'),debugBle:chk('debugBle'),lowPower:chk('lowPower'),dynamicPower:chk('fpsDynamicPower'),armedTxPower:parseInt(val('fpsArmedPower','-12')),disarmedTxPower:parseInt(val('fpsDisarmedPower','9')),multiCamSync:chk('fpsMultiCamSync'),wifiApEnabled:chk('wifiApEnabled')",
+              'autosync snapshot power')
+          s=repl(s,
+              "await strictCmd(`set camera_type ${s.cameraType}`);await strictCmd(`set camera_match ${s.cameraMatch}`);await strictCmd(`set wake_guard ${s.wakeGuard?1:0}`);await strictCmd(`set debug_ble ${s.debugBle?1:0}`);await strictCmd(`set low_power ${s.lowPower?1:0}`);await strictCmd(`set multi_cam ${s.multiCamSync?1:0}`);",
+              "await strictCmd(`set camera_type ${s.cameraType}`);await strictCmd(`set camera_match ${s.cameraMatch}`);await strictCmd(`set wake_guard ${s.wakeGuard?1:0}`);await strictCmd(`set debug_ble ${s.debugBle?1:0}`);await strictCmd(`set low_power ${s.lowPower?1:0}`);await strictCmd(`set dyn_power ${s.dynamicPower?1:0}`);await strictCmd(`set arm_dbm ${s.armedTxPower}`);await strictCmd(`set dis_dbm ${s.disarmedTxPower}`);await strictCmd(`set multi_cam ${s.multiCamSync?1:0}`);",
+              'autosync write power')
+          write(p,s)
+
+          # This one-shot workflow removes itself from the resulting commit.
+          Path('.github/workflows/apply-v102-expansion.yml').unlink()
+          PY
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Expand Multi Cam slots and add armed/disarmed BLE power'
+          git push origin experimental
