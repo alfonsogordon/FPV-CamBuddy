@@ -23,13 +23,17 @@ This file previously tracked active FPSteVe Edition development. The core V1 beh
 - Settings persistence through reconnect and C3 power cycle
 - Web flashing and post-flash power-cycle/configuration flow
 
-## Implemented / validated in software, awaiting matching hardware
+## Implemented / validated in software, awaiting matching or forced hardware conditions
 
 ### Betaflight 2026.6+ Custom Messages 1–4
 
 Implemented with four independently configurable Custom Message templates and integrated into the same OSD state/priority system. The Preview and firmware logic have been tested, but the V1 physical flight controller available for acceptance testing runs Betaflight 4.5.
 
 Therefore this path is deliberately documented as **not yet hardware-tested**, rather than being presented as physically confirmed.
+
+### Camera warning conditions
+
+BATT LOW / REC LOW / CAM HOT and the warning priority/alternation logic are implemented and validated in the integrated Preview/firmware flow. The installed flight-test camera has not been deliberately forced through every individual warning condition, so the docs do not label all warning triggers as physical hardware tests.
 
 ## V1 defaults
 
