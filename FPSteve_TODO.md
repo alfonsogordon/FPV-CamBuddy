@@ -1,105 +1,87 @@
-# FreeCLinker — FPSteVe Edition roadmap
+# FPSteVe Edition — V1 Release Status
 
-This is the single authoritative project roadmap. Work through the stages in order. New ideas are parked at the end unless they are required to complete or safely validate the current stage.
+This file previously tracked active FPSteVe Edition development. The core V1 behaviour is now feature-complete and the project is in documentation/release preparation.
 
-## Stage 1 — Repository cleanup
+## Hardware-confirmed for V1 🤘
 
-- [x] Replace branch-specific validation workflows with one production validation workflow.
-- [x] Add a single production site build entry point (`tools/build_fps_site.py`).
-- [x] Remove retired competing configurator UI/state helper files.
-- [x] Keep `fps-ui-rebuild.js` as the production Settings UI owner.
-- [x] Keep `fps-demo-v1.js` as the Demo Mode owner.
-- [x] Restore the obvious purple Demo Mode page frame/marker.
-- [x] Remove obsolete one-shot/branch-specific workflows.
-- [x] Remove obsolete firmware/UI patch helper scripts that are no longer part of the production path.
-- [x] Fix MSP warning declarations/routing mismatch exposed by validation.
-- [x] Validate production site generation.
-- [x] Build ESP32-C3 Super Mini firmware in CI.
-- [x] Build normal ESP32 firmware in CI.
-- [x] Consolidate duplicate TODO files into this roadmap.
-- [ ] Final PR diff review.
-- [ ] Merge cleanup PR.
-- [ ] Verify GitHub Pages deployment from main.
-- [ ] User regression check of Configurator and Demo Mode.
+- ESP32-C3 Super Mini hardware target
+- GoPro BLE discovery/automatic connection and reconnect
+- Wake Guard behaviour with sleeping GoPro
+- Low-power BLE mode
+- GoPro keepalive during the powered flight session
+- Real Betaflight 4.5 MSP connection
+- Real FC ARM starts GoPro recording
+- Real FC DISARM restores normal OSD immediately
+- Configured 5-second delayed stop after disarm
+- Camera state returns REC → RDY after the delayed stop
+- BF 4.5 Pilot/Craft OSD path
+- ERR / RDY / REC camera state reporting
+- REC-only while armed + recording
+- Flash REC behaviour
+- CLEAN LENS first-arm reminder behaviour
+- FPSteVe Easy Config read/save/read-back verification
+- Settings persistence through reconnect and C3 power cycle
+- Web flashing and post-flash power-cycle/configuration flow
 
-## Stage 2 — Settings / configurator overhaul
+## Implemented / validated in software, awaiting matching hardware
 
-- [ ] Visually verify and finish the cleaned single-owner Settings UI.
-- [ ] OSD Templates fresh default OFF; when OFF show heading + switch only.
-- [ ] Show Betaflight version selector only when OSD Templates is enabled.
-- [ ] Keep current and legacy Betaflight controls inside one Betaflight OSD card.
-- [ ] Current BF defaults: `{batt}`, `{state} {recdur}`, `{mode} {res} {fps} {eis}`, `{rectf} {rcap}`.
-- [ ] Legacy Pilot default: `{stateonly} {batt} {rectf}`; Craft default OFF.
-- [ ] Add a proper switch for REC-only-when-armed-and-actually-recording behaviour.
-- [ ] Keep Flash REC at 1 Hz as its own switch.
-- [ ] Render `Only before first arm` as the standard enable/disable switch, not a text/value field.
-- [ ] Temporary Message fresh default OFF; CLEAN LENS latent default; duration 1.0 s; repeat interval hidden at 3000 ms.
-- [ ] Camera Warnings fresh default OFF; latent defaults 10% battery / 5 min recording time / automatic CAM HOT.
-- [ ] AUX fresh default OFF; restore ARM/disarm guidance; AUX channel 0 means disabled.
-- [ ] Optional feature OFF state must collapse to heading + switch only.
-- [ ] Verify Demo Mode uses the same Settings state model and never writes hardware.
-- [ ] Remove any remaining inconsistent/legacy Settings styling.
-- [ ] User visual sign-off before Stage 3.
+### Betaflight 2026.6+ Custom Messages 1–4
 
-## Stage 3 — Firmware configuration plumbing
+Implemented with four independently configurable Custom Message templates and integrated into the same OSD state/priority system. The Preview and firmware logic have been tested, but the V1 physical flight controller available for acceptance testing runs Betaflight 4.5.
 
-- [ ] Finish one global Temporary Message / Camera Warning engine.
-- [ ] BF 2026.6+ routes to selected Custom Message 1–4.
-- [ ] BF 4.4–2025.12 routes to selected Pilot/Craft destination.
-- [ ] Auto-select/hide destination when only one valid destination exists.
-- [ ] Persist destination in NVS.
-- [ ] Expose destination through CLI/config read-back.
-- [ ] Verify Apply -> read-back -> reboot persistence.
-- [ ] Preserve known-good GoPro scan/wake/connect/ARM-record/disarm-stop behaviour.
+Therefore this path is deliberately documented as **not yet hardware-tested**, rather than being presented as physically confirmed.
 
-## Stage 4 — Integrated OSD Preview
+## V1 defaults
 
-- [ ] Move OSD Preview beside OSD Settings using the same state model.
-- [ ] Desktop side-by-side; narrow/mobile stacked.
-- [ ] Live update for BF version, builders, messages, warnings and destinations.
-- [ ] Demo ARM/DISARM shows RDY -> REC behaviour, REC-only mode and flashing.
-- [ ] Simulate Temporary Message and warning priority/rotation.
-- [ ] Use connected C3 camera telemetry where available.
-- [ ] Prefer real Betaflight OSD glyphs where practical/licensed.
-- [ ] Preview changes remain UI-only until Apply/Save.
-- [ ] Preview must never arm an FC or motors.
+### Camera / flight
+- Camera match: Any
+- Wake Guard: ON
+- Stop recording on disarm: ON
+- Disarm delay: 5000 ms
+- Low Power: ON
+- Wi-Fi AP: OFF
+- AUX: OFF
 
-## Stage 5 — Hardware validation
+### BF 4.5 legacy
+- Pilot Name: ON
+- Pilot template: `{stateonly} {batt} {rectf}`
+- Craft Name: OFF
+- Craft latent/default template: `{res} {fps}`
 
-- [ ] Flash the spare ESP32-C3 Super Mini first.
-- [ ] Read config and confirm UI reflects board state.
-- [ ] Change every setting -> Apply -> read back exact values.
-- [ ] Reboot -> verify NVS persistence.
-- [ ] HERO11 Mini: sleeping scan behaviour, connect, ARM record, DISARM stop/delay.
-- [ ] Repeat with GoPro MAX2.
-- [ ] Test warnings and Temporary Message through actual Betaflight OSD.
-- [ ] Test configured AUX behaviour.
-- [ ] Verify simulation safety: RAM-only, no FC arming, reboot clears simulated state.
+### BF 2026.6+
+- OSD templates: ON
+- Custom Messages 1–4: ON
+- Message 1: `{batt}`
+- Message 2: `{state} {recdur}`
+- Message 3: `{mode} {res} {fps} {eis}`
+- Message 4: `{rectf} {rcap}`
 
-## Stage 6 — v1.0 release
+### OSD behaviour
+- REC-only when armed + recording: ON
+- Flash REC at 1 Hz: ON
+- Temporary message: ON
+- Temporary text: `CLEAN LENS`
+- Only before first arm: ON
+- Duration: 1.0 second
+- Destination: Custom Message 2
+- Camera warnings: ON
+- Low camera battery: 10%
+- Low recording time: 5 minutes
+- CAM HOT: automatic
+- Warning destination: Custom Message 1
 
-- [ ] Clean README and Quickstart for FPSteVe Edition.
-- [ ] Separate physically tested hardware from protocol-supported hardware.
-- [ ] Verify hosted flasher selects the correct release/board image.
-- [ ] Verify Configurator + Preview + Flasher match the firmware release.
-- [ ] Publish final test release.
-- [ ] Bench/flying test and fix release blockers.
-- [ ] Release **FreeCLinker — FPSteVe Edition v1.0**.
+Priority:
 
-## Stage 7 — Post-v1 features
+**Warning → Temporary Message → REC-only → normal configured OSD**
 
-- [ ] Multi-camera pairing/sync while retaining reliable single-camera fallback.
-- [ ] Mixed camera families such as GoPro + DJI.
-- [ ] Per-camera connection, recording and error state.
-- [ ] Synchronized ARM recording and defined DISARM/crash behaviour.
-- [ ] Optional low-power handling.
-- [ ] Capability-aware camera settings: resolution, FPS, stabilisation, exposure/EV, ISO, shutter, white balance/colour, lens/FOV and other supported controls.
-- [ ] Optional AUX mappings for selected camera settings without complicating normal ARM/record behaviour.
+## Remaining release-prep work
 
-## Parked ideas — do not interrupt the roadmap
+- Finish README / website / Quick Start documentation refresh
+- Add short OSD demonstration asset showing the default ERR → RDY → REC → delayed-stop flow
+- Add direct Squadding Quads Discord help/feedback thread URL once supplied
+- Final validation/build/site review
+- Create final `v1.0.0` release as **FPSteVe Edition V1.0 — Actually Final**
 
-- [ ] Replace legacy `B:` camera-battery prefix with the Betaflight main-battery OSD glyph if end-to-end BF4.5 testing proves it survives MSP text transport correctly.
-- [ ] Add a public camera test/report GitHub issue template for community hardware results.
-- [ ] Add the FPSteVe logo later as a restrained header/footer treatment.
-- [ ] Revisit possible visible name `FreekLinker`; do not rename before v1.0.
-- [ ] Resolve/clarify upstream licensing before treating the fork as broadly redistributable beyond GitHub's fork mechanism.
+## Post-V1 candidates
+
+Keep post-V1 feature development separate from the V1 release-preparation pass. Possible future work includes broader camera-specific testing/support and improvements driven by community feedback.
