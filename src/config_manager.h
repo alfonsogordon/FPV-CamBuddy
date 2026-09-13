@@ -71,15 +71,10 @@ public:
     static constexpr bool DEFAULT_CAMERA_WAKE_GUARD = true;
     static constexpr bool DEFAULT_DEBUG_BLE = false;
     static constexpr bool DEFAULT_LOW_POWER_MODE = true;
-    // V1.0.1 is deliberately conservative on upgrade: Multi Cam must be
-    // explicitly enabled. Existing single-GoPro installs keep V1 behaviour.
     static constexpr bool DEFAULT_MULTI_CAM_SYNC = false;
     static constexpr uint32_t DEFAULT_WIFI_AP_START_DELAY_SEC = 30;
     static constexpr bool DEFAULT_WIFI_AP_ENABLED = false;
 
-    // Fresh V1 board: current Betaflight Custom Messages are enabled with the
-    // signed-off four-line layout. Users can still disable OSD Templates or any
-    // individual destination from the configurator and save that state.
     static constexpr const char *DEFAULT_OSD1_TPL = "{batt}";
     static constexpr const char *DEFAULT_OSD2_TPL = "{state} {recdur}";
     static constexpr const char *DEFAULT_OSD3_TPL = "{mode} {res} {fps} {eis}";
@@ -118,6 +113,11 @@ public:
 
     void begin(Stream &serial);
     void update();
+    // V1.0.1 extension layer. Kept separate from the signed-off V1 parser so
+    // the new setting can be added without destabilising all existing config.
+    void loadV101Extras();
+    void printV101Extras(Stream &out);
+    void updateV101();
     void setRegistry(CameraRegistry *reg) { _registry = reg; }
     void setCamera(Camera *cam, const CameraData *data) { _camera = cam; _cameraData = data; }
     const Config &config() const { return _cfg; }
