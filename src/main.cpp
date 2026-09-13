@@ -145,17 +145,27 @@ void setup() {
     cameraRegistry.begin();
 
     configManager.begin(DBG_SERIAL);
+    configManager.loadV101Extras();
+    configManager.printV101Extras(DBG_SERIAL);
     configManager.setRegistry(&cameraRegistry);
 
     const uint8_t camType = configManager.config().cameraType;
     const char *camTypeName;
     switch (camType) {
-        case 1:  activeCamera = &multiGoProCamera; camTypeName = "GoPro Multi (experimental)"; break;
-        case 2:  activeCamera = &caddxCamera; camTypeName = "Caddx Orca"; break;
-        case 3:  activeCamera = &sonyCamera;       camTypeName = "Sony Alpha"; break;
-        case 4:  activeCamera = &blackmagicCamera; camTypeName = "Blackmagic"; break;
-        case 5:  activeCamera = &insta360Camera;   camTypeName = "Insta360";   break;
-        default: activeCamera = &djiCamera;        camTypeName = "DJI Action"; break;
+        case 1:
+            if (configManager.config().multiCamSync) {
+                activeCamera = &multiGoProCamera;
+                camTypeName = "GoPro Multi";
+            } else {
+                activeCamera = &goProCamera;
+                camTypeName = "GoPro Single";
+            }
+            break;
+        case 2:  activeCamera = &caddxCamera;       camTypeName = "Caddx Orca"; break;
+        case 3:  activeCamera = &sonyCamera;        camTypeName = "Sony Alpha"; break;
+        case 4:  activeCamera = &blackmagicCamera;  camTypeName = "Blackmagic"; break;
+        case 5:  activeCamera = &insta360Camera;    camTypeName = "Insta360"; break;
+        default: activeCamera = &djiCamera;         camTypeName = "DJI Action"; break;
     }
 
     DBG_SERIAL.printf("[main] Camera type: %s\n", camTypeName);
@@ -228,7 +238,7 @@ void setup() {
 }
 
 void loop() {
-    configManager.update();
+    configManager.updateV101();
     mspSerial.setAuxChannel(configManager.config().auxChannel);
     activeCamera->setDebugBle(configManager.config().debugBle);
     activeCamera->update();
