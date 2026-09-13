@@ -17,53 +17,26 @@ function installExperimentalUi(){
  const panel=$('panel-config');if(!panel)return;
  const style=document.createElement('style');style.textContent=`
   :root{--fps-exp:#facc15;--fps-exp-bg:rgba(250,204,21,.08);--fps-exp-border:rgba(250,204,21,.55)}
-  .fps-exp-master{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 14px;padding:12px 14px;border:1px solid #3b4250;border-radius:9px;background:#0f151f;transition:.2s}
-  .fps-exp-master strong{display:block}.fps-exp-master .fps-exp-desc{font-size:11px;color:#8d98a8;margin-top:3px}
+  .fps-exp-master{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 10px;padding:8px 11px;border:1px solid #303744;border-radius:8px;background:#0f151f;transition:.2s}
+  .fps-exp-master strong{display:block;font-size:12px}.fps-exp-master .fps-exp-desc{font-size:10px;color:#778292;margin-top:2px}
   .fps-exp-master.is-on{border-color:var(--fps-exp-border);background:var(--fps-exp-bg);box-shadow:0 0 0 1px rgba(250,204,21,.08) inset}
   .fps-exp-master.is-on strong,.fps-exp-master.is-on .fps-exp-desc{color:var(--fps-exp)}
   .fps-exp-feature{display:none;margin-top:10px;border:1px solid var(--fps-exp-border)!important;background:var(--fps-exp-bg)!important;box-shadow:0 0 0 1px rgba(250,204,21,.05) inset}
-  .fps-exp-feature *{border-color:rgba(250,204,21,.35)}
-  .fps-exp-feature .fps-exp-title,.fps-exp-feature strong{color:var(--fps-exp)!important}
+  .fps-exp-feature *{border-color:rgba(250,204,21,.35)}.fps-exp-feature .fps-exp-title,.fps-exp-feature strong{color:var(--fps-exp)!important}
   .fps-exp-badge{display:inline-block;margin-left:7px;padding:1px 6px;border:1px solid var(--fps-exp-border);border-radius:999px;color:var(--fps-exp);font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
-  .fps-exp-feature .fps-inline-desc,.fps-exp-feature .fps-exp-help{color:#cbbd77!important}
-  .fps-exp-feature.is-visible{display:block}
+  .fps-exp-feature .fps-inline-desc,.fps-exp-feature .fps-exp-help{color:#cbbd77!important}.fps-exp-feature.is-visible{display:block}
+  .fps-exp-confirm-backdrop{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:20px;background:rgba(0,0,0,.68);backdrop-filter:blur(3px)}
+  .fps-exp-confirm{width:min(470px,100%);padding:20px;border:1px solid var(--fps-exp-border);border-radius:12px;background:#111722;box-shadow:0 18px 60px #000b}.fps-exp-confirm h3{margin:0 0 8px;color:var(--fps-exp)}.fps-exp-confirm p{margin:0 0 10px;color:#c7cfda;font-size:13px;line-height:1.5}.fps-exp-confirm .fps-exp-warning{color:#e5d28a}.fps-exp-confirm-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
  `;document.head.appendChild(style);
- const master=document.createElement('div');master.id='fpsExperimentalMasterWrap';master.className='fps-exp-master';master.innerHTML=`<div><strong>Experimental Features</strong><div class="fps-exp-desc">Off = normal V1 feature set. Turn on to reveal experimental options throughout the configurator.</div></div><label class="switch"><input type="checkbox" id="fpsExperimentalMaster"><span class="track"><span class="thumb"></span></span></label>`;
+ const master=document.createElement('div');master.id='fpsExperimentalMasterWrap';master.className='fps-exp-master';master.innerHTML=`<div><strong>Experimental Features</strong><div class="fps-exp-desc">Reveal optional development features.</div></div><label class="switch"><input type="checkbox" id="fpsExperimentalMaster"><span class="track"><span class="thumb"></span></span></label>`;
  const firstCard=panel.querySelector('.config-card');if(firstCard)panel.insertBefore(master,firstCard);else panel.prepend(master);
- const wake=$('wakeGuard'),cameraCard=wake?.closest('.config-card');if(cameraCard){
-  const box=document.createElement('div');box.id='fpsMultiCamSyncWrap';box.className='cfg-field fps-exp-feature';box.innerHTML=`<div><div class="fps-exp-title"><strong>Multi Cam Sync</strong><span class="fps-exp-badge">Experimental</span></div><div class="fps-inline-desc fps-exp-help">Connect and control two GoPros from one C3 so arm/disarm recording commands can be kept in sync. Initial test target: 2 cameras.</div></div><label class="switch"><input type="checkbox" id="fpsMultiCamSync"><span class="track"><span class="thumb"></span></span></label>`;
-  const note=$('fpsGoProConnectionNote');if(note)note.insertAdjacentElement('afterend',box);else cameraCard.appendChild(box);
- }
- const masterInput=$('fpsExperimentalMaster'),multi=$('fpsMultiCamSync');
- masterInput.checked=localStorage.getItem(EXP_KEY)==='1';if(multi)multi.checked=localStorage.getItem(MULTI_KEY)==='1';
- function syncExp(){const on=masterInput.checked;localStorage.setItem(EXP_KEY,on?'1':'0');master.classList.toggle('is-on',on);document.querySelectorAll('.fps-exp-feature').forEach(x=>x.classList.toggle('is-visible',on));if(!on&&multi){multi.checked=false;localStorage.setItem(MULTI_KEY,'0')}}
- masterInput.addEventListener('change',syncExp);multi?.addEventListener('change',()=>localStorage.setItem(MULTI_KEY,multi.checked?'1':'0'));syncExp();
+ const wake=$('wakeGuard'),cameraCard=wake?.closest('.config-card');if(cameraCard){const box=document.createElement('div');box.id='fpsMultiCamSyncWrap';box.className='cfg-field fps-exp-feature';box.innerHTML=`<div><div class="fps-exp-title"><strong>Multi Cam Sync</strong><span class="fps-exp-badge">Experimental</span></div><div class="fps-inline-desc fps-exp-help">Connect and control up to two supported cameras from one C3. Test target includes GoPro + GoPro, DJI + DJI and mixed GoPro + DJI.</div></div><label class="switch"><input type="checkbox" id="fpsMultiCamSync"><span class="track"><span class="thumb"></span></span></label>`;const note=$('fpsGoProConnectionNote');if(note)note.insertAdjacentElement('afterend',box);else cameraCard.appendChild(box)}
+ const masterInput=$('fpsExperimentalMaster'),multi=$('fpsMultiCamSync');masterInput.checked=localStorage.getItem(EXP_KEY)==='1';if(multi)multi.checked=localStorage.getItem(MULTI_KEY)==='1';
+ function applyExp(on){localStorage.setItem(EXP_KEY,on?'1':'0');master.classList.toggle('is-on',on);document.querySelectorAll('.fps-exp-feature').forEach(x=>x.classList.toggle('is-visible',on));if(!on&&multi){multi.checked=false;localStorage.setItem(MULTI_KEY,'0')}document.dispatchEvent(new Event('change',{bubbles:true}))}
+ function confirmEnable(){const old=$('fpsExperimentalConfirm');if(old)old.remove();const bg=document.createElement('div');bg.id='fpsExperimentalConfirm';bg.className='fps-exp-confirm-backdrop';bg.innerHTML=`<div class="fps-exp-confirm" role="dialog" aria-modal="true" aria-labelledby="fpsExpTitle"><h3 id="fpsExpTitle">Enable Experimental Features?</h3><p>Experimental features are development functionality and may be incomplete, unstable or not fully tested.</p><p class="fps-exp-warning">Use them at your own risk. Bench test carefully before relying on them in flight, and expect behaviour to change between builds.</p><div class="fps-exp-confirm-actions"><button type="button" id="fpsExpCancel">Cancel</button><button type="button" class="primary" id="fpsExpAccept">I understand — enable</button></div></div>`;document.body.appendChild(bg);$('fpsExpCancel').onclick=()=>{masterInput.checked=false;bg.remove();applyExp(false)};$('fpsExpAccept').onclick=()=>{masterInput.checked=true;bg.remove();applyExp(true)};bg.addEventListener('click',e=>{if(e.target===bg)$('fpsExpCancel').click()})}
+ masterInput.addEventListener('change',()=>{if(masterInput.checked&&localStorage.getItem(EXP_KEY)!=='1'){masterInput.checked=false;confirmEnable();return}applyExp(masterInput.checked)});multi?.addEventListener('change',()=>{localStorage.setItem(MULTI_KEY,multi.checked?'1':'0');document.dispatchEvent(new Event('change',{bubbles:true}))});applyExp(masterInput.checked);
 }
-function syncMetadataFromDevice(){
- if(!readRequested||!connected())return;
- window.fpsBoardSyncing=true;readRequested=false;
- const bf=$('bf45Compat');if($('fpsBfMode')&&bf){$('fpsBfMode').value=bf.checked?'legacy':'current';fire('fpsBfMode')}
- if($('fpsPilotMaster')&&$('pilotEn')){$('fpsPilotMaster').checked=$('pilotEn').checked;fire('fpsPilotMaster')}
- if($('fpsCraftMaster')&&$('craftEn')){$('fpsCraftMaster').checked=$('craftEn').checked;healCraftTemplate();fire('fpsCraftMaster')}
- const osdOn=!!$('fpvStateMode')?.checked;if($('fpsOsdMaster')){$('fpsOsdMaster').checked=osdOn;fire('fpsOsdMaster')}
- const rawMsgs=[1,2,3,4].map(n=>String($('osd'+n)?.value||'').trim());
- const freshEmpty=!osdOn&&rawMsgs.every(v=>!v||v==='{off}');
- for(let n=1;n<=4;n++){
-  const input=$('osd'+n),master=$('fpsMsg'+n);if(!input||!master)continue;
-  const wire=String(input.value||'').trim(),off=!wire||wire==='{off}';
-  master.checked=freshEmpty?true:!off;
-  if((off||freshEmpty)&&!String(input.dataset.fpsLastTemplate||'').trim())input.dataset.fpsLastTemplate=CURRENT_DEFAULTS[n];
-  if(!off)input.dataset.fpsLastTemplate=wire;
-  if(off)input.value=input.dataset.fpsLastTemplate||CURRENT_DEFAULTS[n];
-  fire('osd'+n,'input');fire('fpsMsg'+n);
- }
- const recordMeta=String($('fpvRecordText')?.value||'');if($('fpsRecOnly')){$('fpsRecOnly').checked=recordMeta.startsWith('@ARM:');fire('fpsRecOnly')}
- const p=stripTarget($('fpvPreArmText')?.value);if($('fpvPreArmText')){$('fpvPreArmText').value=p.text||'CLEAN LENS';fire('fpvPreArmText','input')}if($('fpsTempMaster')){$('fpsTempMaster').checked=!!p.text;fire('fpsTempMaster')}setSelectTarget('fpsTempDest',p.target);
- if($('fpvCustomDurationSec')&&$('fpvPreArmShow')){const ms=Math.max(100,parseInt($('fpvPreArmShow').value,10)||1000);$('fpvCustomDurationSec').value=(ms/1000).toFixed(ms%1000===0?0:1);fire('fpvCustomDurationSec','input')}
- const w=stripTarget($('fpvLowText')?.value);if($('fpsWarnMaster')){$('fpsWarnMaster').checked=!!$('fpvLowBatt')?.checked||!!$('fpvRecLow')?.checked||!!$('fpvHot')?.checked;fire('fpsWarnMaster')}setSelectTarget('fpsWarnDest',w.target);
- if($('fpsAuxMaster')&&$('auxChannel')){$('fpsAuxMaster').checked=parseInt($('auxChannel').value,10)>0;fire('fpsAuxMaster')}
- fire('fpvFlash');fire('fpvPreArm');fire('fpvLowPct','input');fire('fpvRecLowMin','input');syncGoProNote();window.fpsBoardSyncing=false;document.dispatchEvent(new CustomEvent('fps-config-read-complete'));
-}
+function syncMetadataFromDevice(){if(!readRequested||!connected())return;window.fpsBoardSyncing=true;readRequested=false;const bf=$('bf45Compat');if($('fpsBfMode')&&bf){$('fpsBfMode').value=bf.checked?'legacy':'current';fire('fpsBfMode')}if($('fpsPilotMaster')&&$('pilotEn')){$('fpsPilotMaster').checked=$('pilotEn').checked;fire('fpsPilotMaster')}if($('fpsCraftMaster')&&$('craftEn')){$('fpsCraftMaster').checked=$('craftEn').checked;healCraftTemplate();fire('fpsCraftMaster')}const osdOn=!!$('fpvStateMode')?.checked;if($('fpsOsdMaster')){$('fpsOsdMaster').checked=osdOn;fire('fpsOsdMaster')}const rawMsgs=[1,2,3,4].map(n=>String($('osd'+n)?.value||'').trim()),freshEmpty=!osdOn&&rawMsgs.every(v=>!v||v==='{off}');for(let n=1;n<=4;n++){const input=$('osd'+n),master=$('fpsMsg'+n);if(!input||!master)continue;const wire=String(input.value||'').trim(),off=!wire||wire==='{off}';master.checked=freshEmpty?true:!off;if((off||freshEmpty)&&!String(input.dataset.fpsLastTemplate||'').trim())input.dataset.fpsLastTemplate=CURRENT_DEFAULTS[n];if(!off)input.dataset.fpsLastTemplate=wire;if(off)input.value=input.dataset.fpsLastTemplate||CURRENT_DEFAULTS[n];fire('osd'+n,'input');fire('fpsMsg'+n)}const recordMeta=String($('fpvRecordText')?.value||'');if($('fpsRecOnly')){$('fpsRecOnly').checked=recordMeta.startsWith('@ARM:');fire('fpsRecOnly')}const p=stripTarget($('fpvPreArmText')?.value);if($('fpvPreArmText')){$('fpvPreArmText').value=p.text||'CLEAN LENS';fire('fpvPreArmText','input')}if($('fpsTempMaster')){$('fpsTempMaster').checked=!!p.text;fire('fpsTempMaster')}setSelectTarget('fpsTempDest',p.target);if($('fpvCustomDurationSec')&&$('fpvPreArmShow')){const ms=Math.max(100,parseInt($('fpvPreArmShow').value,10)||1000);$('fpvCustomDurationSec').value=(ms/1000).toFixed(ms%1000===0?0:1);fire('fpvCustomDurationSec','input')}const w=stripTarget($('fpvLowText')?.value);if($('fpsWarnMaster')){$('fpsWarnMaster').checked=!!$('fpvLowBatt')?.checked||!!$('fpvRecLow')?.checked||!!$('fpvHot')?.checked;fire('fpsWarnMaster')}setSelectTarget('fpsWarnDest',w.target);if($('fpsAuxMaster')&&$('auxChannel')){$('fpsAuxMaster').checked=parseInt($('auxChannel').value,10)>0;fire('fpsAuxMaster')}fire('fpvFlash');fire('fpvPreArm');fire('fpvLowPct','input');fire('fpvRecLowMin','input');syncGoProNote();window.fpsBoardSyncing=false;document.dispatchEvent(new CustomEvent('fps-config-read-complete'))}
 function scheduleReadSync(){if(!readRequested)return;clearTimeout(readTimer);readTimer=setTimeout(syncMetadataFromDevice,220)}
 function installReadCompletionHook(){if(typeof parseConfigLine!=='function'||parseConfigLine.__fpsWrapped)return;const original=parseConfigLine;const wrapped=function(line){original(line);if(readRequested&&/^\[cfg\]\s+\w+\s*=/.test(String(line||'')))scheduleReadSync()};wrapped.__fpsWrapped=true;parseConfigLine=wrapped}
 function requestRead(){readRequested=true;clearTimeout(readTimer)}window.fpsRequestBoardRead=requestRead;
