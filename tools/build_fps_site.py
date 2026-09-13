@@ -45,4 +45,14 @@ if "setTimeout(() => sendCommand('show'), 300)" in final or "target === 'config'
 for required in ['<script src="fps-ui-rebuild.js"></script>','<script src="fps-demo-v1.js"></script>','<script src="fps-integrated-preview.js"></script>','<script src="fps-stage3-parity.js"></script>','<script src="fps-autosync.js"></script>','fps-theme.css']:
     if required not in final: raise SystemExit(f'Generated configurator missing: {required}')
 
+
+# Pre-V1 UI regression guards
+if 'id="disarmDelay"' not in final:
+    raise SystemExit('Configurator lost Disarm Delay control')
+ui = read('web/fps-ui-rebuild.js')
+if "filter(r=>r!==delayRow)" not in ui:
+    raise SystemExit('AUX section no longer excludes always-visible Disarm Delay row')
+if "fps-config-read-complete" not in ui or "fpsRefreshUiVisibility" not in ui:
+    raise SystemExit('Authoritative board read no longer refreshes master/child visibility')
+
 print('FPSteVe production web site generated and validated')
