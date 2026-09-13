@@ -10,12 +10,6 @@
 #include "camera_registry.h"
 #include "gopro_protocol.h"
 
-// Experimental minimal dual-GoPro backend used by Multi Cam Sync.
-// It deliberately focuses on the feature we need to prove first: maintain up
-// to two independent encrypted Open GoPro BLE sessions and fan record/stop
-// commands out to every connected camera. Rich telemetry remains a follow-up;
-// the primary single-camera GoPro backend is left untouched when Multi Cam is
-// disabled.
 class MultiGoProCamera : public Camera,
                          public BLEAdvertisedDeviceCallbacks,
                          public BLEClientCallbacks {
@@ -34,6 +28,10 @@ private:
         BLEClient *client = nullptr;
         BLERemoteCharacteristic *cmdWrite = nullptr;
         BLERemoteCharacteristic *cmdNotify = nullptr;
+        BLERemoteCharacteristic *settingWrite = nullptr;
+        BLERemoteCharacteristic *settingNotify = nullptr;
+        BLERemoteCharacteristic *queryWrite = nullptr;
+        BLERemoteCharacteristic *queryNotify = nullptr;
         std::string addr;
         std::string name;
         esp_ble_addr_type_t addrType = BLE_ADDR_TYPE_PUBLIC;
@@ -41,9 +39,14 @@ private:
         bool bleConnected = false;
         bool ready = false;
         bool pendingHwInfo = false;
+        bool pendingRegisterSettings = false;
+        bool pendingRegisterStatus = false;
         bool needsStopOnReconnect = false;
         uint32_t lastAttemptMs = 0;
-        GpRxAssembler rx;
+        uint32_t lastKeepAliveMs = 0;
+        GpRxAssembler cmdRx;
+        GpRxAssembler settingRx;
+        GpRxAssembler queryRx;
     };
 
     void onResult(BLEAdvertisedDevice device) override;
@@ -53,6 +56,9 @@ private:
     void startScan(uint8_t slot);
     bool connectSlot(uint8_t slot);
     void sendHardwareInfo(uint8_t slot);
+    void sendRegisterSettings(uint8_t slot);
+    void sendRegisterStatus(uint8_t slot);
+    void sendKeepAlive(uint8_t slot);
     bool sendShutter(uint8_t slot, bool on);
     void syncSlotToDesiredState(uint8_t slot);
     void publishState();
@@ -60,10 +66,16 @@ private:
     int slotForClient(BLEClient *client) const;
     int slotForNotify(BLERemoteCharacteristic *ch) const;
     void handleCmdNotify(uint8_t slot, uint8_t *data, size_t len);
+    void handleSettingNotify(uint8_t slot, uint8_t *data, size_t len);
+    void handleQueryNotify(uint8_t slot, uint8_t *data, size_t len);
 
     static void scanDoneCallback(BLEScanResults results);
     static void cmdNotifyCallback(BLERemoteCharacteristic *ch,
                                   uint8_t *data, size_t len, bool isNotify);
+    static void settingNotifyCallback(BLERemoteCharacteristic *ch,
+                                      uint8_t *data, size_t len, bool isNotify);
+    static void queryNotifyCallback(BLERemoteCharacteristic *ch,
+                                    uint8_t *data, size_t len, bool isNotify);
 
     Slot _slots[2];
     int8_t _scanSlot = -1;
