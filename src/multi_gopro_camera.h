@@ -7,6 +7,7 @@
 #include <BLERemoteCharacteristic.h>
 #include <BLEAdvertisedDevice.h>
 #include "camera.h"
+#include "camera_registry.h"
 #include "gopro_protocol.h"
 
 // Experimental minimal dual-GoPro backend used by Multi Cam Sync.
