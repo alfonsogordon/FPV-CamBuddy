@@ -78,13 +78,21 @@ const char *modeLabel(uint8_t v) {
     }
 }
 
+void formatState(const CameraData &data, const char *state, char *val, size_t valLen) {
+    const char *base = state ? state : "ERR";
+    if (data.connected_cameras > 1)
+        snprintf(val, valLen, "%s (%u)", base, data.connected_cameras);
+    else
+        snprintf(val, valLen, "%s", base);
+}
+
 void resolveToken(const char *tok, const CameraData &data, const char *state,
                   char *val, size_t valLen) {
     val[0] = '\0';
     const unsigned pct = data.percent > 100 ? 100 : data.percent;
 
     if (strcmp(tok, "state") == 0 || strcmp(tok, "stateonly") == 0) {
-        snprintf(val, valLen, "%s", state ? state : "ERR");
+        formatState(data, state, val, valLen);
     } else if (strcmp(tok, "batt") == 0) {
         if (data.valid && data.has_battery) snprintf(val, valLen, "B:%u", pct);
     } else if (strcmp(tok, "bat") == 0) {
@@ -130,7 +138,7 @@ void resolveToken(const char *tok, const CameraData &data, const char *state,
             snprintf(val, valLen, "%luMB", (unsigned long)data.remain_cap_mb);
         }
     } else if (strcmp(tok, "rec") == 0 || strcmp(tok, "fpv") == 0) {
-        snprintf(val, valLen, "%s", state ? state : "ERR");
+        formatState(data, state, val, valLen);
     }
 }
 
@@ -168,9 +176,6 @@ void expandTemplate(const char *tpl, const CameraData &data, const char *state,
     }
     out[outPos] = '\0';
 
-    // Collapse whitespace from unavailable telemetry tokens. REC flashing is
-    // applied after this step so its three columns remain reserved and the
-    // rest of the OSD line never shifts left/right during the flash cycle.
     size_t r = 0, w = 0;
     bool pendingSpace = false;
     while (out[r] == ' ') ++r;
@@ -379,18 +384,14 @@ void MSPSerial::sendCustomOSD(uint8_t textType, const CameraData &data, const ch
     const bool recOnlyTakeover = recOnlyWhenArmed && _armed && cameraRecording &&
                                  !cameraError && templateHasStatus(tpl);
     if (recOnlyTakeover) {
-        // Locked V1 behaviour: only a Status-containing destination is
-        // temporarily replaced by REC while armed + recording. All other
-        // destinations remain untouched; the configured template returns
-        // immediately when recording stops or the FC disarms.
-        snprintf(text, sizeof(text), "REC");
+        if (data.connected_cameras > 1)
+            snprintf(text, sizeof(text), "REC (%u)", data.connected_cameras);
+        else
+            snprintf(text, sizeof(text), "REC");
     } else {
         expandTemplate(tpl ? tpl : "", data, state, text, sizeof(text));
     }
 
-    // Flash only the REC token, not the whole line. Replacing it after template
-    // expansion preserves its exact three-character width so adjacent values do
-    // not move during the 1 Hz flash cycle (matching the web Preview).
     if (strcmp(state, "REC") == 0 && _fpvRecFlash && ((millis() / 500UL) & 1U)) {
         blankRecToken(text);
     }
