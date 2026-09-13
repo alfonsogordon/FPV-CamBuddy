@@ -6,6 +6,16 @@
 #panel-config .card-footer{display:none!important}
 #fpsApplyAll{display:none!important}
 
+/* Custom Message rows stay compact until that individual destination is enabled. */
+.fps-section:has(#fpsMsg1:not(:checked)) .fps-section-desc,
+.fps-section:has(#fpsMsg1:not(:checked)) .fps-section-body,
+.fps-section:has(#fpsMsg2:not(:checked)) .fps-section-desc,
+.fps-section:has(#fpsMsg2:not(:checked)) .fps-section-body,
+.fps-section:has(#fpsMsg3:not(:checked)) .fps-section-desc,
+.fps-section:has(#fpsMsg3:not(:checked)) .fps-section-body,
+.fps-section:has(#fpsMsg4:not(:checked)) .fps-section-desc,
+.fps-section:has(#fpsMsg4:not(:checked)) .fps-section-body{display:none!important}
+
 /* Secondary GoPro connection guidance: intentionally quieter than a setting row. */
 #fpsGoProConnectionNote{padding:6px 26px 12px!important;border:0!important;background:transparent!important;color:#8f849e!important;font-size:11px!important;line-height:1.45!important;font-weight:400!important}
 
