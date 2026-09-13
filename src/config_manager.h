@@ -73,20 +73,19 @@ public:
     static constexpr uint32_t DEFAULT_WIFI_AP_START_DELAY_SEC = 30;
     static constexpr bool DEFAULT_WIFI_AP_ENABLED = false;
 
-    // Fresh V1 board: OSD master is OFF. The configurator supplies the four
-    // latent current-BF templates when the user first enables OSD Templates.
-    // Warnings remain enabled as their latent/default feature state and become
-    // active once an OSD destination is enabled.
-    static constexpr const char *DEFAULT_OSD1_TPL = "";
-    static constexpr const char *DEFAULT_OSD2_TPL = "";
-    static constexpr const char *DEFAULT_OSD3_TPL = "";
-    static constexpr const char *DEFAULT_OSD4_TPL = "";
+    // Fresh V1 board: current Betaflight Custom Messages are enabled with the
+    // signed-off four-line layout. Users can still disable OSD Templates or any
+    // individual destination from the configurator and save that state.
+    static constexpr const char *DEFAULT_OSD1_TPL = "{batt}";
+    static constexpr const char *DEFAULT_OSD2_TPL = "{state} {recdur}";
+    static constexpr const char *DEFAULT_OSD3_TPL = "{mode} {res} {fps} {eis}";
+    static constexpr const char *DEFAULT_OSD4_TPL = "{rectf} {rcap}";
     static constexpr bool DEFAULT_BF45_COMPAT = false;
     static constexpr bool DEFAULT_PILOT_NAME_ENABLED = true;
     static constexpr const char *DEFAULT_PILOT_NAME_TPL = "{stateonly} {batt} {rectf}";
     static constexpr bool DEFAULT_CRAFT_NAME_ENABLED = false;
     static constexpr const char *DEFAULT_CRAFT_NAME_TPL = "{res} {fps}";
-    static constexpr bool DEFAULT_FPV_STATE_MODE = false;
+    static constexpr bool DEFAULT_FPV_STATE_MODE = true;
     static constexpr bool DEFAULT_FPV_ERROR_ENABLED = true;
     static constexpr const char *DEFAULT_FPV_ERROR_TEXT = "{state}";
     static constexpr bool DEFAULT_FPV_READY_ENABLED = true;
