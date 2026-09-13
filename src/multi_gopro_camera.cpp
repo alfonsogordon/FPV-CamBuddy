@@ -299,6 +299,7 @@ void MultiGoProCamera::publishState() {
     const uint8_t count = connectedCount();
     _camera.valid = count > 0;
     _camera.has_recording = true;
+    _camera.connected_cameras = count;
     _camera.recording = _recordingRequested && count > 0;
     _camera.record_time = _camera.recording ? (uint16_t)((millis() - _recordStartedMs) / 1000UL) : 0;
     if (_cameraCb) _cameraCb(_camera);
