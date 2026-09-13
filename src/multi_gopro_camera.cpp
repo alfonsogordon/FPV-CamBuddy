@@ -72,7 +72,7 @@ void MultiGoProCamera::scanDoneCallback(BLEScanResults) {
     if (self->_scanSlot < 0 || self->_scanSlot > 1) return;
     Slot &s = self->_slots[self->_scanSlot];
     if (!s.found) {
-        DBG_SERIAL.printf("[MULTI] No second eligible GoPro found for slot %u\n", self->_scanSlot + 1);
+        DBG_SERIAL.printf("[MULTI] No eligible GoPro found for slot %u\n", self->_scanSlot + 1);
         s.lastAttemptMs = millis();
     }
 }
@@ -211,6 +211,7 @@ void MultiGoProCamera::handleCmdNotify(uint8_t slot, uint8_t *data, size_t len) 
             DBG_SERIAL.printf("[MULTI] GoPro slot %u READY (%s)\n", slot + 1, s.name.c_str());
             if (_registry) _registry->onConnected(s.name.c_str(), s.addr.c_str(), (uint8_t)s.addrType, 1);
             publishState();
+            syncSlotToDesiredState(slot);
         } else {
             DBG_SERIAL.printf("[MULTI] Slot %u hardware info rejected 0x%02X; retrying\n", slot + 1, status);
             s.pendingHwInfo = true;
@@ -226,14 +227,36 @@ bool MultiGoProCamera::sendShutter(uint8_t slot, bool on) {
     if (!s.ready || !s.cmdWrite) return false;
     const uint8_t buf[] = {0x03, GP_CMD_SET_SHUTTER, 0x01, (uint8_t)(on ? 0x01 : 0x00)};
     s.cmdWrite->writeValue(const_cast<uint8_t *>(buf), sizeof(buf), false);
+    DBG_SERIAL.printf("[MULTI] Slot %u shutter -> %s\n", slot + 1, on ? "START" : "STOP");
     return true;
+}
+
+void MultiGoProCamera::syncSlotToDesiredState(uint8_t slot) {
+    Slot &s = _slots[slot];
+    if (!s.ready) return;
+    if (_recordingRequested) {
+        // Camera returned while the quad still wants recording: catch it up.
+        sendShutter(slot, true);
+        s.needsStopOnReconnect = false;
+        DBG_SERIAL.printf("[MULTI] Slot %u rejoined during recording -> START replayed\n", slot + 1);
+    } else if (s.needsStopOnReconnect) {
+        // Camera missed STOP while out of range. As soon as it comes back into
+        // BLE range (for example after landing next to a chest-mounted camera),
+        // stop it automatically instead of leaving it recording indefinitely.
+        sendShutter(slot, false);
+        s.needsStopOnReconnect = false;
+        DBG_SERIAL.printf("[MULTI] Slot %u rejoined after missed stop -> STOP replayed\n", slot + 1);
+    }
 }
 
 bool MultiGoProCamera::startRecording() {
     _recordingRequested = true;
     _recordStartedMs = millis();
     bool any = false;
-    for (uint8_t i = 0; i < 2; ++i) any = sendShutter(i, true) || any;
+    for (uint8_t i = 0; i < 2; ++i) {
+        _slots[i].needsStopOnReconnect = false;
+        any = sendShutter(i, true) || any;
+    }
     DBG_SERIAL.printf("[MULTI] START fan-out -> %u connected camera(s)\n", connectedCount());
     publishState();
     return any;
@@ -242,8 +265,17 @@ bool MultiGoProCamera::startRecording() {
 bool MultiGoProCamera::stopRecording() {
     _recordingRequested = false;
     bool any = false;
-    for (uint8_t i = 0; i < 2; ++i) any = sendShutter(i, false) || any;
-    DBG_SERIAL.printf("[MULTI] STOP fan-out -> %u connected camera(s)\n", connectedCount());
+    for (uint8_t i = 0; i < 2; ++i) {
+        if (_slots[i].ready) {
+            any = sendShutter(i, false) || any;
+            _slots[i].needsStopOnReconnect = false;
+        } else {
+            // If this slot was away when STOP happened, remember the missed
+            // command and replay it after that same logical slot reconnects.
+            _slots[i].needsStopOnReconnect = true;
+        }
+    }
+    DBG_SERIAL.printf("[MULTI] STOP fan-out -> %u connected camera(s); missing slots queued for STOP on reconnect\n", connectedCount());
     publishState();
     return any;
 }
@@ -297,7 +329,7 @@ void MultiGoProCamera::update() {
     // are retried independently so one camera dropping out never blocks the other.
     for (uint8_t i = 0; i < 2; ++i) {
         Slot &s = _slots[i];
-        if (!s.ready && !s.bleConnected && !s.found && millis() - s.lastAttemptMs >= BLE_RECONNECT_DELAY_MS) {
+        if (!s.ready && !s.bleConnected && !s.found && millis() - s.lastAttemptMs >= 750UL) {
             startScan(i);
             return;
         }
