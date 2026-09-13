@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <BLEDevice.h>
 #include "config.h"
 #include "config_manager.h"
 #include "camera_registry.h"
@@ -47,6 +48,26 @@ static uint32_t bootBtnLogSec  = 0;
 
 static bool ledState = false;
 
+
+static esp_power_level_t blePowerForDbm(int8_t dbm) {
+    if (dbm <= -12) return ESP_PWR_LVL_N12;
+    if (dbm <= -9)  return ESP_PWR_LVL_N9;
+    if (dbm <= -6)  return ESP_PWR_LVL_N6;
+    if (dbm <= -3)  return ESP_PWR_LVL_N3;
+    if (dbm <= 0)   return ESP_PWR_LVL_N0;
+    if (dbm <= 3)   return ESP_PWR_LVL_P3;
+    if (dbm <= 6)   return ESP_PWR_LVL_P6;
+    return ESP_PWR_LVL_P9;
+}
+
+static void applyConfiguredBleTxPower(bool armed) {
+    const auto &cfg = configManager.config();
+    if (!cfg.dynamicTxPower) return;
+    const int8_t dbm = armed ? cfg.armedTxPowerDbm : cfg.disarmedTxPowerDbm;
+    BLEDevice::setPower(blePowerForDbm(dbm));
+    DBG_SERIAL.printf("[power] BLE TX -> %d dBm (%s)\n", dbm, armed ? "ARMED" : "DISARMED");
+}
+
 static void updateStatusLed(uint32_t now, bool camConnected, bool apRunning) {
     bool shouldBeOn;
     if (apRunning)
@@ -88,6 +109,7 @@ static void onCameraData(const CameraData &data) {
 }
 
 static void onArmStateChange(bool armed) {
+    applyConfiguredBleTxPower(armed);
     if (armed) {
         pendingStop = false;
         DBG_SERIAL.println("[main] FC armed - starting recording");
@@ -233,6 +255,7 @@ void setup() {
     activeCamera->setCameraCallback(onCameraData);
     configManager.setCamera(activeCamera, &currentCamera);
     activeCamera->begin();
+    applyConfiguredBleTxPower(false);
 
     wifiDelayOriginMs = millis();
 }

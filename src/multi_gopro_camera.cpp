@@ -36,12 +36,12 @@ bool MultiGoProCamera::addressAlreadyUsed(const std::string &addr) const {
 }
 
 int MultiGoProCamera::slotForClient(BLEClient *client) const {
-    for (int i = 0; i < 2; ++i) if (_slots[i].client == client) return i;
+    for (int i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i) if (_slots[i].client == client) return i;
     return -1;
 }
 
 int MultiGoProCamera::slotForNotify(BLERemoteCharacteristic *ch) const {
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i) {
         const Slot &s = _slots[i];
         if (s.cmdNotify == ch || s.settingNotify == ch || s.queryNotify == ch) return i;
     }
@@ -49,7 +49,7 @@ int MultiGoProCamera::slotForNotify(BLERemoteCharacteristic *ch) const {
 }
 
 void MultiGoProCamera::startScan(uint8_t slot) {
-    if (_scanning || slot > 1 || _slots[slot].ready || _slots[slot].bleConnected) return;
+    if (_scanning || slot >= MAX_MULTI_GOPRO_SLOTS || _slots[slot].ready || _slots[slot].bleConnected) return;
     _scanSlot = static_cast<int8_t>(slot);
     _scanning = true;
     _slots[slot].found = false;
@@ -69,7 +69,7 @@ void MultiGoProCamera::scanDoneCallback(BLEScanResults) {
     if (!_instance) return;
     MultiGoProCamera *self = _instance;
     self->_scanning = false;
-    if (self->_scanSlot < 0 || self->_scanSlot > 1) return;
+    if (self->_scanSlot < 0 || self->_scanSlot >= MAX_MULTI_GOPRO_SLOTS) return;
     Slot &s = self->_slots[self->_scanSlot];
     if (!s.found) {
         DBG_SERIAL.printf("[MULTI] No eligible GoPro found for slot %u\n", self->_scanSlot + 1);
@@ -78,7 +78,7 @@ void MultiGoProCamera::scanDoneCallback(BLEScanResults) {
 }
 
 void MultiGoProCamera::onResult(BLEAdvertisedDevice device) {
-    if (_scanSlot < 0 || _scanSlot > 1) return;
+    if (_scanSlot < 0 || _scanSlot >= MAX_MULTI_GOPRO_SLOTS) return;
     bool isGoPro = false;
     std::string mfr;
     if (device.haveManufacturerData()) mfr = device.getManufacturerData();
@@ -110,7 +110,7 @@ void MultiGoProCamera::onResult(BLEAdvertisedDevice device) {
 }
 
 bool MultiGoProCamera::connectSlot(uint8_t slot) {
-    if (slot > 1) return false;
+    if (slot >= MAX_MULTI_GOPRO_SLOTS) return false;
     Slot &s = _slots[slot];
     if (!s.found || s.addr.empty()) return false;
     if (!s.client) {
@@ -302,13 +302,13 @@ void MultiGoProCamera::syncSlotToDesiredState(uint8_t slot) {
 
 bool MultiGoProCamera::startRecording() {
     _recordingRequested = true; _recordStartedMs = millis(); bool any = false;
-    for (uint8_t i = 0; i < 2; ++i) { _slots[i].needsStopOnReconnect = false; any = sendShutter(i, true) || any; }
+    for (uint8_t i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i) { _slots[i].needsStopOnReconnect = false; any = sendShutter(i, true) || any; }
     publishState(); return any;
 }
 
 bool MultiGoProCamera::stopRecording() {
     _recordingRequested = false; bool any = false;
-    for (uint8_t i = 0; i < 2; ++i) {
+    for (uint8_t i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i) {
         if (_slots[i].ready) { any = sendShutter(i, false) || any; _slots[i].needsStopOnReconnect = false; }
         else _slots[i].needsStopOnReconnect = true;
     }
@@ -320,7 +320,7 @@ bool MultiGoProCamera::switchCameraMode(uint8_t mode) {
     if (mode == DJI_MODE_PHOTO) group = GP_PRESET_PHOTO;
     else if (mode == DJI_MODE_TIMELAPSE || mode == DJI_MODE_HYPERLAPSE) group = GP_PRESET_TIMELAPSE;
     bool any = false;
-    for (uint8_t i = 0; i < 2; ++i) {
+    for (uint8_t i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i) {
         Slot &s = _slots[i]; if (!s.ready || !s.cmdWrite) continue;
         const uint8_t buf[] = {0x03, GP_CMD_LOAD_PRESET_GROUP, 0x01, group};
         s.cmdWrite->writeValue(const_cast<uint8_t *>(buf), sizeof(buf), false); any = true;
@@ -338,7 +338,7 @@ void MultiGoProCamera::publishState() {
 
 void MultiGoProCamera::update() {
     // Mirror V1's deferred-write handshake per camera. Never write from a BLE notify callback.
-    for (uint8_t i = 0; i < 2; ++i) {
+    for (uint8_t i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i) {
         Slot &s = _slots[i];
         if (s.pendingHwInfo && s.bleConnected) { s.pendingHwInfo = false; sendHardwareInfo(i); return; }
         if (s.pendingRegisterSettings && s.bleConnected) { s.pendingRegisterSettings = false; sendRegisterSettings(i); return; }
@@ -347,7 +347,7 @@ void MultiGoProCamera::update() {
 
     const uint32_t now = millis();
     // Critical parity fix: each owned GoPro BLE session gets the official 10s keep-alive.
-    for (uint8_t i = 0; i < 2; ++i) {
+    for (uint8_t i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i) {
         Slot &s = _slots[i];
         if (s.ready && s.bleConnected && now - s.lastKeepAliveMs >= 10000UL) {
             s.lastKeepAliveMs = now;
@@ -356,12 +356,12 @@ void MultiGoProCamera::update() {
         }
     }
 
-    for (uint8_t i = 0; i < 2; ++i) {
+    for (uint8_t i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i) {
         Slot &s = _slots[i];
         if (s.found && !s.bleConnected && !s.ready) { connectSlot(i); return; }
     }
     if (_scanning) return;
-    for (uint8_t i = 0; i < 2; ++i) {
+    for (uint8_t i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i) {
         Slot &s = _slots[i];
         if (!s.ready && !s.bleConnected && !s.found && now - s.lastAttemptMs >= 750UL) { startScan(i); return; }
     }

@@ -822,6 +822,12 @@ function parseConfigLine(line) {
     debugBleToggle.checked = (val === 'true');
   } else if (key === 'low_power') {
     lowPowerToggle.checked = (val === 'true');
+  } else if (key === 'dyn_power') {
+    const e=document.getElementById('fpsDynamicPower'); if(e)e.checked=(val === 'true');
+  } else if (key === 'arm_dbm') {
+    const e=document.getElementById('fpsArmedPower'); if(e)e.value=String(parseInt(val)||0);
+  } else if (key === 'dis_dbm') {
+    const e=document.getElementById('fpsDisarmedPower'); if(e)e.value=String(parseInt(val)||0);
   } else if (key === 'wifi_ap_enabled') {
     wifiApEnabledToggle.checked = (val === 'true');
     updateWifiApState();

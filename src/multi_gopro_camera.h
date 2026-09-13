@@ -10,6 +10,8 @@
 #include "camera_registry.h"
 #include "gopro_protocol.h"
 
+static constexpr uint8_t MAX_MULTI_GOPRO_SLOTS = 6;
+
 class MultiGoProCamera : public Camera,
                          public BLEAdvertisedDeviceCallbacks,
                          public BLEClientCallbacks {
@@ -77,7 +79,7 @@ private:
     static void queryNotifyCallback(BLERemoteCharacteristic *ch,
                                     uint8_t *data, size_t len, bool isNotify);
 
-    Slot _slots[2];
+    Slot _slots[MAX_MULTI_GOPRO_SLOTS];
     int8_t _scanSlot = -1;
     bool _scanning = false;
     bool _recordingRequested = false;
