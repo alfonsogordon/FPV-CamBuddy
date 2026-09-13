@@ -19,6 +19,25 @@ jobs:
         with:
           ref: experimental
 
+      - name: Apply pending V1.0.2 expansion patch
+        run: |
+          if [ -f .github/workflows/apply-v102-expansion.yml ]; then
+            python3 - <<'PY'
+          from pathlib import Path
+          p=Path('.github/workflows/apply-v102-expansion.yml')
+          lines=p.read_text().splitlines()
+          start=next(i for i,l in enumerate(lines) if l.strip()=="python3 - <<'PY'")+1
+          end=next(i for i in range(start,len(lines)) if lines[i].strip()=='PY')
+          code='\n'.join((l[10:] if l.startswith('          ') else l) for l in lines[start:end])
+          exec(compile(code, str(p), 'exec'))
+          PY
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add -A
+            git commit -m 'Expand Multi Cam slots and add armed/disarmed BLE power'
+            git push origin experimental
+          fi
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
