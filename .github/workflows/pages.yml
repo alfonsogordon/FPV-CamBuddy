@@ -60,6 +60,17 @@ jobs:
           rm -rf stable/web/experimental
           mkdir -p stable/web/experimental
           cp -a experiment/web/. stable/web/experimental/
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('stable/web/experimental')
+          for p in root.glob('*.html'):
+              s=p.read_text()
+              marker='</body>'
+              tag='<script src="experimental-banner.js"></script>'
+              if tag not in s and marker in s:
+                  s=s.replace(marker,tag+'\n'+marker)
+                  p.write_text(s)
+          PY
 
       - uses: actions/upload-pages-artifact@v3
         with:
