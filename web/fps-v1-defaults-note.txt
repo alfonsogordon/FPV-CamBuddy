@@ -1,0 +1,1 @@
+Current-BF V1 defaults: OSD enabled; Custom Messages 1-4 enabled with {batt}, {state} {recdur}, {mode} {res} {fps} {eis}, {rectf} {rcap}.
