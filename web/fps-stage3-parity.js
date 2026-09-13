@@ -9,6 +9,7 @@ function fire(id,type='change'){const e=$(id);if(e)e.dispatchEvent(new Event(typ
 function setSelectTarget(id,target){const s=$(id);if(!s)return;const value=legacyMode()?(target===2?'craft':'pilot'):String(target);if([...s.options].some(o=>o.value===value)){s.value=value;fire(id)}}
 function syncMetadataFromDevice(){
  if(!readRequested||!connected())return;
+ window.fpsBoardSyncing=true;
  readRequested=false;
  const bf=$('bf45Compat');
  if($('fpsBfMode')&&bf){$('fpsBfMode').value=bf.checked?'legacy':'current';fire('fpsBfMode')}
@@ -39,6 +40,7 @@ function syncMetadataFromDevice(){
  setSelectTarget('fpsWarnDest',w.target);
  if($('fpsAuxMaster')&&$('auxChannel')){$('fpsAuxMaster').checked=parseInt($('auxChannel').value,10)>0;fire('fpsAuxMaster')}
  fire('fpvFlash');fire('fpvPreArm');fire('fpvLowPct','input');fire('fpvRecLowMin','input');
+ window.fpsBoardSyncing=false;
  document.dispatchEvent(new CustomEvent('fps-config-read-complete'));
 }
 function scheduleReadSync(){if(!readRequested)return;clearTimeout(readTimer);readTimer=setTimeout(syncMetadataFromDevice,220)}
