@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - main
+      - experimental
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 
@@ -65,9 +67,47 @@ jobs:
           for p in root.glob('*.html'):
               s=p.read_text()
               marker='</body>'
-              tag='<script src="experimental-banner.js"></script>'
-              if tag not in s and marker in s:
-                  p.write_text(s.replace(marker,tag+'\n'+marker))
+              extras=[]
+              if p.name == 'config.html' and 'fps-version-check.js' not in s:
+                  extras.append('<script src="fps-version-check.js"></script>')
+              banner='''<script>(()=>{const s=document.createElement("style");s.textContent=".fps-exp-banner{position:sticky;top:0;z-index:99999;background:#f5ff00;color:#101318;text-align:center;font:800 13px/1.25 system-ui,sans-serif;padding:7px 12px;letter-spacing:.04em;border-bottom:1px solid #a8b000;box-shadow:0 0 14px rgba(245,255,0,.24)}";document.head.appendChild(s);const b=document.createElement("div");b.className="fps-exp-banner";b.innerHTML="<strong>EXPERIMENTAL TEST ENVIRONMENT</strong> — development firmware and settings; not the public V1 build";document.body.prepend(b)})();</script>'''
+              if 'EXPERIMENTAL TEST ENVIRONMENT' not in s:
+                  extras.append(banner)
+              if extras and marker in s:
+                  p.write_text(s.replace(marker,'\n'.join(extras)+'\n'+marker))
+          PY
+
+      - name: Download latest successful experimental firmware
+        run: |
+          rm -rf /tmp/exp-artifacts
+          mkdir -p /tmp/exp-artifacts stable/web/experimental/firmware/experimental
+          run_id=$(gh run list --repo ${{ github.repository }} --branch experimental --workflow "Validate FPSteVe Edition" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          test -n "$run_id" || { echo "No successful experimental firmware run found"; exit 1; }
+          gh run download "$run_id" --repo ${{ github.repository }} --dir /tmp/exp-artifacts
+          c3=$(find /tmp/exp-artifacts -type d -name 'freeclinker-stage3-esp32c3' | head -n1)
+          esp=$(find /tmp/exp-artifacts -type d -name 'freeclinker-stage3-esp32' | head -n1)
+          test -n "$c3" -a -n "$esp" || { echo "Experimental firmware artifacts missing"; exit 1; }
+          cp "$c3/bootloader.bin" stable/web/experimental/firmware/experimental/bootloader-esp32c3supermini.bin
+          cp "$c3/partitions.bin" stable/web/experimental/firmware/experimental/partitions-esp32c3supermini.bin
+          cp "$c3/firmware.bin" stable/web/experimental/firmware/experimental/firmware-esp32c3supermini.bin
+          cp "$esp/bootloader.bin" stable/web/experimental/firmware/experimental/bootloader-esp32dev.bin
+          cp "$esp/partitions.bin" stable/web/experimental/firmware/experimental/partitions-esp32dev.bin
+          cp "$esp/firmware.bin" stable/web/experimental/firmware/experimental/firmware-esp32dev.bin
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Make experimental flasher use experimental firmware only
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('stable/web/experimental/flash.html')
+          s=p.read_text()
+          start=s.index("fetch(GH_API).then")
+          end=s.index("function showPostFlash", start)
+          replacement="""releases=[{tag_name:'experimental',published_at:new Date().toISOString(),html_url:'https://github.com/alfonsogordon/freeclinker/tree/experimental'}];versionSelect.innerHTML='<option value=\"experimental\">experimental — latest successful test build</option>';versionSelect.disabled=true;selectRelease(releases[0]);\n"""
+          s=s[:start]+replacement+s[end:]
+          s=s.replace("<h1>Flash Firmware</h1>","<h1>Flash Experimental Firmware</h1>")
+          p.write_text(s)
           PY
 
       - uses: actions/upload-pages-artifact@v3
