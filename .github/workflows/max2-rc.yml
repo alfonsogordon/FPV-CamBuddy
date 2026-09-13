@@ -17,37 +17,15 @@ jobs:
         with:
           ref: max2-stable-patch
 
-      - name: Apply isolated MAX2 wake-state fix
+      - name: Verify isolated MAX2 wake-state fix
         shell: python
         run: |
           from pathlib import Path
-          p = Path('src/gopro_camera.cpp')
-          s = p.read_text()
-          old_comment = '// MAX2: 0x01=awake, 0x00=sleeping'
-          new_comment = '// MAX2: 0x01/0x05=awake, 0x00=sleeping'
-          old_guard = 'awake = (state == 0x01);'
-          new_guard = 'awake = (state == 0x01 || state == 0x05);'
-          if new_comment in s and new_guard in s:
-              print('MAX2 patch already present')
-          elif old_comment in s and old_guard in s:
-              s = s.replace(old_comment, new_comment, 1)
-              s = s.replace(old_guard, new_guard, 1)
-              p.write_text(s)
-              print('Applied MAX2 wake-state patch')
-          else:
-              raise SystemExit('Expected MAX2 wake-guard lines not found; refusing to patch')
-
-      - name: Commit MAX2 fix to RC branch
-        run: |
-          if git diff --quiet -- src/gopro_camera.cpp; then
-            echo 'No source diff to commit'
-          else
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add src/gopro_camera.cpp
-            git commit -m 'Fix GoPro MAX2 awake state detection'
-            git push origin HEAD:max2-stable-patch
-          fi
+          s = Path('src/gopro_camera.cpp').read_text()
+          expected = 'awake = (state == 0x01 || state == 0x05);'
+          if expected not in s:
+              raise SystemExit('MAX2 wake-state fix missing; refusing to build')
+          print('MAX2 wake-state fix present')
 
       - uses: actions/setup-python@v5
         with:
@@ -60,7 +38,7 @@ jobs:
         run: pip install platformio
 
       - name: Build ESP32-C3 and ESP32 firmware
-        run: pio run -e esp32-c3-devkitm-1 -e esp32dev
+        run: pio run -e esp32c3supermini -e esp32dev
 
       - name: Publish ESP32-C3 MAX2 RC firmware
         uses: actions/upload-artifact@v4
@@ -69,9 +47,9 @@ jobs:
           if-no-files-found: error
           retention-days: 14
           path: |
-            .pio/build/esp32-c3-devkitm-1/firmware.bin
-            .pio/build/esp32-c3-devkitm-1/bootloader.bin
-            .pio/build/esp32-c3-devkitm-1/partitions.bin
+            .pio/build/esp32c3supermini/firmware.bin
+            .pio/build/esp32c3supermini/bootloader.bin
+            .pio/build/esp32c3supermini/partitions.bin
 
       - name: Publish ESP32 MAX2 RC firmware
         uses: actions/upload-artifact@v4
