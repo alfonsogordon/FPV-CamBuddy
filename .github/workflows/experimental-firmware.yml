@@ -1,0 +1,80 @@
+name: Build Experimental V1.0.2 Firmware
+
+on:
+  push:
+    branches:
+      - experimental
+    paths-ignore:
+      - 'web/firmware/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-experimental:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experimental
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Verify experimental version
+        run: grep -q '#define FIRMWARE_VERSION "1.0.2"' include/config.h
+
+      - name: Generate and validate web site
+        run: python3 tools/build_fps_site.py
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build both supported boards
+        run: pio run -e esp32c3supermini -e esp32dev
+
+      - name: Upload C3 test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: freeclinker-v1.0.2-experimental-esp32c3
+          retention-days: 14
+          path: |
+            .pio/build/esp32c3supermini/firmware.bin
+            .pio/build/esp32c3supermini/bootloader.bin
+            .pio/build/esp32c3supermini/partitions.bin
+
+      - name: Upload ESP32 test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: freeclinker-v1.0.2-experimental-esp32
+          retention-days: 14
+          path: |
+            .pio/build/esp32dev/firmware.bin
+            .pio/build/esp32dev/bootloader.bin
+            .pio/build/esp32dev/partitions.bin
+
+      - name: Publish binaries to experimental web flasher
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git clone --depth 1 --branch experimental "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /tmp/freeclinker-experimental
+          DEST=/tmp/freeclinker-experimental/web/firmware/v1.0.2-experimental
+          mkdir -p "$DEST"
+          cp .pio/build/esp32c3supermini/bootloader.bin "$DEST/bootloader-esp32c3supermini.bin"
+          cp .pio/build/esp32c3supermini/partitions.bin "$DEST/partitions-esp32c3supermini.bin"
+          cp .pio/build/esp32c3supermini/firmware.bin "$DEST/firmware-esp32c3supermini.bin"
+          cp .pio/build/esp32dev/bootloader.bin "$DEST/bootloader-esp32dev.bin"
+          cp .pio/build/esp32dev/partitions.bin "$DEST/partitions-esp32dev.bin"
+          cp .pio/build/esp32dev/firmware.bin "$DEST/firmware-esp32dev.bin"
+          cd /tmp/freeclinker-experimental
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add web/firmware/v1.0.2-experimental
+          if git diff --cached --quiet; then
+            echo 'Experimental V1.0.2 binaries already current'
+          else
+            git commit -m 'Publish V1.0.2 experimental firmware binaries'
+            git push origin experimental
+          fi
