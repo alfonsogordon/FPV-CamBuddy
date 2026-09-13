@@ -103,7 +103,7 @@ With the normal defaults, there is no separate connection routine to perform eve
 
 Power the quad/FreeCLinker and make sure the GoPro is awake and available. **FreeCLinker should automatically find and connect to it on the first normal power-up.** It should then reconnect automatically on later power-ups whenever that camera is available.
 
-When switching to a GoPro that FreeCLinker has **not paired with before**, you may need to open that camera's **Pair** menu for the first connection. In V1 testing, after a HERO11 Black Mini had already been connected, a MAX2 needed to be put into its Pair menu the first time it was used. Once paired, normal automatic connection/reconnection can resume.
+When switching to a GoPro that FreeCLinker has **not paired with before**, you may need to open that camera's **Pair** menu for the first connection. As one example from V1 testing, after a HERO11 Black Mini had already been connected, a MAX2 needed to be put into its Pair menu the first time it was used. **Those two camera models are examples of the observed pairing behaviour, not a requirement or limitation to those specific models.** Once paired, normal automatic connection/reconnection can resume.
 
 With **Wake Guard** enabled, FreeCLinker will not deliberately wake a sleeping GoPro just by scanning. If the GoPro is asleep, wake it normally and FreeCLinker should connect automatically.
 
