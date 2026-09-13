@@ -1,248 +1,176 @@
-# Quickstart Guide
+# FreeCLinker — FPSteVe Edition Quick Start
 
-This guide walks you through wiring an ESP32 Super Mini to a Betaflight flight controller, building and flashing the firmware, and configuring the bridge via the web interface.
+This is the shortest path from a fresh ESP32-C3 Super Mini to automatic GoPro recording and Betaflight OSD status.
 
----
+## 1. Flash the C3
 
-## 1. Hardware wiring
+Open the **FPSteVe Edition Web Flasher**:
 
-Four wires connect the ESP32 to the FC. The ESP32 is powered from the FC's 5 V rail — no separate USB power supply is needed on the drone.
+https://alfonsogordon.github.io/freeclinker/flash.html
 
-### ESP32-C3 Super Mini (compact build)
+Connect the ESP32-C3 Super Mini by USB and install the current FPSteVe Edition firmware.
 
-```
-                ESP32-C3 Super Mini
-               ┌──────────────────┐
-               ┤ 3V3         GND  ├── GND ─────────────────────┐
-               ┤ IO2         IO0  ├                             │
-               ┤ IO3         IO1  ├                             │
-         TX ──┤ IO4          5V  ├── 5V ──────────────────────┼──── FC 5V (BEC)
-         RX ──┤ IO5         IO21 ├                             │
-               ┤ IO6         IO20 ├                             │
-               ┤ IO7         IO19 ├                             │
-               ┤ IO8         IO18 ├                             │
-        BOOT ──┤ IO9         IO10 ├                             │
-         USB ──┤ USB              ├                             │
-               └──────────────────┘                             │
-                                                                │
-                     Betaflight FC                              │
-                    ┌──────────────────┐                       │
-                    │ UARTx RX  ←──────────── ESP32-C3 IO4 TX  │
-                    │ UARTx TX  ──────────→   ESP32-C3 IO5 RX  │
-                    │ GND       ←────────────────────────────────┘
-                    │ 5V (BEC)  ──────────→   ESP32-C3 5V      │
-                    └──────────────────┘
-```
+**When flashing finishes, power-cycle the FreeCLinker.** Unplug/replug USB or cycle the board's power once before configuration/testing.
 
-| ESP32-C3 pin | FC pin        | Wire colour | Note                          |
-|--------------|---------------|-------------|-------------------------------|
-| 5V           | 5V (BEC out)  | Red         | Powers the ESP32-C3           |
-| GND          | GND           | Black       | Common ground (required)      |
-| IO4 (TX)     | UARTx **RX**  | Orange      | MSP data ESP32-C3 → FC        |
-| IO5 (RX)     | UARTx **TX**  | Yellow      | MSP responses FC → ESP32-C3   |
+Then open:
 
-> **Download mode (ESP32-C3):** Hold the **BOOT** (IO9) button while plugging in USB to enter the ROM bootloader for flashing. Not needed for normal operation.
+https://alfonsogordon.github.io/freeclinker/config.html
 
-### Standard ESP32 Dev Board (38-pin)
+## 2. Connect and configure
 
-```
-                  ESP32 Dev Board
-                 ┌──────────────────┐
-                 ┤ EN          GPIO23├
-                 ┤ GPIO36      GPIO22├
-                 ┤ GPIO39      GPIO1 ├
-                 ┤ GPIO34      GPIO3 ├
-                 ┤ GPIO35      GPIO21├
-                 ┤ GPIO32      GND   ├── GND ───────────────────┐
-                 ┤ GPIO33      GPIO19├                           │
-                 ┤ GPIO25      GPIO18├                           │
-                 ┤ GPIO26      GPIO5 ├                           │
-                 ┤ GPIO27      GPIO17├── TX ────────────────────┼──── FC UARTx RX
-                 ┤ GPIO14      GPIO16├── RX ←───────────────────┼──── FC UARTx TX
-                 ┤ GPIO12      GPIO4 ├                           │
-                 ┤ GND         GPIO0 ├                           │
-                 ┤ GPIO13      GPIO2 ├                           │
-                 ┤ GPIO9       GPIO15├                           │
-                 ┤ GPIO10      GPIO8 ├                           │
-                 ┤ GPIO11      GPIO7 ├                           │
-           USB ──┤ VIN(5V)    GPIO6  ├── 5V ───────────────────┼──── FC 5V (BEC)
-                 └──────────────────┘                           │
-                                                                │
-                     Betaflight FC                              │
-                    ┌──────────────────┐                       │
-                    │ UARTx RX  ←──────────── ESP32 GPIO17 TX  │
-                    │ UARTx TX  ──────────→   ESP32 GPIO16 RX  │
-                    │ GND       ←────────────────────────────────┘
-                    │ 5V (BEC)  ──────────→   ESP32 VIN        │
-                    └──────────────────┘
-```
+Connect to the C3 in **FPSteVe Easy Config**. The configurator should automatically read the settings from the board.
 
-| ESP32 pin    | FC pin        | Wire colour | Note                       |
-|--------------|---------------|-------------|----------------------------|
-| VIN (5V)     | 5V (BEC out)  | Red         | Powers the ESP32           |
-| GND          | GND           | Black       | Common ground (required)   |
-| GPIO17 (TX)  | UARTx **RX**  | Orange      | MSP data ESP32 → FC        |
-| GPIO16 (RX)  | UARTx **TX**  | Yellow      | MSP responses FC → ESP32   |
+A successful read shows:
 
-> **5 V BEC:** Use the regulated 5 V pad on the FC — do **not** connect to the battery rail (VBAT). Both ESP32 variants draw under 200 mA at peak, well within a typical BEC budget.
->
-> **USB during flashing:** The ESP32's USB port can stay plugged in while the 5 V wire is connected. Both sources are 5 V and will not conflict.
+**🤘 All settings read from C3 ✓**
 
----
+Fresh-board defaults are already set up for the normal FPSteVe GoPro/FPV workflow, including low-power BLE, automatic recording on arm, 5-second delayed stop on disarm, OSD state, REC-only, CLEAN LENS and camera warnings.
 
-## 2. Betaflight configuration
+Change only what you need, then use the single **SAVE / APPLY SETTINGS** button. The configurator writes the complete settings snapshot and reads it back to verify it.
 
-On the FC side, tell Betaflight to use the connected UART as an MSP port.
+A successful save shows:
 
-In the Betaflight CLI, replace `N` with the actual UART number:
+**🤘 All settings saved and verified on C3 ✓**
 
-```
-serial N 0 115200 8 0 0 0
-save
-```
+## 3. First camera power-up / auto-connect
 
-Alternatively use the Betaflight Configurator **Ports** tab: set the UART to **MSP** at **115200** baud.
+For the normal GoPro setup, you should **not need to manually connect the camera every time you fly**.
 
-To display camera telemetry in the OSD, go to the **OSD** tab and enable:
+Power the FreeCLinker/quad and make sure the GoPro is awake and available to BLE. On the first normal power-up with the camera available, **FreeCLinker should automatically discover and connect to it**. Once the camera is known, later power-ups should automatically reconnect when that camera is available.
 
-| OSD element      | Source              |
-|------------------|---------------------|
-| Custom Message 1 | Battery % (`CAM:###%`) |
-| Custom Message 2 | Recording state / time |
-| Custom Message 3 | Mode / resolution / FPS / EIS |
-| Custom Message 4 | Remaining record time and SD space |
+With Wake Guard enabled, FreeCLinker avoids deliberately waking a sleeping GoPro just by scanning. If the camera is asleep, wake it normally; FreeCLinker should then see it and connect automatically.
 
----
+The status LED is solid when the camera is connected.
 
-## 3. Build and flash
+## 4. Wire the flight controller
 
-### Flash from the browser (easiest)
+Default ESP32-C3 Super Mini wiring:
 
-No toolchain needed. Open **[sheeprine.github.io/freeclinker/flash.html](https://sheeprine.github.io/freeclinker/flash.html)** in Chrome or Edge, select your board, click **Connect & Flash**, and pick the serial port.
+| ESP32-C3 | Flight controller |
+|---|---|
+| GPIO4 TX | UART RX |
+| GPIO5 RX | UART TX |
+| GND | GND |
+| 5V | suitable 5V supply |
 
-> **ESP32-C3**: hold the **BOOT** button while plugging in to enter download mode.
+The UART runs at **115200 baud**.
 
-### Build from source
+TX and RX cross over: C3 TX goes to FC RX, and C3 RX goes to FC TX. A common ground is required.
 
-#### Prerequisites
+## 5. Betaflight setup
 
-Install [PlatformIO Core](https://docs.platformio.org/en/latest/core/installation/index.html) (CLI) or the PlatformIO extension for VS Code.
+Enable MSP on the flight-controller UART connected to FreeCLinker and use **115200 baud**.
 
-#### Clone and build
+### Betaflight 4.5
 
-```bash
-git clone https://github.com/sheeprine/freeclinker.git
-cd freeclinker
-pio run                        # compile
-pio run --target upload        # flash (auto-detects USB port)
-pio device monitor             # open serial console at 115200 baud
-```
+Select the **BF 4.5 / legacy Pilot & Craft Name** method in FPSteVe Easy Config.
 
-> If you have multiple serial ports, specify the port explicitly:
-> ```bash
-> pio run --target upload --upload-port /dev/ttyUSB0
-> pio device monitor --port /dev/ttyUSB0
-> ```
+The fresh default enables Pilot Name using:
 
-On first boot you should see output similar to:
+`{stateonly} {batt} {rectf}`
 
-```
-[cfg] camera_type     = DJI
-[cfg] disarm_delay    = 0 ms
-[cfg] stop_on_disarm  = true
-[cfg] aux_channel     = disabled
-[cfg] aux_mode        = 0x00
-[main] Camera type: DJI Action
-[main] MSP output: UART2 TX=GPIO17 @ 115200 baud
-```
+Craft Name is available independently if you want a second line. Its default template is:
 
----
+`{res} {fps}`
 
-## 4. Select your camera
+Place the corresponding Pilot Name/Craft Name OSD element where you want it in Betaflight.
 
-The firmware defaults to **DJI Action**. To switch to GoPro, type in the serial console:
+### Betaflight 2026.6+
 
-```
-set camera_type 1
-```
+Select **BF 2026.6+ — Custom Messages 1–4**.
 
-Then reboot the ESP32. To revert to DJI:
+Fresh defaults:
 
-```
-set camera_type 0
-```
+| Message | Template |
+|---|---|
+| 1 | `{batt}` |
+| 2 | `{state} {recdur}` |
+| 3 | `{mode} {res} {fps} {eis}` |
+| 4 | `{rectf} {rcap}` |
 
-The change is persisted across reboots. A reboot is required for `camera_type` to take effect.
+Enable/place the Custom Message OSD elements you want in Betaflight.
+
+> The BF 2026.6+ Custom Messages path is implemented and Preview/logic tested, but the FPSteVe V1 test hardware currently runs BF 4.5, so this newer path has not yet been physically FC-tested.
+
+## 6. What the default flight behaviour should look like
+
+Before the GoPro is available, camera state may show **ERR**. Once connected and ready it becomes **RDY**.
+
+Before the first arm after a C3 reboot, the default temporary reminder displays **CLEAN LENS**.
+
+When you arm:
+
+1. FreeCLinker detects the Betaflight arm state.
+2. The GoPro starts recording.
+3. Camera state changes to **REC**.
+4. With the default REC-only option, an enabled OSD message containing the Status token temporarily becomes REC-only while **armed + recording**.
+5. REC flashes at **1 Hz** by default.
+
+When you disarm:
+
+1. REC-only ends immediately and your full configured OSD returns.
+2. The GoPro continues recording for the configured delay — **5 seconds by default**.
+3. During that delay `{state}` still reports **REC**, because the camera really is still recording.
+4. FreeCLinker stops the recording after the delay.
+5. Camera state returns to **RDY**.
+
+## 7. OSD warnings
+
+Camera warnings are enabled on a fresh configuration:
+
+- **BATT LOW** at 10% camera battery
+- **REC LOW** at 5 minutes remaining recording time
+- **CAM HOT** when the camera reports the hot condition
+
+Warnings have the highest display priority. The effective order is:
+
+**Warning → Temporary Message → REC-only → normal configured OSD**
+
+## 8. OSD Preview
+
+The configurator contains an integrated OSD Preview so you can check templates and behaviour without repeatedly arming a real quad.
+
+The Preview can simulate arm/recording, CAM HOT and camera-error states. **RESET ARM STATE** resets only the Preview simulation so you can test first-arm behaviour such as CLEAN LENS again.
+
+On the real C3, first-arm state is reboot-based. To test CLEAN LENS from the beginning again on hardware, **power-cycle the C3**.
+
+## 9. Low-power BLE
+
+Low Power is enabled by default.
+
+- Low Power: approximately **−12 dBm / 0.063 mW**
+- Normal: approximately **+9 dBm / 7.9 mW**
+
+The low-power setting is intended to minimise unnecessary RF energy close to the receiver/flight electronics while still providing the short-range camera link.
+
+## 10. GoPro connection behaviour
+
+While connected, FPSteVe Edition sends the GoPro keepalive periodically so the camera remains available during the flight session. Hardware testing confirmed the camera stays connected while FreeCLinker is powered.
+
+When FreeCLinker is unplugged/removed, the GoPro is free to follow its normal own auto-power-off behaviour.
+
+## Recovery: Wi-Fi AP
+
+The Wi-Fi AP is off by default in the FPSteVe configuration. If recovery/configuration through the AP is needed, the BOOT button can force AP mode until reboot.
+
+## Before the first real flight
+
+Bench-test the complete installation with props removed:
+
+- GoPro connects automatically when awake/available.
+- OSD changes from ERR to RDY.
+- ARM starts recording and shows REC.
+- DISARM restores the normal OSD immediately.
+- Recording stops after the configured delay and returns to RDY.
+
+Only move to a normal flight test once those behaviours are correct.
+
+## Help & feedback
+
+A dedicated **Squadding Quads Discord** help/feedback thread is planned for FPSteVe Edition. Its direct link will be added here when available.
+
+When reporting a problem, camera model + Betaflight version + C3 board + what the OSD displayed are particularly useful.
 
 ---
 
-## 5. Web interface
-
-There are two ways to open the configuration UI — choose whichever is more convenient.
-
-### Option A — Built-in WiFi AP (easiest, any browser, no cable)
-
-If no camera connects within **30 seconds** of boot, the ESP32 automatically starts a WiFi access point:
-
-| Setting  | Value            |
-|----------|------------------|
-| SSID     | `FreeCLinker`    |
-| Password | *(none — open)*  |
-| URL      | `http://192.168.4.1` |
-
-1. On your phone or laptop, join the `FreeCLinker` WiFi network.
-2. Open `http://192.168.4.1` in any browser.
-
-The AP stops as soon as a camera connects (BLE pairing takes priority). It restarts automatically 30 s after a camera disconnects, so you can always reconfigure between flights without a USB cable.
-
-### Option B — USB Serial (Chrome / Edge desktop only)
-
-**Hosted:** open **[sheeprine.github.io/freeclinker/config.html](https://sheeprine.github.io/freeclinker/config.html)** in Chrome or Edge.
-
-**Local:** open `web/config.html` from the cloned repo:
-
-```bash
-open web/config.html          # macOS
-start web/config.html         # Windows
-xdg-open web/config.html      # Linux
-```
-
-Click **Connect**, select the ESP32 serial port from the browser dialog, and confirm at **115200** baud.
-
-### Easy Config tab
-
-Once connected the page reads the current settings automatically and presents them as controls:
-
-| Control | Description |
-|---------|-------------|
-| Stop recording on disarm | Toggle whether the camera stops when the FC disarms |
-| Disarm delay | Wait time (ms) between disarm and recording stop |
-| AUX Channel | RC channel used for in-flight camera mode switching |
-| Mode when high | Camera mode activated when the AUX channel exceeds 1500 µs |
-
-Click **Apply** to write changes to the device. Settings are saved to flash and survive power cycles.
-
-### CLI tab
-
-The **CLI** tab gives direct access to the serial console with command history (arrow keys). All commands available via `pio device monitor` work here too:
-
-```
-help                        list all commands
-show                        print current settings
-set camera_type <0|1>       0 = DJI Action, 1 = GoPro
-set stop_on_disarm <0|1>    enable / disable stop on disarm
-set disarm_delay <ms>       delay before stopping (0 = immediate)
-set aux_channel <0-12>      AUX channel number (0 = disabled)
-set aux_mode <0x##>         0x00 slow-motion  0x01 video  0x0A hyperlapse
-reset                       restore all defaults
-```
-
----
-
-## 6. Verify operation
-
-1. Power on the FC and the ESP32.
-2. Bring the camera within BLE range — the ESP32 will scan and connect automatically.
-3. Arm the FC. The camera should start recording within a second.
-4. Disarm. Recording stops (after the configured delay if set).
-5. Check the Betaflight OSD — Custom Messages 1–4 should update in real time.
+**FPSteVe Edition V1.0 — Actually Final** 🤘
