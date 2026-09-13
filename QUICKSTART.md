@@ -1,175 +1,134 @@
 # FreeCLinker — FPSteVe Edition Quick Start
 
-This is the shortest path from a fresh ESP32-C3 Super Mini to automatic GoPro recording and Betaflight OSD status.
+The simple route from a fresh **ESP32-C3 Super Mini** to automatic GoPro recording and camera status in your Betaflight OSD.
 
-## 1. Flash the C3
+**No CLI setup is required for the normal FPSteVe Edition setup.** Flash it in the browser, configure it in FPSteVe Easy Config, then set up the flight-controller UART and OSD in Betaflight Configurator.
+
+## 1. Flash FreeCLinker
 
 Open the **FPSteVe Edition Web Flasher**:
 
 https://alfonsogordon.github.io/freeclinker/flash.html
 
-Connect the ESP32-C3 Super Mini by USB and install the current FPSteVe Edition firmware.
+Connect your ESP32-C3 Super Mini by USB and install the current FPSteVe Edition firmware.
 
-**When flashing finishes, power-cycle the FreeCLinker.** Unplug/replug USB or cycle the board's power once before configuration/testing.
+When flashing finishes, **power-cycle the C3 once** — unplug/replug USB or cycle the quad/board power.
 
-Then open:
+Then open **FPSteVe Easy Config**:
 
 https://alfonsogordon.github.io/freeclinker/config.html
 
-## 2. Connect and configure
+## 2. Configure it in the browser
 
-Connect to the C3 in **FPSteVe Easy Config**. The configurator should automatically read the settings from the board.
+Connect to the C3 from FPSteVe Easy Config. Your current settings should be read automatically.
 
 A successful read shows:
 
 **🤘 All settings read from C3 ✓**
 
-Fresh-board defaults are already set up for the normal FPSteVe GoPro/FPV workflow, including low-power BLE, automatic recording on arm, 5-second delayed stop on disarm, OSD state, REC-only, CLEAN LENS and camera warnings.
+For most GoPro FPV setups, the fresh defaults are already sensible. They include:
 
-Change only what you need, then use the single **SAVE / APPLY SETTINGS** button. The configurator writes the complete settings snapshot and reads it back to verify it.
+- automatic recording when you arm
+- stopping recording **5 seconds after disarm**
+- GoPro auto-connect/reconnect
+- low-power BLE
+- camera status in the OSD
+- REC-only while armed and recording
+- flashing REC
+- first-arm **CLEAN LENS** reminder
+- camera warnings
 
-A successful save shows:
+Change anything you want in the web configurator, then press the single **SAVE / APPLY SETTINGS** button.
+
+When everything has been written and read back successfully you'll see:
 
 **🤘 All settings saved and verified on C3 ✓**
 
-## 3. First camera power-up / auto-connect
+That's the C3 configuration done. You do not need to copy settings into a terminal or use Betaflight CLI commands.
 
-For the normal GoPro setup, you should **not need to manually connect the camera every time you fly**.
+## 3. Connect the C3 to your flight controller
 
-Power the FreeCLinker/quad and make sure the GoPro is awake and available to BLE. On the first normal power-up with the camera available, **FreeCLinker should automatically discover and connect to it**. Once the camera is known, later power-ups should automatically reconnect when that camera is available.
+FreeCLinker needs one spare flight-controller UART.
 
-With Wake Guard enabled, FreeCLinker avoids deliberately waking a sleeping GoPro just by scanning. If the camera is asleep, wake it normally; FreeCLinker should then see it and connect automatically.
+For the standard ESP32-C3 Super Mini setup:
 
-The status LED is solid when the camera is connected.
-
-## 4. Wire the flight controller
-
-Default ESP32-C3 Super Mini wiring:
-
-| ESP32-C3 | Flight controller |
+| C3 connection | Flight controller |
 |---|---|
-| GPIO4 TX | UART RX |
-| GPIO5 RX | UART TX |
-| GND | GND |
-| 5V | suitable 5V supply |
+| **GPIO4 / TX** | UART **RX** |
+| **GPIO5 / RX** | UART **TX** |
+| **GND** | GND |
+| **5V** | suitable 5V supply |
 
-The UART runs at **115200 baud**.
+Remember: **TX goes to RX and RX goes to TX**, and the C3 and FC need a common ground.
 
-TX and RX cross over: C3 TX goes to FC RX, and C3 RX goes to FC TX. A common ground is required.
+Board layouts vary between ESP32-C3 Super Mini manufacturers, so use the labels/pinout supplied with **your actual board** rather than relying on a generic board drawing.
 
-## 5. Betaflight setup
+## 4. Set up the UART in Betaflight Configurator
 
-Enable MSP on the flight-controller UART connected to FreeCLinker and use **115200 baud**.
+Open **Betaflight Configurator → Ports**.
+
+Find the UART you wired to the C3 and enable **MSP** for that UART. FreeCLinker uses **115200 baud**.
+
+Save and reboot the flight controller.
+
+There is no normal FreeCLinker CLI step — the rest of the FreeCLinker options are set from **FPSteVe Easy Config**.
+
+## 5. Choose your OSD method
+
+In **FPSteVe Easy Config**, choose the method matching your Betaflight version.
 
 ### Betaflight 4.5
 
-Select the **BF 4.5 / legacy Pilot & Craft Name** method in FPSteVe Easy Config.
+Choose the **BF 4.5 / Pilot & Craft Name** method.
 
-The fresh default enables Pilot Name using:
+Pilot Name is enabled by default. In **Betaflight Configurator → OSD**, enable/place the **Pilot Name** element where you want the camera information to appear.
 
-`{stateonly} {batt} {rectf}`
+Craft Name is optional and can be enabled in FPSteVe Easy Config if you want a second camera-information line; if you use it, place the **Craft Name** OSD element too.
 
-Craft Name is available independently if you want a second line. Its default template is:
-
-`{res} {fps}`
-
-Place the corresponding Pilot Name/Craft Name OSD element where you want it in Betaflight.
+This is the path physically tested for FPSteVe Edition V1.
 
 ### Betaflight 2026.6+
 
-Select **BF 2026.6+ — Custom Messages 1–4**.
+Choose **BF 2026.6+ — Custom Messages 1–4**.
 
-Fresh defaults:
+The four messages are already configured with the FPSteVe defaults. In **Betaflight Configurator → OSD**, enable/place the Custom Message elements you want to use.
 
-| Message | Template |
-|---|---|
-| 1 | `{batt}` |
-| 2 | `{state} {recdur}` |
-| 3 | `{mode} {res} {fps} {eis}` |
-| 4 | `{rectf} {rcap}` |
+This newer path is implemented and tested through the integrated OSD Preview/firmware logic, but has **not yet been physically tested against a flight controller running BF 2026.6+**.
 
-Enable/place the Custom Message OSD elements you want in Betaflight.
+## 6. Power up the GoPro
 
-> The BF 2026.6+ Custom Messages path is implemented and Preview/logic tested, but the FPSteVe V1 test hardware currently runs BF 4.5, so this newer path has not yet been physically FC-tested.
+With the normal defaults, there is no separate connection routine to perform every time you fly.
 
-## 6. What the default flight behaviour should look like
+Power the quad/FreeCLinker and make sure the GoPro is awake and available. **FreeCLinker should automatically find and connect to it on the first normal power-up.** It should then reconnect automatically on later power-ups whenever that camera is available.
 
-Before the GoPro is available, camera state may show **ERR**. Once connected and ready it becomes **RDY**.
+With **Wake Guard** enabled, FreeCLinker will not deliberately wake a sleeping GoPro just by scanning. If the GoPro is asleep, wake it normally and FreeCLinker should connect automatically.
 
-Before the first arm after a C3 reboot, the default temporary reminder displays **CLEAN LENS**.
+In the OSD you may briefly see **ERR** while the camera is unavailable. Once the GoPro is connected and ready, the status becomes **RDY**.
 
-When you arm:
+## 7. Check it before flying
 
-1. FreeCLinker detects the Betaflight arm state.
-2. The GoPro starts recording.
-3. Camera state changes to **REC**.
-4. With the default REC-only option, an enabled OSD message containing the Status token temporarily becomes REC-only while **armed + recording**.
-5. REC flashes at **1 Hz** by default.
+Do this once on the bench with the props removed:
 
-When you disarm:
+1. Power the quad and wake the GoPro.
+2. Check that FreeCLinker connects automatically and the OSD reaches **RDY**.
+3. Before the first arm, the default **CLEAN LENS** reminder should appear.
+4. Arm the quad. The GoPro should start recording and the OSD should show the default flashing **REC** behaviour.
+5. Disarm. Your normal OSD should return immediately while the GoPro continues recording for the configured delay.
+6. After the default **5 seconds**, recording should stop and the OSD should return to **RDY**.
 
-1. REC-only ends immediately and your full configured OSD returns.
-2. The GoPro continues recording for the configured delay — **5 seconds by default**.
-3. During that delay `{state}` still reports **REC**, because the camera really is still recording.
-4. FreeCLinker stops the recording after the delay.
-5. Camera state returns to **RDY**.
+If that works, the normal setup is complete. 🤘
 
-## 7. OSD warnings
+## Want to change the behaviour?
 
-Camera warnings are enabled on a fresh configuration:
+Use **FPSteVe Easy Config**. It contains the camera, recording, OSD, warnings, AUX and connection settings in one place, plus the integrated **OSD Preview** so you can see most OSD changes before trying them on the quad.
 
-- **BATT LOW** at 10% camera battery
-- **REC LOW** at 5 minutes remaining recording time
-- **CAM HOT** when the camera reports the hot condition
-
-Warnings have the highest display priority. The effective order is:
-
-**Warning → Temporary Message → REC-only → normal configured OSD**
-
-## 8. OSD Preview
-
-The configurator contains an integrated OSD Preview so you can check templates and behaviour without repeatedly arming a real quad.
-
-The Preview can simulate arm/recording, CAM HOT and camera-error states. **RESET ARM STATE** resets only the Preview simulation so you can test first-arm behaviour such as CLEAN LENS again.
-
-On the real C3, first-arm state is reboot-based. To test CLEAN LENS from the beginning again on hardware, **power-cycle the C3**.
-
-## 9. Low-power BLE
-
-Low Power is enabled by default.
-
-- Low Power: approximately **−12 dBm / 0.063 mW**
-- Normal: approximately **+9 dBm / 7.9 mW**
-
-The low-power setting is intended to minimise unnecessary RF energy close to the receiver/flight electronics while still providing the short-range camera link.
-
-## 10. GoPro connection behaviour
-
-While connected, FPSteVe Edition sends the GoPro keepalive periodically so the camera remains available during the flight session. Hardware testing confirmed the camera stays connected while FreeCLinker is powered.
-
-When FreeCLinker is unplugged/removed, the GoPro is free to follow its normal own auto-power-off behaviour.
-
-## Recovery: Wi-Fi AP
-
-The Wi-Fi AP is off by default in the FPSteVe configuration. If recovery/configuration through the AP is needed, the BOOT button can force AP mode until reboot.
-
-## Before the first real flight
-
-Bench-test the complete installation with props removed:
-
-- GoPro connects automatically when awake/available.
-- OSD changes from ERR to RDY.
-- ARM starts recording and shows REC.
-- DISARM restores the normal OSD immediately.
-- Recording stops after the configured delay and returns to RDY.
-
-Only move to a normal flight test once those behaviours are correct.
+You shouldn't need to edit CLI values for normal use.
 
 ## Help & feedback
 
-A dedicated **Squadding Quads Discord** help/feedback thread is planned for FPSteVe Edition. Its direct link will be added here when available.
+A dedicated **Squadding Quads Discord** FPSteVe Edition help/feedback thread will be linked here once it is available.
 
-When reporting a problem, camera model + Betaflight version + C3 board + what the OSD displayed are particularly useful.
+When asking for help, the most useful details are your **camera model, Betaflight version, C3 board and what the OSD is displaying**.
 
 ---
 
