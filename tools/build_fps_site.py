@@ -22,7 +22,7 @@ for script in legacy_scripts:
 cs = cs.replace("    if (target === 'config'  && port) sendCommand('show');\n", '')
 cs = cs.replace("  // Populate Easy Config fields after a brief settle time\n  setTimeout(() => sendCommand('show'), 300);\n", '')
 
-for script in ['fps-ui-rebuild.js','fps-demo-v1.js','fps-integrated-preview.js','fps-stage3-parity.js','fps-v102-experimental.js','fps-autosync.js','fps-version-check.js','experimental-banner.js']:
+for script in ['fps-ui-rebuild.js','fps-demo-v1.js','fps-integrated-preview.js','fps-stage3-parity.js','fps-v102-experimental.js','fps-camera-labels.js','fps-autosync.js','fps-version-check.js','experimental-banner.js']:
     tag = f'<script src="{script}"></script>'
     if tag not in cs:
         if '</body>' not in cs: raise SystemExit('Configurator has no body close')
@@ -43,7 +43,7 @@ for script in legacy_scripts:
     if f'<script src="{script}"></script>' in final: raise SystemExit(f'Legacy configurator layer still active: {script}')
 if 'href="test.html"' in final or 'osd-preview-tab' in final: raise SystemExit('Standalone OSD Preview navigation has been reintroduced')
 if "setTimeout(() => sendCommand('show'), 300)" in final or "target === 'config'  && port" in final: raise SystemExit('Automatic device read reintroduced')
-for required in ['<script src="fps-ui-rebuild.js"></script>','<script src="fps-demo-v1.js"></script>','<script src="fps-integrated-preview.js"></script>','<script src="fps-stage3-parity.js"></script>','<script src="fps-v102-experimental.js"></script>','<script src="fps-autosync.js"></script>','<script src="fps-version-check.js"></script>','<script src="experimental-banner.js"></script>','fps-theme.css']:
+for required in ['<script src="fps-ui-rebuild.js"></script>','<script src="fps-demo-v1.js"></script>','<script src="fps-integrated-preview.js"></script>','<script src="fps-stage3-parity.js"></script>','<script src="fps-v102-experimental.js"></script>','<script src="fps-camera-labels.js"></script>','<script src="fps-autosync.js"></script>','<script src="fps-version-check.js"></script>','<script src="experimental-banner.js"></script>','fps-theme.css']:
     if required not in final: raise SystemExit(f'Generated configurator missing: {required}')
 
 home_final = read(h)
@@ -66,6 +66,10 @@ v102 = read('web/fps-v102-experimental.js')
 for marker in ['fpsMultiCamSync','fpsArmBoostPower','fpsArmBoostMs','fpsArmedPowerV102','fpsDisBoostPower','fpsDisBoostMs','fpsPowerMultiOnly']:
     if marker not in v102:
         raise SystemExit(f'V1.0.2 experimental UI missing: {marker}')
+labels = read('web/fps-camera-labels.js')
+for marker in ['MAX_LABEL=7','fpsCameraLabelsInfo','cameras label','BATT LOW','supportsLabels']:
+    if marker not in labels:
+        raise SystemExit(f'V1.0.2 camera-label UI missing: {marker}')
 autosync = read('web/fps-autosync.js')
 for command in ['set multi_cam','set arm_boost_dbm','set arm_boost_ms','set dis_boost_dbm','set dis_boost_ms','set power_multi_only']:
     if command not in autosync:
