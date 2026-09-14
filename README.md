@@ -2,77 +2,152 @@
 
 **Automatic action-camera control and Betaflight OSD telemetry from an ESP32-C3 Super Mini.**
 
+> **This is the `experimental` branch.** It currently contains the V1.0.2 development build. Stable V1.0.1 remains on `main`.
+>
+> **Bench test experimental firmware before flight.** Multi-camera and advanced BLE-power behaviour are implemented and building successfully, but still require real-world hardware validation.
+
 > **Based on the original [FreeCLinker by sheeprine](https://github.com/sheeprine/freeclinker).** Visit the [original FreeCLinker project site](https://sheeprine.github.io/freeclinker/) for the upstream project, its supported-camera foundations and original documentation.
 
-FreeCLinker connects a supported action camera to your flight controller without adding another control to your pre-flight routine. Power the quad, let the C3 find the camera, arm and fly. Recording can start automatically on arm and stop after a configurable delay on disarm, while camera status is shown directly in the Betaflight OSD.
+FreeCLinker connects supported action cameras to your flight controller so camera recording can follow the quad automatically. Power the quad, let the C3 find the camera, arm and fly. Recording can start automatically on ARM and stop after a configurable delay on DISARM, while camera state and telemetry are shown in the Betaflight OSD.
 
-FPSteVe Edition builds on that foundation with a simplified configurator, GoPro-focused flight behaviour, richer OSD, warnings, automatic recording and extensive bench/flight testing.
+FPSteVe Edition adds a simplified configurator, GoPro-focused flight behaviour, richer OSD, warnings, automatic recording, browser flashing and extensive bench/flight test tooling.
 
 ## Start here
 
-- **Configurator:** https://alfonsogordon.github.io/freeclinker/config.html
-- **Web flasher:** https://alfonsogordon.github.io/freeclinker/flash.html
+### Experimental V1.0.2
+
+- **Experimental configurator:** https://alfonsogordon.github.io/freeclinker/experimental/config.html
+- **Experimental flasher:** https://alfonsogordon.github.io/freeclinker/experimental/flash.html
+- **Full V1.0.2 feature guide:** [EXPERIMENTAL_V1.0.2.md](EXPERIMENTAL_V1.0.2.md)
 - **Quick start:** [QUICKSTART.md](QUICKSTART.md)
-- **Project website:** https://alfonsogordon.github.io/freeclinker/
 
-## See the OSD in action
+### Stable V1.0.1
 
-The project homepage includes a compact animated demonstration using the same background image and **BF 4.5 Pilot Name default** as the integrated Easy Config OSD Preview: **ERR → RDY → CLEAN LENS → ARM/flashing REC → DISARM/full Pilot line while the camera is still recording → delayed stop → RDY**.
+- Stable configurator: https://alfonsogordon.github.io/freeclinker/config.html
+- Stable flasher: https://alfonsogordon.github.io/freeclinker/flash.html
+- Stable source: https://github.com/alfonsogordon/freeclinker/tree/main
 
-You can exercise the same behaviour interactively in the **OSD Preview** inside the configurator.
+## V1.0.2 experimental highlights
 
-## What it does
+### Multi Cam coordinator
 
-### Camera control
-- Automatic camera discovery and reconnect
+V1.0.2 can use a coordinator instead of the normal single-camera backend. The coordinator includes support paths for:
+
+- GoPro
+- DJI Action
+- Sony
+- Blackmagic
+- Insta360
+- Caddx
+
+With Multi Cam enabled, ARM/START and DISARM/STOP requests are sent across the coordinator rather than to one selected camera only.
+
+A camera that joins or reconnects later is reconciled to the current requested state. If the quad currently wants recording, the camera is told to START; if the system currently wants stopped recording, it is told to STOP.
+
+### Multi-GoPro
+
+The experimental Multi-GoPro backend now has **8 bounded application slots** instead of the previous arbitrary six-camera limit.
+
+Eight is not a guarantee of eight real simultaneous BLE connections. Actual usable count depends on ESP32 Bluetooth controller/host resources, stack configuration, scanning load, memory and camera behaviour.
+
+### Multi-camera OSD
+
+V1.0.2 adds aggregate camera counts and recording-state counts.
+
+Typical compact states include:
+
+- `REC 2/2` — two connected, both confirmed recording
+- `PART 1/2` — two connected, only one confirmed recording
+
+The `{cams}` token is also available for templates. Where recording counts are confirmed it represents `recording/connected`; otherwise it falls back to the connected count rather than presenting a false partial failure.
+
+Aggregate multi-camera telemetry uses conservative values where available:
+
+- lowest camera battery
+- lowest remaining recording time
+- hottest camera state
+- combined media readiness
+
+### Advanced BLE TX power profile
+
+The experimental BLE profile supports four phases:
+
+**Idle / disarmed → Arm boost → Armed → Disarm boost → Idle**
+
+Available power steps are -12, -9, -6, -3, 0, +3, +6 and +9 dBm.
+
+Each boost phase can be given a duration. A duration of `0 ms` skips that boost and preserves the earlier two-state armed/disarmed behaviour.
+
+The optional **Only after multiple cameras detected** setting keeps normal Low Power behaviour until more than one connected camera has been observed. Once triggered, that power-profile latch remains active until reboot so it does not flap on/off when a second camera briefly disconnects.
+
+### Status LED camera-count pulses
+
+With Multi Cam enabled and more than one camera connected, the C3 status LED can show the connected-camera count as short pulses in a repeating three-second period.
+
+- one connected camera: normal steady connected indication
+- two cameras: two short pulses
+- three cameras: three short pulses
+
+Scanning and AP indications remain separate.
+
+### Experimental configurator
+
+V1.0.2 controls are grouped under **Experimental Multi Cam Settings**.
+
+The UI is layered deliberately:
+
+- Experimental master OFF → the whole V1.0.2 section is hidden
+- Experimental master ON → Multi Cam can be enabled
+- Multi Cam OFF → advanced Multi Cam controls remain hidden
+- Multi Cam ON → BLE power-profile option becomes available
+- BLE power profile ON → individual TX-power/timing settings become available
+
+The connected C3 remains the source of truth. The configurator reads the actual settings from the board and saves/verifies them back to the board.
+
+## Existing camera-control behaviour
+
+When Multi Cam is disabled, the normal single-camera path remains in use.
+
+Existing behaviour includes:
+
+- automatic camera discovery and reconnect
 - GoPro BLE control with wake/sleep-aware connection behaviour
-- Start recording automatically when Betaflight arms
-- Configurable delayed stop after disarm — **5 seconds by default**
-- Optional AUX camera-mode control
-- GoPro Burst Slo-Mo support through AUX while recording
+- ARM starts recording automatically
+- configurable delayed stop after DISARM — **5 seconds by default**
+- optional AUX camera-mode control
+- GoPro Burst Slo-Mo through AUX on the single-GoPro path
 - GoPro BLE keepalive while connected
-- Camera matching for multi-camera setups
-- Low-power radio mode to reduce RF output near the flight-control/RC system
+- camera matching
+- normal Low Power BLE mode
 
-### Betaflight OSD
-- Camera state: **ERR / RDY / REC**
-- Camera battery percentage
-- Recording duration
-- Remaining recording time/capacity where reported by the camera
-- Camera mode, resolution, frame rate and stabilisation telemetry where available
-- Configurable OSD templates/tokens
-- **REC-only while armed + recording** for a clean flight display
-- Optional **1 Hz flashing REC**
-- First-arm temporary reminder — default **CLEAN LENS**
-- Camera warnings: **BATT LOW / REC LOW / CAM HOT**
-- Warning → temporary message → REC-only → normal OSD priority handling
+The proven single-GoPro backend remains separate from the experimental coordinator.
+
+## Betaflight OSD
+
+Existing FPSteVe Edition OSD features include:
+
+- camera state: **ERR / RDY / REC**
+- camera battery percentage
+- recording duration
+- remaining recording time/capacity where reported
+- mode, resolution, frame rate and stabilisation where available
+- configurable OSD templates/tokens
+- **REC-only while armed + recording**
+- optional **1 Hz flashing REC**
+- first-arm temporary reminder — default **CLEAN LENS**
+- camera warnings: **BATT LOW / REC LOW / CAM HOT**
+- Warning → Temporary Message → REC-only → normal OSD priority handling
 
 ### Betaflight compatibility
+
 - **Betaflight 4.5:** Pilot Name / Craft Name compatibility mode
 - **Betaflight 2026.6+:** Custom Messages 1–4 support
-- Automatic arm-state polling over MSP
-- Configurable UART/AUX integration
-
-### FPSteVe Easy Config
-- Browser-based configuration over USB
-- Automatic settings read when connected
-- One **SAVE / APPLY SETTINGS** action for the complete configuration
-- Read-back verification after saving
-- Settings stored on the C3 and retained across power cycles
-- Integrated live OSD Preview
-- Preview controls for ARM, recording, camera errors/hot state and first-arm reset
-- Fresh-board defaults designed to be useful without a long setup session
-
-### Flashing & board behaviour
-- Browser-based ESP32-C3 flashing
-- Clear post-flash power-cycle/configuration flow
-- Wi-Fi AP configuration remains available as an optional/fallback feature
-- BOOT-button force-AP recovery
-- Status LED for scanning/connection/AP state
+- automatic arm-state polling over MSP
+- configurable UART/AUX integration
 
 ## Default OSD setup
 
-FPSteVe Edition ships with sensible flight defaults. On **BF 4.5**, Pilot Name is enabled by default with:
+On **BF 4.5**, Pilot Name is enabled by default with:
 
 `{stateonly} {batt} {rectf}`
 
@@ -87,9 +162,9 @@ On **BF 2026.6+**, the four Custom Message defaults are:
 
 REC-only, flashing REC, CLEAN LENS and camera warnings are enabled by default on a fresh FPSteVe Edition configuration.
 
-## Tested for V1 🤘
+## V1 hardware-confirmed behaviour 🤘
 
-The following have been physically confirmed on the FPSteVe Edition hardware-test setup:
+The following stable/single-camera behaviour has been physically confirmed on the FPSteVe Edition development setup:
 
 - ESP32-C3 Super Mini + GoPro BLE connection and automatic reconnect
 - GoPro control from a real Betaflight 4.5 flight controller
@@ -97,18 +172,28 @@ The following have been physically confirmed on the FPSteVe Edition hardware-tes
 - DISARM → immediate normal OSD restoration → 5-second delayed recording stop → RDY
 - BF 4.5 Pilot/Craft OSD output and live **ERR / RDY / REC** state
 - REC-only while armed + recording, including flashing REC
-- First-arm **CLEAN LENS** behaviour
-- Configurator read, save, read-back verification and settings persistence after reconnect/power cycle
-- GoPro keepalive: camera stays connected while FreeCLinker is powered and returns to normal camera auto-power-off behaviour when FreeCLinker is removed
-- Web flasher and post-flash configuration flow
+- first-arm **CLEAN LENS** behaviour
+- configurator read/save/read-back verification and settings persistence
+- GoPro keepalive
+- web flasher and post-flash configuration flow
 
-Camera-warning behaviour and priority have been validated in the integrated Preview/firmware logic; individual warning conditions have not all been forced on the installed flight-test camera.
+## V1.0.2 implemented but still hardware-test territory
 
-## Implemented, but not yet hardware-tested
+The experimental source builds successfully for both firmware targets, but these areas still need physical validation:
 
-**Betaflight 2026.6+ Custom Messages 1–4** are implemented and exercised through the FPSteVe OSD Preview/firmware logic, but have **not yet been physically tested against a flight controller running that Betaflight generation**. The V1 hardware available for testing currently runs Betaflight 4.5, so this distinction is intentional.
+- simultaneous 2+ and especially 3+ BLE cameras
+- practical ESP32-C3 simultaneous-connection ceiling
+- mixed camera-family operation
+- reconnect/rejoin behaviour when a second camera leaves range
+- delayed STOP reconciliation after reconnect
+- advanced BLE power at -12/-9/-6 dBm in realistic camera positions
+- ARM/DISARM boost timing on hardware
+- partial recording acknowledgements
+- multi-camera `REC x/y` and `PART x/y` OSD on a real FC
+- LED camera-count pulses in actual use
+- V1.0.2 regression bench test of the stable single-GoPro workflow
 
-Some telemetry fields also depend on what a particular camera/model reports over its protocol.
+A successful compile is not proof of RF reliability. **Bench test with props removed first.**
 
 ## Quick hardware connection
 
@@ -123,17 +208,18 @@ Default ESP32-C3 Super Mini ↔ flight-controller UART wiring:
 
 MSP UART speed: **115200 baud**.
 
-See the [Quick Start Guide](QUICKSTART.md) before powering the installation.
+See [QUICKSTART.md](QUICKSTART.md) before powering the installation.
 
 ## GoPro pairing note
 
-When switching to a GoPro that FreeCLinker has not paired with before, you may need to open that camera's **Pair** menu for the first connection. As one example from V1 testing, after a HERO11 Black Mini had already been connected, a MAX2 needed to be placed in its Pair menu the first time it was used. **The HERO11 Black Mini and MAX2 are examples of the observed behaviour, not a requirement or limitation to those specific models.** Once paired, normal automatic connection/reconnection can resume.
+When switching to a GoPro that FreeCLinker has not paired with before, you may need to open that camera's **Pair** menu for the first connection. During V1 testing, a HERO11 Black Mini and MAX2 provided examples of this behaviour; those models are examples, not a restriction to those specific cameras. Once paired, normal automatic connection/reconnection can resume.
 
 ## Help & feedback
 
-Need help? Join the **Squadding Quads Discord** and ask for **FPSteVe**: https://discord.gg/eE6DkgEnjU
+Need help? Join the **Squadding Quads Discord** and ask for **FPSteVe**:
+https://discord.gg/eE6DkgEnjU
 
-Bug reports and useful real-world compatibility results are especially welcome — please include the camera model, Betaflight version and C3 board where possible.
+For experimental test reports, include the camera model(s), number of cameras, C3 board, Betaflight version, BLE power settings, camera placement/range and what the OSD/LED showed.
 
 ## Credits
 
@@ -141,4 +227,4 @@ FPSteVe Edition is based on **[FreeCLinker by sheeprine](https://github.com/shee
 
 ---
 
-**FPSteVe Edition V1.0** 🤘
+**FPSteVe Edition V1.0.2 EXPERIMENTAL** 🤘
