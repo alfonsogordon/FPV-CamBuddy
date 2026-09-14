@@ -323,6 +323,35 @@ void MultiCameraCoordinator::publishState() {
     if (haveTemp) out.temp_over = hottest;
     out.has_media_ready = haveMedia;
 
+    // Preserve the aggregate fields above for the normal/simple OSD, while
+    // also carrying stable per-camera telemetry for the opt-in Advanced Multi
+    // Cam OSD. GoPro contributes each READY slot; the other families contribute
+    // their one live camera using the persistent registry identity.
+    _gopro.copySources(out);
+    for (uint8_t i = 1; i < FAMILY_COUNT && out.source_count < CAM_OSD_SOURCE_MAX; ++i) {
+        if (!_seenData[i] || !_all[i]->isConnected()) continue;
+        const CameraData &d = _latest[i];
+        CameraSourceData &dst = out.sources[out.source_count++];
+        dst.valid = d.valid;
+        if (_registry)
+            _registry->identityForType(registryTypeForFamily(i), dst.camera_number,
+                                       dst.camera_label, sizeof(dst.camera_label));
+        dst.has_battery = d.has_battery;
+        dst.percent = d.percent;
+        dst.has_recording = d.has_recording;
+        dst.recording = d.recording;
+        dst.has_temperature = d.has_temperature;
+        dst.temp_over = d.temp_over;
+        dst.has_remain_time = d.has_remain_time;
+        dst.remain_time = d.remain_time;
+        dst.remain_cap_mb = d.remain_cap_mb;
+        dst.record_time = d.record_time;
+        dst.camera_mode = d.camera_mode;
+        dst.eis_mode = d.eis_mode;
+        dst.resolution = d.resolution;
+        dst.fps_idx = d.fps_idx;
+    }
+
     _camera = out;
     if (_cameraCb) _cameraCb(_camera);
 }
