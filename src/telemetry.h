@@ -48,6 +48,31 @@
 // label directly in normalized telemetry lets the OSD attribute an aggregate
 // warning to the physical camera which caused it.
 #define CAM_WARNING_LABEL_LEN 8
+#define CAM_OSD_SOURCE_MAX 8
+
+// Per-camera telemetry carried alongside the normal aggregate CameraData.
+// This is intentionally compact and only exists so the experimental OSD layer
+// can target C1/C2/etc without changing the normal camera-control behaviour.
+struct CameraSourceData {
+    bool     valid = false;
+    uint8_t  camera_number = 0;
+    char     camera_label[CAM_WARNING_LABEL_LEN] = {};
+
+    bool     has_battery = false;
+    uint8_t  percent = 0;
+    bool     has_recording = false;
+    bool     recording = false;
+    bool     has_temperature = false;
+    uint8_t  temp_over = 0;
+    bool     has_remain_time = false;
+    uint32_t remain_time = 0;
+    uint32_t remain_cap_mb = 0;
+    uint16_t record_time = 0;
+    uint8_t  camera_mode = 0;
+    uint8_t  eis_mode = CAM_EIS_UNKNOWN;
+    uint8_t  resolution = CAM_RES_UNKNOWN;
+    uint8_t  fps_idx = CAM_FPS_UNKNOWN;
+};
 
 struct CameraData {
     bool     valid        = false;
@@ -79,4 +104,9 @@ struct CameraData {
     char    remain_source_label[CAM_WARNING_LABEL_LEN] = {};
     uint8_t temp_source_camera = 0;
     char    temp_source_label[CAM_WARNING_LABEL_LEN] = {};
+
+    // Experimental Multi Cam OSD source table. Standard single-camera paths
+    // leave this empty and continue using the aggregate fields above.
+    uint8_t source_count = 0;
+    CameraSourceData sources[CAM_OSD_SOURCE_MAX]{};
 };
