@@ -92,6 +92,19 @@ void formatState(const CameraData &data, const char *state, char *val, size_t va
     }
 }
 
+void formatWarning(const char *base, uint8_t sourceCamera, const char *sourceLabel,
+                   char *out, size_t outLen) {
+    if (!out || outLen == 0) return;
+    out[0] = '\0';
+    if (!base) return;
+    if (sourceLabel && sourceLabel[0])
+        snprintf(out, outLen, "%s %s", base, sourceLabel);
+    else if (sourceCamera > 0)
+        snprintf(out, outLen, "%s (%u)", base, sourceCamera);
+    else
+        snprintf(out, outLen, "%s", base);
+}
+
 void resolveToken(const char *tok, const CameraData &data, const char *state,
                   char *val, size_t valLen) {
     val[0] = '\0';
@@ -364,11 +377,27 @@ void MSPSerial::sendCustomOSD(uint8_t textType, const CameraData &data, const ch
                         data.remain_time <= static_cast<uint32_t>(_fpvLowRecMinutes) * 60UL;
     const bool hot = _fpvHotEnabled && data.valid && data.has_temperature && data.temp_over != 0;
 
+    char warningText[3][TEXT_LIMIT + 1] = {};
     const char *warnings[3] = {nullptr, nullptr, nullptr};
     uint8_t warningCount = 0;
-    if (lowBatt && _fpvLowBatteryText[0]) warnings[warningCount++] = _fpvLowBatteryText;
-    if (lowRec && _fpvLowRecText[0]) warnings[warningCount++] = _fpvLowRecText;
-    if (hot && _fpvHotText[0]) warnings[warningCount++] = _fpvHotText;
+    if (lowBatt && _fpvLowBatteryText[0]) {
+        formatWarning(_fpvLowBatteryText, data.battery_source_camera, data.battery_source_label,
+                      warningText[warningCount], sizeof(warningText[warningCount]));
+        warnings[warningCount] = warningText[warningCount];
+        ++warningCount;
+    }
+    if (lowRec && _fpvLowRecText[0]) {
+        formatWarning(_fpvLowRecText, data.remain_source_camera, data.remain_source_label,
+                      warningText[warningCount], sizeof(warningText[warningCount]));
+        warnings[warningCount] = warningText[warningCount];
+        ++warningCount;
+    }
+    if (hot && _fpvHotText[0]) {
+        formatWarning(_fpvHotText, data.temp_source_camera, data.temp_source_label,
+                      warningText[warningCount], sizeof(warningText[warningCount]));
+        warnings[warningCount] = warningText[warningCount];
+        ++warningCount;
+    }
 
     const bool warningHere = warningCount > 0 && destination == _fpvWarningTarget;
     const bool warningPhase = ((millis() / 1000UL) & 1U) != 0U;
