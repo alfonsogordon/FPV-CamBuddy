@@ -25,6 +25,11 @@ public:
         bool dynamicTxPower;
         int8_t armedTxPowerDbm;
         int8_t disarmedTxPowerDbm;
+        int8_t armBoostTxPowerDbm;
+        uint32_t armBoostMs;
+        int8_t disarmBoostTxPowerDbm;
+        uint32_t disarmBoostMs;
+        bool powerMultiOnly;
         bool multiCamSync;
         uint32_t wifiApStartDelaySec;
         bool wifiApEnabled;
@@ -77,6 +82,11 @@ public:
     static constexpr bool DEFAULT_DYNAMIC_TX_POWER = false;
     static constexpr int8_t DEFAULT_ARMED_TX_POWER_DBM = -12;
     static constexpr int8_t DEFAULT_DISARMED_TX_POWER_DBM = 9;
+    static constexpr int8_t DEFAULT_ARM_BOOST_TX_POWER_DBM = 9;
+    static constexpr uint32_t DEFAULT_ARM_BOOST_MS = 0;
+    static constexpr int8_t DEFAULT_DISARM_BOOST_TX_POWER_DBM = 9;
+    static constexpr uint32_t DEFAULT_DISARM_BOOST_MS = 0;
+    static constexpr bool DEFAULT_POWER_MULTI_ONLY = false;
     static constexpr bool DEFAULT_MULTI_CAM_SYNC = false;
     static constexpr uint32_t DEFAULT_WIFI_AP_START_DELAY_SEC = 30;
     static constexpr bool DEFAULT_WIFI_AP_ENABLED = false;
@@ -119,8 +129,8 @@ public:
 
     void begin(Stream &serial);
     void update();
-    // V1.0.1 extension layer. Kept separate from the signed-off V1 parser so
-    // the new setting can be added without destabilising all existing config.
+    // V1.0.1/V1.0.2 extension layer. Kept separate from the signed-off V1 parser
+    // so experimental settings do not destabilise the stable configuration path.
     void loadV101Extras();
     void printV101Extras(Stream &out);
     void updateV101();
@@ -140,6 +150,11 @@ public:
     void setDynamicTxPower(bool v);
     void setArmedTxPowerDbm(int8_t dbm);
     void setDisarmedTxPowerDbm(int8_t dbm);
+    void setArmBoostTxPowerDbm(int8_t dbm);
+    void setArmBoostMs(uint32_t ms);
+    void setDisarmBoostTxPowerDbm(int8_t dbm);
+    void setDisarmBoostMs(uint32_t ms);
+    void setPowerMultiOnly(bool v);
     void setMultiCamSync(bool v);
     void setWifiApStartDelay(uint32_t sec);
     void setWifiApEnabled(bool v);
