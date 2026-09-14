@@ -137,14 +137,25 @@ static void observeCameraCountForPowerLatch(const CameraData &data) {
     }
 }
 
-static void updateStatusLed(uint32_t now, bool camConnected, bool apRunning) {
+static void updateStatusLed(uint32_t now, bool camConnected, bool apRunning, uint8_t cameraCount) {
     bool shouldBeOn;
-    if (apRunning)
+    if (apRunning) {
         shouldBeOn = (now % STATUS_LED_AP_PERIOD_MS) < STATUS_LED_AP_ON_MS;
-    else if (camConnected)
+    } else if (camConnected && configManager.config().multiCamSync && cameraCount > 1) {
+        // Multi Cam count code: N short pulses every three seconds. Single-camera
+        // behaviour remains the proven steady-ON indication.
+        constexpr uint32_t COUNT_PERIOD_MS = 3000;
+        constexpr uint32_t COUNT_SLOT_MS = 260;
+        constexpr uint32_t COUNT_ON_MS = 110;
+        const uint32_t phase = now % COUNT_PERIOD_MS;
+        const uint8_t count = cameraCount > MAX_MULTI_GOPRO_SLOTS ? MAX_MULTI_GOPRO_SLOTS : cameraCount;
+        shouldBeOn = phase < static_cast<uint32_t>(count) * COUNT_SLOT_MS &&
+                     (phase % COUNT_SLOT_MS) < COUNT_ON_MS;
+    } else if (camConnected) {
         shouldBeOn = true;
-    else
+    } else {
         shouldBeOn = (now % STATUS_LED_SCAN_PERIOD_MS) < STATUS_LED_SCAN_ON_MS;
+    }
 
     if (shouldBeOn == ledState) return;
     ledState = shouldBeOn;
@@ -342,6 +353,7 @@ void loop() {
 
     const uint32_t now          = millis();
     const bool     camConnected = activeCamera->isConnected();
+    observeCameraCountForPowerLatch(currentCamera);
     updateConfiguredBleTxPower(now);
 
     if (!forceAP) {
@@ -445,15 +457,16 @@ void loop() {
         }
         lastBattMs = now;
 
-        DBG_SERIAL.printf("[cam] bat=%u%%  mode=0x%02X  rec=%s  eis=%u  "
+        DBG_SERIAL.printf("[cam] bat=%u%%  mode=0x%02X  rec=%s  cams=%u/%u  eis=%u  "
                           "time=%us  sd=%uMB  remain=%us  temp=%u\n",
                           currentCamera.percent, currentCamera.camera_mode,
                           currentCamera.recording ? "yes" : "no",
+                          currentCamera.recording_cameras, currentCamera.connected_cameras,
                           currentCamera.eis_mode, currentCamera.record_time,
                           currentCamera.remain_cap_mb, currentCamera.remain_time,
                           currentCamera.temp_over);
     }
 
-    updateStatusLed(now, camConnected, webServer.isRunning());
+    updateStatusLed(now, camConnected, webServer.isRunning(), currentCamera.connected_cameras);
     delay(10);
 }
