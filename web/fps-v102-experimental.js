@@ -10,6 +10,8 @@ function valueText(line,key){const r=new RegExp(`^\\[cfg\\]\\s+${key}\\s*=\\s*([
 function style(){if($('fpsV102Style'))return;const s=document.createElement('style');s.id='fpsV102Style';s.textContent=`
 #fpsV102Experimental{border:2px solid #e5ef00!important;box-shadow:0 0 0 1px rgba(245,255,0,.12),0 0 22px rgba(245,255,0,.09)}
 #fpsV102Experimental>.fps-section-head{background:linear-gradient(90deg,rgba(245,255,0,.16),rgba(245,255,0,.04))}
+#fpsV102Experimental.fps-exp-feature:not(.is-visible){display:none!important}
+#fpsV102Experimental.fps-exp-feature.is-visible{display:block}
 .fps-v102-badge{display:inline-block;margin-left:7px;padding:2px 6px;border-radius:5px;background:#f5ff00;color:#111;font-size:9px;font-weight:950;letter-spacing:.08em;vertical-align:middle}
 .fps-v102-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(125px,165px);gap:10px 14px;align-items:center}.fps-v102-grid label{font-size:12px}.fps-v102-grid select,.fps-v102-grid input[type=number]{width:100%;min-width:0}.fps-v102-note{grid-column:1/-1;color:#786f32;font-size:11px;line-height:1.45}.fps-v102-sub{grid-column:1/-1;border-top:1px solid rgba(180,185,0,.24);padding-top:10px;margin-top:2px;font-weight:800;color:#665f00}.fps-v102-group{grid-column:1/-1;font-size:11px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;color:#756d13;margin-top:2px}
 .fps-v102-hidden{display:none!important}
@@ -17,6 +19,10 @@ function style(){if($('fpsV102Style'))return;const s=document.createElement('sty
 `;document.head.appendChild(s)}
 function makeToggle(id){return `<label class="switch"><input type="checkbox" id="${id}"><span class="track"><span class="thumb"></span></span></label>`}
 function refreshVisibility(){
+ const sec=$('fpsV102Experimental');
+ const exp=$('fpsExperimentalMaster');
+ const expOn=!!exp?.checked;
+ if(sec)sec.classList.toggle('is-visible',expOn);
  const multi=!!$('fpsMultiCamSync')?.checked;
  const dynWrap=$('fpsDynamicPowerV102Wrap');
  const children=$('fpsPowerChildren');
@@ -26,9 +32,20 @@ function refreshVisibility(){
  const en=!!$('fpsDynamicPowerV102')?.checked;
  ['fpsIdlePower','fpsArmBoostPower','fpsArmBoostMs','fpsArmedPowerV102','fpsDisBoostPower','fpsDisBoostMs','fpsPowerMultiOnly'].forEach(id=>{const e=$(id);if(e)e.disabled=!en});
 }
+function reconcileExperimentalUi(){
+ const sec=$('fpsV102Experimental');if(!sec)return;
+ sec.classList.add('fps-exp-feature');
+ document.querySelectorAll('#fpsMultiCamSyncWrap.fps-exp-feature').forEach(x=>{if(!sec.contains(x))x.remove()});
+ const master=$('fpsExperimentalMaster');
+ if(master){
+  sec.classList.toggle('is-visible',master.checked);
+  if(!master.checked){const multi=$('fpsMultiCamSync');if(multi?.checked){multi.checked=false;multi.dispatchEvent(new Event('change',{bubbles:true}))}}
+ }
+ refreshVisibility();
+}
 function build(){if($('fpsV102Experimental'))return;const old=$('fpsDynamicPowerWrap');if(!old)return;
  old.style.display='none';
- const sec=document.createElement('section');sec.id='fpsV102Experimental';sec.className='fps-section';sec.innerHTML=`
+ const sec=document.createElement('section');sec.id='fpsV102Experimental';sec.className='fps-section fps-exp-feature';sec.innerHTML=`
  <div class="fps-section-head"><div><strong>Experimental Multi Cam Settings <span class="fps-v102-badge">V1.0.2</span></strong><div class="fps-section-desc">Everything specific to the V1.0.2 Multi Cam test build is grouped here: multi-camera coordination and the BLE power profile used around arm/disarm transitions.</div></div></div>
  <div class="fps-section-body" style="display:grid">
   <div id="fpsMultiCamSyncWrap" class="fps-row fps-toggle-row"><div><strong>Enable Multi Cam coordinator</strong><div class="fps-inline-desc">Discover and coordinate all supported ready camera families. Reboot required after changing.</div></div>${makeToggle('fpsMultiCamSync')}</div>
@@ -55,6 +72,8 @@ function build(){if($('fpsV102Experimental'))return;const old=$('fpsDynamicPower
   refreshVisibility();
  };
  sec.addEventListener('change',mirror);sec.addEventListener('input',mirror);mirror();
+ setTimeout(reconcileExperimentalUi,550);
+ setTimeout(reconcileExperimentalUi,900);
  setTimeout(()=>window.fpsFirmwareVersion?.applyFeatureGates?.(),100);
 }
 function receive(line){let v;
@@ -70,7 +89,7 @@ function receive(line){let v;
  refreshVisibility();
 }
 function hookParser(){if(typeof parseConfigLine!=='function'||parseConfigLine.__fpsV102Wrapped)return false;const original=parseConfigLine;const wrapped=function(line){receive(line);return original(line)};wrapped.__fpsV102Wrapped=true;parseConfigLine=wrapped;return true}
-function init(){style();let tries=0;const t=setInterval(()=>{build();hookParser();if($('fpsV102Experimental')&&typeof parseConfigLine==='function'){clearInterval(t);refreshVisibility();window.fpsFirmwareVersion?.applyFeatureGates?.()}else if(++tries>40)clearInterval(t)},100)}
-window.fpsV102Experimental={receive,refreshVisibility};
+function init(){style();let tries=0;const t=setInterval(()=>{build();hookParser();reconcileExperimentalUi();if($('fpsV102Experimental')&&typeof parseConfigLine==='function'){clearInterval(t);refreshVisibility();window.fpsFirmwareVersion?.applyFeatureGates?.()}else if(++tries>40)clearInterval(t)},100);document.addEventListener('change',e=>{if(e.target?.id==='fpsExperimentalMaster')setTimeout(reconcileExperimentalUi,0)},true)}
+window.fpsV102Experimental={receive,refreshVisibility,reconcileExperimentalUi};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
