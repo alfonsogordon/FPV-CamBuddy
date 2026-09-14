@@ -28,7 +28,7 @@ function enhanceOsd(){
  const master=document.getElementById('fpsOsdMaster');const top=master?.closest('.fps-top');const card=top?.closest('.config-card');const cardHead=card?.querySelector(':scope > .card-header');
  if(!master||!top||!card||!cardHead||card.dataset.fpsMenuCollapse==='1')return;
  card.dataset.fpsMenuCollapse='1';card.classList.add('fps-menu-collapse-root');
- addChevron(cardHead,'osd-templates',()=>[...card.children].filter(x=>x!==cardHead),master,card);
+ addChevron(cardHead,'osd-templates',()=>[...card.children].filter(x=>x!==cardHead&&x!==top),master,card);
 }
 function enhanceSection(toggleId,key){
  const toggle=document.getElementById(toggleId);const sec=toggle?.closest('.fps-section');const head=sec?.querySelector(':scope > .fps-section-head');const body=sec?.querySelector(':scope > .fps-section-body');
