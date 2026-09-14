@@ -123,6 +123,18 @@ The coordinator currently contains support paths for:
 
 A reboot is recommended after changing the Multi Cam mode so the correct camera backend/coordinator is selected cleanly from startup.
 
+### First-time GoPro setup
+
+For the **first connection of each GoPro in Multi Cam mode, connect the cameras one at a time**:
+
+1. Power on the first GoPro and let FreeCLinker discover/connect to it and save it.
+2. Then power on the second GoPro and let FreeCLinker discover/connect to that one.
+3. Repeat for any additional GoPros.
+
+After each GoPro has been learned/saved once, they can be powered together and Multi Cam will reconnect to the saved cameras automatically on later boots.
+
+If a GoPro has never been paired with FreeCLinker before, you may also need to open that camera's **Pair** menu for its initial connection.
+
 ### What ARM/DISARM means in Multi Cam
 
 ARM requests START from connected cameras.
@@ -241,7 +253,9 @@ Also watch the OSD and LED count during each transition.
 
 A GoPro not previously paired with FreeCLinker may need its **Pair** menu opened for the initial connection.
 
-During V1 testing, HERO11 Black Mini and MAX2 provided examples of this behaviour. Those models are examples, not a limitation to those specific cameras.
+In Multi Cam mode, **learn/save new GoPros one at a time on their first connection**. Once each camera has been saved, normal simultaneous automatic reconnect can resume on later boots.
+
+During V1 testing, HERO11 Black Mini and MAX2 provided examples of pairing behaviour. Those models are examples, not a limitation to those specific cameras.
 
 With Wake Guard enabled, FreeCLinker does not deliberately wake a sleeping GoPro just by scanning.
 
