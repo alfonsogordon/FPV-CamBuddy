@@ -2,6 +2,8 @@
 'use strict';
 if(!location.pathname.includes('/experimental/'))return;
 const YELLOW='#f5ff00';
+const DEMO_KEY='freeclinkerDemoMode',EXP_KEY='fpsExperimentalFeatures',MULTI_KEY='fpsExperimentalMultiCamSync';
+const demoMode=()=>localStorage.getItem(DEMO_KEY)==='1';
 const s=document.createElement('style');
 s.textContent=`
 .fps-exp-banner{position:sticky;top:0;z-index:99999;background:${YELLOW};color:#101318;text-align:center;font:950 13px/1.25 system-ui,sans-serif;padding:8px 12px;letter-spacing:.055em;border-bottom:2px solid #a8b000;box-shadow:0 0 16px rgba(245,255,0,.34)}
@@ -20,6 +22,10 @@ function dedupeBanner(){
  banners.forEach(b=>{if(b!==keep)b.remove()});
 }
 function ensureRebootOverlay(){
+ if(demoMode()){
+  document.getElementById('fpsRebootOverlay')?.remove();
+  return null;
+ }
  let overlay=document.getElementById('fpsRebootOverlay');
  if(overlay)return overlay;
  overlay=document.createElement('div');overlay.id='fpsRebootOverlay';
@@ -42,21 +48,22 @@ function rebootRequired(el){
  return !!row&&/reboot required/i.test(row.textContent||'');
 }
 function showRebootWarning(el){
+ if(demoMode())return;
  const overlay=ensureRebootOverlay();
+ if(!overlay)return;
  overlay.dataset.source=el.closest?.('#caddxWifiCard')?'caddx':'global';
  const status=document.getElementById('fpsRebootStatus');if(status)status.textContent='';
  overlay.classList.add('show');
 }
-const DEMO_KEY='freeclinkerDemoMode',EXP_KEY='fpsExperimentalFeatures',MULTI_KEY='fpsExperimentalMultiCamSync';
 function syncDemoMultiFlags(){
- if(localStorage.getItem(DEMO_KEY)!=='1')return;
+ if(!demoMode())return;
  const exp=document.getElementById('fpsExperimentalMaster');
  const multi=document.getElementById('fpsMultiCamSync');
  if(exp)localStorage.setItem(EXP_KEY,exp.checked?'1':'0');
  if(multi)localStorage.setItem(MULTI_KEY,multi.checked?'1':'0');
 }
 function syncDemoPreview(detail){
- if(localStorage.getItem(DEMO_KEY)!=='1')return;
+ if(!demoMode())return;
  syncDemoMultiFlags();
  const connected=Array.isArray(detail?.connected)?detail.connected:[];
  const cameras=Array.isArray(detail?.cameras)?detail.cameras:[];
@@ -85,10 +92,11 @@ function syncDemoPreview(detail){
 dedupeBanner();
 const observer=new MutationObserver(()=>dedupeBanner());
 observer.observe(document.body,{childList:true,subtree:false});
-window.addEventListener('load',()=>{dedupeBanner();ensureRebootOverlay();setTimeout(()=>{dedupeBanner();observer.disconnect()},1500)});
-document.addEventListener('change',e=>{if(e.isTrusted&&rebootRequired(e.target))showRebootWarning(e.target);if(e.target?.id==='fpsExperimentalMaster'||e.target?.id==='fpsMultiCamSync')setTimeout(syncDemoMultiFlags,0)},true);
+window.addEventListener('load',()=>{dedupeBanner();if(!demoMode())ensureRebootOverlay();else document.getElementById('fpsRebootOverlay')?.remove();setTimeout(()=>{dedupeBanner();observer.disconnect()},1500)});
+document.addEventListener('change',e=>{if(e.isTrusted&&!demoMode()&&rebootRequired(e.target))showRebootWarning(e.target);if(e.target?.id==='fpsExperimentalMaster'||e.target?.id==='fpsMultiCamSync')setTimeout(syncDemoMultiFlags,0)},true);
 document.addEventListener('fps-demo-camera-connections',e=>syncDemoPreview(e.detail));
-if(localStorage.getItem(DEMO_KEY)==='1'){
+if(demoMode()){
+ document.getElementById('fpsRebootOverlay')?.remove();
  let tries=0;const t=setInterval(()=>{syncDemoMultiFlags();if(document.getElementById('fpsMultiCamSync')||++tries>20)clearInterval(t)},150);
 }
 const brand=document.querySelector('.brand');
