@@ -52,8 +52,9 @@ struct CameraData {
     bool     has_remain_time = false;
     bool     has_media_ready = false;
     bool     media_ready     = true;
-    uint8_t  connected_cameras = 0;    // Multi Cam live connected count
-    uint8_t  recording_cameras = 0;    // confirmed/acknowledged recording cameras when supplied
+    bool     has_recording_count = false; // recording_cameras contains confirmed aggregate data
+    uint8_t  connected_cameras = 0;
+    uint8_t  recording_cameras = 0;
     uint8_t  percent      = 0;
     bool     recording    = false;
     uint8_t  camera_mode  = 0;
