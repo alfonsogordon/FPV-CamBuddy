@@ -29,6 +29,12 @@ uint8_t MultiGoProCamera::connectedCount() const {
     return n;
 }
 
+uint8_t MultiGoProCamera::recordingCount() const {
+    uint8_t n = 0;
+    for (const auto &s : _slots) if (s.ready && s.recordingKnown && s.recording) ++n;
+    return n;
+}
+
 bool MultiGoProCamera::addressAlreadyUsed(const std::string &addr) const {
     for (const auto &s : _slots)
         if (!s.addr.empty() && s.addr == addr && (s.bleConnected || s.ready || s.found)) return true;
@@ -62,7 +68,7 @@ void MultiGoProCamera::startScan(uint8_t slot) {
     scan->setActiveScan(true);
     scan->setInterval(0x50);
     scan->setWindow(0x30);
-    DBG_SERIAL.printf("[MULTI] Scanning for GoPro slot %u...\n", slot + 1);
+    DBG_SERIAL.printf("[MULTI] Scanning for GoPro slot %u/%u...\n", slot + 1, MAX_MULTI_GOPRO_SLOTS);
     scan->start(BLE_SCAN_DURATION_SECS, scanDoneCallback, false);
 }
 
@@ -150,12 +156,13 @@ bool MultiGoProCamera::connectSlot(uint8_t slot) {
         return false;
     }
 
-    // Match the proven V1 subscription order exactly: command, query, setting.
     s.cmdNotify->registerForNotify(cmdNotifyCallback);
     s.queryNotify->registerForNotify(queryNotifyCallback);
     s.settingNotify->registerForNotify(settingNotifyCallback);
 
     s.bleConnected = true;
+    s.recordingKnown = false;
+    s.pendingShutter = false;
     s.pendingHwInfo = true;
     s.pendingRegisterSettings = false;
     s.pendingRegisterStatus = false;
@@ -176,6 +183,7 @@ void MultiGoProCamera::onDisconnect(BLEClient *client) {
     DBG_SERIAL.printf("[MULTI] GoPro slot %d disconnected\n", slot + 1);
     s.cmdWrite = s.cmdNotify = s.settingWrite = s.settingNotify = s.queryWrite = s.queryNotify = nullptr;
     s.bleConnected = s.ready = s.pendingHwInfo = s.pendingRegisterSettings = s.pendingRegisterStatus = s.found = false;
+    s.recording = false; s.recordingKnown = false; s.pendingShutter = false;
     s.addr.clear(); s.name.clear();
     s.cmdRx.reset(); s.settingRx.reset(); s.queryRx.reset();
     s.lastAttemptMs = millis(); s.lastKeepAliveMs = 0;
@@ -219,7 +227,6 @@ void MultiGoProCamera::sendRegisterStatus(uint8_t slot) {
 void MultiGoProCamera::sendKeepAlive(uint8_t slot) {
     Slot &s = _slots[slot];
     if (!s.settingWrite || !s.bleConnected) return;
-    // Same official Open GoPro keep-alive used by the proven V1 backend.
     uint8_t buf[] = {0x03, 91, 0x01, 66};
     s.settingWrite->writeValue(buf, sizeof(buf), false);
     DBG_SERIAL.printf("[MULTI] Slot %u keep-alive\n", slot + 1);
@@ -252,7 +259,15 @@ void MultiGoProCamera::handleCmdNotify(uint8_t slot, uint8_t *data, size_t len) 
                 s.pendingHwInfo = true;
             }
         } else if (cmd == GP_CMD_SET_SHUTTER) {
-            DBG_SERIAL.printf("[MULTI] Slot %u shutter %s\n", slot + 1, status == 0 ? "OK" : "REJECTED");
+            const bool requestedOn = s.pendingShutterOn;
+            DBG_SERIAL.printf("[MULTI] Slot %u shutter %s (%s)\n", slot + 1,
+                              status == 0 ? "OK" : "REJECTED", requestedOn ? "START" : "STOP");
+            if (s.pendingShutter && status == 0) {
+                s.recording = requestedOn;
+                s.recordingKnown = true;
+            }
+            s.pendingShutter = false;
+            publishState();
         }
     }
     s.cmdRx.reset();
@@ -269,7 +284,6 @@ void MultiGoProCamera::handleQueryNotify(uint8_t slot, uint8_t *data, size_t len
     if (s.queryRx.expected >= 2) {
         const uint8_t query = s.queryRx.buf[0], status = s.queryRx.buf[1];
         if (query == GP_QUERY_REGISTER_SETTING) {
-            // V1 proceeds to status registration even if optional setting telemetry is rejected.
             DBG_SERIAL.printf("[MULTI] Slot %u setting registration status=0x%02X\n", slot + 1, status);
             s.pendingRegisterStatus = true;
         } else if (query == GP_QUERY_REGISTER_STATUS) {
@@ -287,6 +301,8 @@ void MultiGoProCamera::handleQueryNotify(uint8_t slot, uint8_t *data, size_t len
 bool MultiGoProCamera::sendShutter(uint8_t slot, bool on) {
     Slot &s = _slots[slot]; if (!s.ready || !s.cmdWrite) return false;
     const uint8_t buf[] = {0x03, GP_CMD_SET_SHUTTER, 0x01, (uint8_t)(on ? 0x01 : 0x00)};
+    s.pendingShutter = true;
+    s.pendingShutterOn = on;
     s.cmdWrite->writeValue(const_cast<uint8_t *>(buf), sizeof(buf), false);
     DBG_SERIAL.printf("[MULTI] Slot %u shutter -> %s\n", slot + 1, on ? "START" : "STOP");
     return true;
@@ -303,7 +319,10 @@ void MultiGoProCamera::syncSlotToDesiredState(uint8_t slot) {
 
 bool MultiGoProCamera::startRecording() {
     _recordingRequested = true; _recordStartedMs = millis(); bool any = false;
-    for (uint8_t i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i) { _slots[i].needsStopOnReconnect = false; any = sendShutter(i, true) || any; }
+    for (uint8_t i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i) {
+        _slots[i].needsStopOnReconnect = false;
+        any = sendShutter(i, true) || any;
+    }
     publishState(); return any;
 }
 
@@ -331,14 +350,24 @@ bool MultiGoProCamera::switchCameraMode(uint8_t mode) {
 
 void MultiGoProCamera::publishState() {
     const uint8_t count = connectedCount();
-    _camera.valid = count > 0; _camera.has_recording = true; _camera.connected_cameras = count;
-    _camera.recording = _recordingRequested && count > 0;
+    const uint8_t recCount = recordingCount();
+    uint8_t knownCount = 0;
+    for (const auto &s : _slots) if (s.ready && s.recordingKnown) ++knownCount;
+
+    _camera.valid = count > 0;
+    _camera.has_recording = true;
+    _camera.connected_cameras = count;
+    _camera.has_recording_count = knownCount > 0;
+    _camera.recording_cameras = recCount;
+    if (knownCount == count && count > 0)
+        _camera.recording = recCount > 0;
+    else
+        _camera.recording = _recordingRequested && count > 0;
     _camera.record_time = _camera.recording ? (uint16_t)((millis() - _recordStartedMs) / 1000UL) : 0;
     if (_cameraCb) _cameraCb(_camera);
 }
 
 void MultiGoProCamera::update() {
-    // Mirror V1's deferred-write handshake per camera. Never write from a BLE notify callback.
     for (uint8_t i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i) {
         Slot &s = _slots[i];
         if (s.pendingHwInfo && s.bleConnected) { s.pendingHwInfo = false; sendHardwareInfo(i); return; }
@@ -347,7 +376,6 @@ void MultiGoProCamera::update() {
     }
 
     const uint32_t now = millis();
-    // Critical parity fix: each owned GoPro BLE session gets the official 10s keep-alive.
     for (uint8_t i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i) {
         Slot &s = _slots[i];
         if (s.ready && s.bleConnected && now - s.lastKeepAliveMs >= 10000UL) {
