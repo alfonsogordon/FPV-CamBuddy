@@ -22,7 +22,7 @@ function snapshot(){
   multiCamSync:chk('fpsMultiCamSync'),wifiApEnabled:chk('wifiApEnabled'),wifiApDelay:parseInt(val('wifiApDelay','0'))||0,disarmDelay:parseInt(val('disarmDelay','0'))||0,stopOnDisarm:chk('stopOnDisarm'),
   auxEnabled:chk('fpsAuxMaster'),auxChannel:val('auxChannel','0'),auxMode:val('auxMode','10'),
   bfMode:legacy?'legacy':'current',osdEnabled:chk('fpsOsdMaster'),msgs,pilotEnabled:chk('fpsPilotMaster'),pilotTpl:normTpl(val('pilotTpl')),craftEnabled:chk('fpsCraftMaster'),craftTpl:normTpl(val('craftTpl')),recOnly:chk('fpsRecOnly'),flashRec:chk('fpvFlash'),
-  tempEnabled:chk('fpsTempMaster'),tempOnlyBeforeFirstArm:chk('fpvPreArm'),tempText:String(val('fpvPreArmText','CLEAN LENS')).replace(/^@[1-4]:/,''),tempDuration:Math.max(.1,Number(val('fpsCustomDurationSec','1'))||1),tempTarget:targetCode(val('fpsTempDest',legacy?'pilot':'1'),legacy),
+  tempEnabled:chk('fpsTempMaster'),tempOnlyBeforeFirstArm:chk('fpvPreArm'),tempText:String(val('fpvPreArmText','CLEAN LENS')).replace(/^@[1-4]:/,''),tempDuration:Math.max(.1,Number(val('fpvCustomDurationSec','1'))||1),tempTarget:targetCode(val('fpsTempDest',legacy?'pilot':'1'),legacy),
   warnEnabled:chk('fpsWarnMaster'),lowPct:Math.max(0,Math.min(100,parseInt(val('fpvLowPct','10'))||0)),recLowMin:Math.max(0,Math.min(999,parseInt(val('fpvRecLowMin','5'))||0)),warnTarget:targetCode(val('fpsWarnDest',legacy?'pilot':'1'),legacy)
  };
 }
