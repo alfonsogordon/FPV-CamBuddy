@@ -1,4 +1,5 @@
 #include "config_manager.h"
+#include "camera_registry.h"
 #include <cstring>
 #include <cstdlib>
 
@@ -141,6 +142,23 @@ void ConfigManager::updateV101() {
                 const char *val = line + 21; while (*val == ' ') val++;
                 setPowerMultiOnly(strtoul(val, nullptr, 10) != 0);
                 _serial->printf("[cfg] power_multi_only = %s (saved)\n", _cfg.powerMultiOnly ? "true" : "false");
+            } else if (strncmp(line, "cameras label ", 14) == 0) {
+                const char *arg = line + 14;
+                while (*arg == ' ') arg++;
+                char *end = nullptr;
+                const unsigned long rawIdx = strtoul(arg, &end, 10);
+                while (end && *end == ' ') end++;
+                if (!_registry || rawIdx >= _registry->count()) {
+                    _serial->printf("[reg] No camera at index %lu\n", rawIdx);
+                } else {
+                    const char *labelText = (end && *end) ? end : "";
+                    if (strcmp(labelText, "-") == 0) labelText = "";
+                    _registry->setLabel((uint8_t)rawIdx, labelText);
+                    _serial->printf("[reg] Camera %lu -> Cam %u label=\"%s\" (saved)\n",
+                                    rawIdx,
+                                    _registry->cameraNumber((uint8_t)rawIdx),
+                                    _registry->label((uint8_t)rawIdx));
+                }
             } else if (strcmp(line, "show") == 0) {
                 processCommand(line, *_serial);
                 printV101Extras(*_serial);
@@ -156,6 +174,7 @@ void ConfigManager::updateV101() {
                 _serial->println("  set dis_boost_dbm <-12..9> - BLE power immediately after disarm");
                 _serial->println("  set dis_boost_ms <0..60000> - disarm boost duration; 0 disables boost");
                 _serial->println("  set power_multi_only <0|1> - only activate profile after >1 cameras are detected; latches until reboot");
+                _serial->println("  cameras label <idx> <name> - set a persistent 1-7 char OSD camera label; use '-' to clear");
             } else if (strcmp(line, "reset") == 0) {
                 processCommand(line, *_serial);
                 loadV101Extras();
