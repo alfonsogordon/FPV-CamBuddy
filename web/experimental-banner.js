@@ -47,11 +47,50 @@ function showRebootWarning(el){
  const status=document.getElementById('fpsRebootStatus');if(status)status.textContent='';
  overlay.classList.add('show');
 }
+const DEMO_KEY='freeclinkerDemoMode',EXP_KEY='fpsExperimentalFeatures',MULTI_KEY='fpsExperimentalMultiCamSync';
+function syncDemoMultiFlags(){
+ if(localStorage.getItem(DEMO_KEY)!=='1')return;
+ const exp=document.getElementById('fpsExperimentalMaster');
+ const multi=document.getElementById('fpsMultiCamSync');
+ if(exp)localStorage.setItem(EXP_KEY,exp.checked?'1':'0');
+ if(multi)localStorage.setItem(MULTI_KEY,multi.checked?'1':'0');
+}
+function syncDemoPreview(detail){
+ if(localStorage.getItem(DEMO_KEY)!=='1')return;
+ syncDemoMultiFlags();
+ const connected=Array.isArray(detail?.connected)?detail.connected:[];
+ const cameras=Array.isArray(detail?.cameras)?detail.cameras:[];
+ const count=connected.length;
+ const countSelect=document.getElementById('fpsPreviewCameraCount');
+ if(countSelect){
+  for(let i=0;i<=4;i++)if(![...countSelect.options].some(o=>Number(o.value)===i))countSelect.add(new Option(String(i),String(i)));
+  countSelect.value=String(count);
+  countSelect.dispatchEvent(new Event('change',{bubbles:true}));
+ }
+ const source=document.getElementById('fpsPreviewWarningSource');
+ if(source){
+  const previous=Number(source.value)||1;
+  source.innerHTML='';
+  for(const cam of cameras){
+   const n=Number(cam.number)||((Number(cam.idx)||0)+1);
+   const label=String(cam.label||'').trim();
+   const option=new Option(label?`Cam ${n} · ${label}`:`Cam ${n} · CAM${n}`,String(n));
+   option.disabled=!cam.connected;
+   source.add(option);
+  }
+  const wanted=[...source.options].find(o=>Number(o.value)===previous&&!o.disabled)||[...source.options].find(o=>!o.disabled)||source.options[0];
+  if(wanted){source.value=wanted.value;source.dispatchEvent(new Event('change',{bubbles:true}))}
+ }
+}
 dedupeBanner();
 const observer=new MutationObserver(()=>dedupeBanner());
 observer.observe(document.body,{childList:true,subtree:false});
 window.addEventListener('load',()=>{dedupeBanner();ensureRebootOverlay();setTimeout(()=>{dedupeBanner();observer.disconnect()},1500)});
-document.addEventListener('change',e=>{if(e.isTrusted&&rebootRequired(e.target))showRebootWarning(e.target)},true);
+document.addEventListener('change',e=>{if(e.isTrusted&&rebootRequired(e.target))showRebootWarning(e.target);if(e.target?.id==='fpsExperimentalMaster'||e.target?.id==='fpsMultiCamSync')setTimeout(syncDemoMultiFlags,0)},true);
+document.addEventListener('fps-demo-camera-connections',e=>syncDemoPreview(e.detail));
+if(localStorage.getItem(DEMO_KEY)==='1'){
+ let tries=0;const t=setInterval(()=>{syncDemoMultiFlags();if(document.getElementById('fpsMultiCamSync')||++tries>20)clearInterval(t)},150);
+}
 const brand=document.querySelector('.brand');
 if(brand&&!brand.querySelector('.fps-test-label')){const t=document.createElement('span');t.className='fps-test-label';brand.appendChild(t)}
 })();
