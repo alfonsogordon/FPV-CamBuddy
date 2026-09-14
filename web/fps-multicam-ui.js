@@ -3,6 +3,7 @@
 const MAX_LABEL=7;
 const $=id=>document.getElementById(id);
 const slots=new Map();
+const familyLive=new Map();
 let cameras=[];
 let selectedNumber=0;
 
@@ -15,10 +16,16 @@ function metaFor(c){
  return {number:n?parseInt(n[1],10):(Number(c?.idx)||0)+1,label:clean(l?l[1]:'')};
 }
 function displayName(c){const m=metaFor(c);return m.label||('C'+m.number)}
-function connectedAddresses(){const out=new Set();for(const s of slots.values())if(s.ready&&s.addr)out.add(normAddr(s.addr));return out}
+function connectedAddresses(){
+ const out=new Set();
+ for(const s of slots.values())if(s.ready&&s.addr)out.add(normAddr(s.addr));
+ for(const [addr,on] of familyLive)if(on&&addr)out.add(normAddr(addr));
+ return out;
+}
 function slotForAddress(addr){const a=normAddr(addr);for(const s of slots.values())if(s.ready&&normAddr(s.addr)===a)return s;return null}
 function publishRegistry(){
- const detail=cameras.map(c=>{const m=metaFor(c),s=slotForAddress(c.addr);return {idx:c.idx,number:m.number,label:m.label,name:c.name,addr:c.addr,type:c.type,connected:!!s,battery:s?.battery??null,remain:s?.remain??null,recording:s?.recording??null,hot:s?.hot??null}});
+ const live=connectedAddresses();
+ const detail=cameras.map(c=>{const m=metaFor(c),s=slotForAddress(c.addr);return {idx:c.idx,number:m.number,label:m.label,name:c.name,addr:c.addr,type:c.type,connected:live.has(normAddr(c.addr)),battery:s?.battery??null,remain:s?.remain??null,recording:s?.recording??null,hot:s?.hot??null}});
  document.dispatchEvent(new CustomEvent('fps-camera-registry-update',{detail}));
  refreshSelector(detail);
 }
@@ -49,7 +56,7 @@ function updateBadges(){
   const s=slotForAddress(c.addr),on=live.has(normAddr(c.addr));
   const statusCell=row.querySelector('.fps-cam-live-status');if(statusCell){let badge=statusCell.querySelector('.fps-cam-live-badge');if(!badge){badge=document.createElement('span');badge.className='fps-cam-live-badge';statusCell.appendChild(badge)}badge.classList.toggle('connected',on);badge.textContent=on?'connected':'offline'}
   const batt=row.querySelector('.fps-cam-live-battery .fps-cam-live-value');if(batt)batt.textContent=on&&s?.battery!=null&&s.battery>=0?`${s.battery}%`:'—';
-  const rem=row.querySelector('.fps-cam-live-remain .fps-cam-live-value');if(rem)rem.textContent=on?fmtRemain(s?.remain):'—';
+  const rem=row.querySelector('.fps-cam-live-remain .fps-cam-live-value');if(rem)rem.textContent=on&&s?fmtRemain(s?.remain):'—';
   const state=row.querySelector('.fps-cam-live-state .fps-cam-live-value');if(state){state.classList.toggle('rec',!!(on&&s?.recording===1));state.classList.toggle('hot',!!(on&&s?.hot===1));state.textContent=!on?'—':s?.hot===1?'HOT':s?.recording===1?'REC':s?.recording===0?'RDY':'LIVE'}
  });
  publishRegistry();
@@ -66,6 +73,8 @@ function consume(line){
  if(m){const n=Number(m[1]);const s=slots.get(n)||{};s.addr=normAddr(m[2]);s.ready=true;s.battery=Number(m[3]);s.remain=Number(m[4]);s.recording=Number(m[5]);s.hot=Number(m[6]);slots.set(n,s);updateBadges();return}
  m=t.match(/^\[MULTI\] GoPro slot (\d+) disconnected/);
  if(m){const n=Number(m[1]);const s=slots.get(n)||{};s.ready=false;slots.set(n,s);updateBadges();return}
+ m=t.match(/^\[MULTI\] FAMILY LIVE family=(\d+) addr=(.+) connected=([01])$/);
+ if(m){familyLive.set(normAddr(m[2]),m[3]==='1');updateBadges();return}
 }
 function scanExistingLogs(){document.querySelectorAll('#terminal .line').forEach(n=>consume(n.textContent))}
 function watchLogs(){const t=$('terminal');if(!t)return;scanExistingLogs();new MutationObserver(ms=>ms.forEach(mu=>mu.addedNodes.forEach(n=>{if(n.nodeType===1&&n.classList?.contains('line'))consume(n.textContent)}))).observe(t,{childList:true})}
