@@ -27,6 +27,14 @@ FPSteVe Edition adds a simplified configurator, GoPro-focused flight behaviour, 
 - Stable flasher: https://alfonsogordon.github.io/freeclinker/flash.html
 - Stable source: https://github.com/alfonsogordon/freeclinker/tree/main
 
+## Supported cameras
+
+FreeCLinker includes camera backends/support paths for **GoPro, DJI Action, Sony, Blackmagic, Insta360 and Caddx**.
+
+**FPSteVe Edition hardware-tested:** GoPro HERO11 Black Mini and GoPro MAX2.
+
+The other camera families are supported by the FreeCLinker firmware foundations/backends but have **not necessarily been physically validated by FPSteVe**. V1.0.2 Multi Cam operation across multiple or mixed camera families remains experimental hardware-test territory.
+
 ## V1.0.2 experimental highlights
 
 ### Multi Cam coordinator
@@ -42,7 +50,7 @@ V1.0.2 can use a coordinator instead of the normal single-camera backend. The co
 
 With Multi Cam enabled, ARM/START and DISARM/STOP requests are sent across the coordinator rather than to one selected camera only.
 
-A camera that joins or reconnects later is reconciled to the current requested state. If the quad currently wants recording, the camera is told to START; if the system currently wants stopped recording, it is told to STOP.
+A camera that joins or reconnects later is reconciled to the current requested state. If the quad currently wants recording, the camera is told to START; if the system currently wants stopped recording, the camera is told to STOP.
 
 For **first-time Multi Cam setup with GoPros, connect and save new cameras one at a time**. Let the first GoPro connect and be learned before powering/connecting the next. After each GoPro has been saved once, they can be powered together and normal simultaneous automatic reconnect can resume on later boots. A completely new GoPro may also need its **Pair** menu opened for that first connection.
 
@@ -166,7 +174,7 @@ REC-only, flashing REC, CLEAN LENS and camera warnings are enabled by default on
 
 ## V1 hardware-confirmed behaviour 🤘
 
-The following stable/single-camera behaviour has been physically confirmed on the FPSteVe Edition development setup:
+The following stable/single-camera behaviour has been physically confirmed using **GoPro HERO11 Black Mini and GoPro MAX2** on the FPSteVe Edition development setup:
 
 - ESP32-C3 Super Mini + GoPro BLE connection and automatic reconnect
 - GoPro control from a real Betaflight 4.5 flight controller
@@ -186,6 +194,7 @@ The experimental source builds successfully for both firmware targets, but these
 - simultaneous 2+ and especially 3+ BLE cameras
 - practical ESP32-C3 simultaneous-connection ceiling
 - mixed camera-family operation
+- camera families beyond the GoPro models physically tested by FPSteVe
 - reconnect/rejoin behaviour when a second camera leaves range
 - delayed STOP reconciliation after reconnect
 - advanced BLE power at -12/-9/-6 dBm in realistic camera positions
@@ -230,5 +239,7 @@ For experimental test reports, include the camera model(s), number of cameras, C
 FPSteVe Edition is based on **[FreeCLinker by sheeprine](https://github.com/sheeprine/freeclinker)** and retains the work and supported-camera foundations of the upstream project. Thanks to the original FreeCLinker contributors and the camera/protocol projects that make this possible.
 
 ---
+
+💜 **No donation link here.** If you like the project and feel like giving something back, take whatever you would've donated and spend it on more props 🤘 — or, even better, donate it to a local charity of your choice.
 
 **FPSteVe Edition V1.0.2 EXPERIMENTAL** 🤘
