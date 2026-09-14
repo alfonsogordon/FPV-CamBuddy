@@ -80,10 +80,16 @@ const char *modeLabel(uint8_t v) {
 
 void formatState(const CameraData &data, const char *state, char *val, size_t valLen) {
     const char *base = state ? state : "ERR";
-    if (data.connected_cameras > 1)
+    if (strcmp(base, "REC") == 0 && data.connected_cameras > 1 && data.has_recording_count) {
+        if (data.recording_cameras < data.connected_cameras)
+            snprintf(val, valLen, "PART %u/%u", data.recording_cameras, data.connected_cameras);
+        else
+            snprintf(val, valLen, "REC %u/%u", data.recording_cameras, data.connected_cameras);
+    } else if (data.connected_cameras > 1) {
         snprintf(val, valLen, "%s (%u)", base, data.connected_cameras);
-    else
+    } else {
         snprintf(val, valLen, "%s", base);
+    }
 }
 
 void resolveToken(const char *tok, const CameraData &data, const char *state,
@@ -93,6 +99,11 @@ void resolveToken(const char *tok, const CameraData &data, const char *state,
 
     if (strcmp(tok, "state") == 0 || strcmp(tok, "stateonly") == 0) {
         formatState(data, state, val, valLen);
+    } else if (strcmp(tok, "cams") == 0) {
+        if (data.connected_cameras > 0 && data.has_recording_count)
+            snprintf(val, valLen, "%u/%u", data.recording_cameras, data.connected_cameras);
+        else if (data.connected_cameras > 0)
+            snprintf(val, valLen, "%u", data.connected_cameras);
     } else if (strcmp(tok, "batt") == 0) {
         if (data.valid && data.has_battery) snprintf(val, valLen, "B:%u", pct);
     } else if (strcmp(tok, "bat") == 0) {
@@ -384,10 +395,7 @@ void MSPSerial::sendCustomOSD(uint8_t textType, const CameraData &data, const ch
     const bool recOnlyTakeover = recOnlyWhenArmed && _armed && cameraRecording &&
                                  !cameraError && templateHasStatus(tpl);
     if (recOnlyTakeover) {
-        if (data.connected_cameras > 1)
-            snprintf(text, sizeof(text), "REC (%u)", data.connected_cameras);
-        else
-            snprintf(text, sizeof(text), "REC");
+        formatState(data, "REC", text, sizeof(text));
     } else {
         expandTemplate(tpl ? tpl : "", data, state, text, sizeof(text));
     }
