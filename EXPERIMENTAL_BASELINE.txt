@@ -1,2 +1,2 @@
-Experimental branch reset to the known-good Multi Cam baseline from commit 0ff5eb5a749764570aeeea4c04c5dce00e51baeb.
-This marker exists only to trigger fresh validation and firmware publishing from that baseline.
+Experimental branch reset to the physically proven Multi Cam baseline from commit 288ebf076eff758b56b5e13a9e2a8d4eb735788c.
+This marker exists only to trigger fresh validation and firmware publishing from that exact baseline.
