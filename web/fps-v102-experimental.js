@@ -12,9 +12,20 @@ function style(){if($('fpsV102Style'))return;const s=document.createElement('sty
 #fpsV102Experimental>.fps-section-head{background:linear-gradient(90deg,rgba(245,255,0,.16),rgba(245,255,0,.04))}
 .fps-v102-badge{display:inline-block;margin-left:7px;padding:2px 6px;border-radius:5px;background:#f5ff00;color:#111;font-size:9px;font-weight:950;letter-spacing:.08em;vertical-align:middle}
 .fps-v102-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(125px,165px);gap:10px 14px;align-items:center}.fps-v102-grid label{font-size:12px}.fps-v102-grid select,.fps-v102-grid input[type=number]{width:100%;min-width:0}.fps-v102-note{grid-column:1/-1;color:#786f32;font-size:11px;line-height:1.45}.fps-v102-sub{grid-column:1/-1;border-top:1px solid rgba(180,185,0,.24);padding-top:10px;margin-top:2px;font-weight:800;color:#665f00}.fps-v102-group{grid-column:1/-1;font-size:11px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;color:#756d13;margin-top:2px}
+.fps-v102-hidden{display:none!important}
 @media(max-width:620px){.fps-v102-grid{grid-template-columns:1fr}.fps-v102-note,.fps-v102-sub,.fps-v102-group{grid-column:1}}
 `;document.head.appendChild(s)}
 function makeToggle(id){return `<label class="switch"><input type="checkbox" id="${id}"><span class="track"><span class="thumb"></span></span></label>`}
+function refreshVisibility(){
+ const multi=!!$('fpsMultiCamSync')?.checked;
+ const dynWrap=$('fpsDynamicPowerV102Wrap');
+ const children=$('fpsPowerChildren');
+ if(dynWrap)dynWrap.classList.toggle('fps-v102-hidden',!multi);
+ if(children)children.classList.toggle('fps-v102-hidden',!multi);
+ if(!multi)return;
+ const en=!!$('fpsDynamicPowerV102')?.checked;
+ ['fpsIdlePower','fpsArmBoostPower','fpsArmBoostMs','fpsArmedPowerV102','fpsDisBoostPower','fpsDisBoostMs','fpsPowerMultiOnly'].forEach(id=>{const e=$(id);if(e)e.disabled=!en});
+}
 function build(){if($('fpsV102Experimental'))return;const old=$('fpsDynamicPowerWrap');if(!old)return;
  old.style.display='none';
  const sec=document.createElement('section');sec.id='fpsV102Experimental';sec.className='fps-section';sec.innerHTML=`
@@ -37,7 +48,12 @@ function build(){if($('fpsV102Experimental'))return;const old=$('fpsDynamicPower
  </div>`;
  old.insertAdjacentElement('afterend',sec);
  setVal('fpsMultiCamSync',DEFAULTS.multiCam);setVal('fpsDynamicPowerV102',$('fpsDynamicPower')?.checked||false);setVal('fpsIdlePower',$('fpsDisarmedPower')?.value||'9');setVal('fpsArmedPowerV102',$('fpsArmedPower')?.value||'-12');setVal('fpsArmBoostPower',DEFAULTS.armBoostPower);setVal('fpsArmBoostMs',DEFAULTS.armBoostMs);setVal('fpsDisBoostPower',DEFAULTS.disBoostPower);setVal('fpsDisBoostMs',DEFAULTS.disBoostMs);setVal('fpsPowerMultiOnly',DEFAULTS.multiOnly);
- const mirror=()=>{if($('fpsDynamicPower'))$('fpsDynamicPower').checked=$('fpsDynamicPowerV102').checked;if($('fpsDisarmedPower'))$('fpsDisarmedPower').value=$('fpsIdlePower').value;if($('fpsArmedPower'))$('fpsArmedPower').value=$('fpsArmedPowerV102').value;const en=$('fpsDynamicPowerV102').checked;['fpsIdlePower','fpsArmBoostPower','fpsArmBoostMs','fpsArmedPowerV102','fpsDisBoostPower','fpsDisBoostMs','fpsPowerMultiOnly'].forEach(id=>{$(id).disabled=!en})};
+ const mirror=()=>{
+  if($('fpsDynamicPower'))$('fpsDynamicPower').checked=$('fpsDynamicPowerV102').checked;
+  if($('fpsDisarmedPower'))$('fpsDisarmedPower').value=$('fpsIdlePower').value;
+  if($('fpsArmedPower'))$('fpsArmedPower').value=$('fpsArmedPowerV102').value;
+  refreshVisibility();
+ };
  sec.addEventListener('change',mirror);sec.addEventListener('input',mirror);mirror();
  setTimeout(()=>window.fpsFirmwareVersion?.applyFeatureGates?.(),100);
 }
@@ -51,10 +67,10 @@ function receive(line){let v;
  else if((v=valueText(line,'dis_boost_dbm'))!==null)setVal('fpsDisBoostPower',parseInt(v,10));
  else if((v=valueText(line,'dis_boost_ms'))!==null)setVal('fpsDisBoostMs',parseInt(v,10)||0);
  else if((v=valueText(line,'power_multi_only'))!==null)setVal('fpsPowerMultiOnly',parseBool(v));
- const master=$('fpsDynamicPowerV102');if(master)master.dispatchEvent(new Event('change'));
+ refreshVisibility();
 }
 function hookParser(){if(typeof parseConfigLine!=='function'||parseConfigLine.__fpsV102Wrapped)return false;const original=parseConfigLine;const wrapped=function(line){receive(line);return original(line)};wrapped.__fpsV102Wrapped=true;parseConfigLine=wrapped;return true}
-function init(){style();let tries=0;const t=setInterval(()=>{build();hookParser();if($('fpsV102Experimental')&&typeof parseConfigLine==='function'){clearInterval(t);window.fpsFirmwareVersion?.applyFeatureGates?.()}else if(++tries>40)clearInterval(t)},100)}
-window.fpsV102Experimental={receive};
+function init(){style();let tries=0;const t=setInterval(()=>{build();hookParser();if($('fpsV102Experimental')&&typeof parseConfigLine==='function'){clearInterval(t);refreshVisibility();window.fpsFirmwareVersion?.applyFeatureGates?.()}else if(++tries>40)clearInterval(t)},100)}
+window.fpsV102Experimental={receive,refreshVisibility};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
