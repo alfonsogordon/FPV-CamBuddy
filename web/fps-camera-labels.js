@@ -37,7 +37,7 @@ function ensureInfo(){
  let info=document.getElementById('fpsCameraLabelsInfo');
  if(!info){
   info=document.createElement('div');info.id='fpsCameraLabelsInfo';
-  info.innerHTML='<strong>V1.0.2 Camera IDs / OSD labels</strong><br>Each saved hardware ID keeps a stable Cam number. Add an optional label of up to <strong>7 characters</strong> (for example QUAD, CHEST or 360CAM). Seven characters is the maximum that still fits the longest current camera warning: <code>BATT LOW + label</code> inside the 16-character OSD limit.';
+  info.innerHTML='<strong>V1.0.2 Camera IDs / OSD labels</strong><br>Each saved hardware ID keeps a stable Cam number. Add an optional label of up to <strong>7 characters</strong> (for example QUAD, CHEST or 360CAM). Seven characters is the maximum that still fits the longest current camera warning: <code>BATT LOW + label</code> inside the 16-character OSD limit. If no label is set, warnings use <code>CAM1</code>, <code>CAM2</code>, etc.';
   wrap.parentNode.insertBefore(info,wrap);
  }
  window.fpsFirmwareVersion?.applyFeatureGates?.();
@@ -61,14 +61,14 @@ function enhance(cameras){
  rows.forEach((row,i)=>{
   const c=cameras[i];if(!c)return;
   const meta=parseMeta(c.tags,c.idx);
-  const numberTd=document.createElement('td');numberTd.className='fps-cam-number';numberTd.textContent='C'+meta.number;
+  const numberTd=document.createElement('td');numberTd.className='fps-cam-number';numberTd.textContent='CAM'+meta.number;
   row.insertBefore(numberTd,row.children[1]);
   const labelTd=document.createElement('td');
   const edit=document.createElement('div');edit.className='fps-cam-label-edit';
   const input=document.createElement('input');input.type='text';input.maxLength=MAX_LABEL;input.value=meta.label;input.placeholder='optional';input.disabled=!ok;input.setAttribute('aria-label',`Camera ${meta.number} OSD label`);
   const save=document.createElement('button');save.type='button';save.textContent='Set';save.disabled=!ok;
   const preview=document.createElement('span');preview.className='fps-cam-label-preview';
-  const draw=()=>{const v=cleanLabel(input.value);preview.textContent=`BATT LOW ${v||('C'+meta.number)}`.slice(0,16)};
+  const draw=()=>{const v=cleanLabel(input.value);preview.textContent=`BATT LOW ${v||('CAM'+meta.number)}`.slice(0,16)};
   input.addEventListener('input',draw);input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();save.click()}});
   save.addEventListener('click',()=>saveLabel(c.idx,input,save));
   edit.append(input,save);labelTd.append(edit,preview);draw();
