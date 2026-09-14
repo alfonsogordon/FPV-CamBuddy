@@ -77,9 +77,9 @@ jobs:
               extras=[]
               if p.name == 'config.html' and 'fps-version-check.js' not in s:
                   extras.append('<script src="fps-version-check.js"></script>')
-              banner='''<script>(()=>{const s=document.createElement("style");s.textContent=".fps-exp-banner{position:sticky;top:0;z-index:99999;background:#f5ff00;color:#101318;text-align:center;font:800 13px/1.25 system-ui,sans-serif;padding:7px 12px;letter-spacing:.04em;border-bottom:1px solid #a8b000;box-shadow:0 0 14px rgba(245,255,0,.24)}";document.head.appendChild(s);const b=document.createElement("div");b.className="fps-exp-banner";b.innerHTML="<strong>EXPERIMENTAL TEST ENVIRONMENT</strong> — development firmware and settings; not the public V1 build";document.body.prepend(b)})();</script>'''
-              if 'EXPERIMENTAL TEST ENVIRONMENT' not in s:
-                  extras.append(banner)
+              # The experimental branch already loads experimental-banner.js.
+              # Do not inject another banner here; on mobile that produced two
+              # stacked yellow EXPERIMENTAL bars.
               if extras and marker in s:
                   p.write_text(s.replace(marker,'\n'.join(extras)+'\n'+marker))
           PY
