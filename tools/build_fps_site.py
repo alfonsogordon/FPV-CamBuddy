@@ -80,7 +80,7 @@ for marker in ['fps-cam-live-badge','fpsPreviewWarnCamera','BATT LOW','REC LOW',
     if marker not in multicam_ui:
         raise SystemExit(f'V1.0.2 multi-camera UI helper missing: {marker}')
 multicam_osd = read('web/fps-multicam-osd.js')
-for marker in ['fpsAdvancedMultiCamOsd','Default Multi Cam OSD','Camera identifier','fpsMultiCamOsdSimulator','16']:
+for marker in ['fpsAdvancedMultiCamOsd','Default Multi Cam OSD','Camera identifier','fpsMultiOsdSimulator','16']:
     if marker not in multicam_osd:
         raise SystemExit(f'Advanced Multi Cam OSD helper missing: {marker}')
 autosync = read('web/fps-autosync.js')
