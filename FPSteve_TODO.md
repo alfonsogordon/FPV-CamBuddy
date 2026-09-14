@@ -1,97 +1,198 @@
-# FPSteVe Edition — V1 Release Status
+# FPSteVe Edition — V1.0.2 Experimental Status
 
-The core V1 behaviour is feature-complete and the project is in final validation/release preparation.
+V1.0.2 is the active development build on the `experimental` branch. Stable V1.0.1 remains on `main`.
 
-## Hardware-confirmed for V1 🤘
+For the full feature description and test guidance, see [EXPERIMENTAL_V1.0.2.md](EXPERIMENTAL_V1.0.2.md).
 
-- ESP32-C3 Super Mini hardware target
-- GoPro BLE discovery/automatic connection and reconnect
-- Wake Guard behaviour with sleeping GoPro
-- Low-power BLE mode
-- GoPro keepalive during the powered flight session
-- Real Betaflight 4.5 MSP connection
-- Real FC ARM starts GoPro recording
-- Real FC DISARM restores normal OSD immediately
-- Configured 5-second delayed stop after disarm
-- Camera state returns REC → RDY after the delayed stop
+## Implemented in V1.0.2
+
+### Multi Cam coordinator
+
+- [x] Multi-camera coordinator selectable by `multi_cam`
+- [x] GoPro backend
+- [x] DJI Action backend
+- [x] Sony backend
+- [x] Blackmagic backend
+- [x] Insta360 backend
+- [x] Caddx backend
+- [x] Rotating BLE scan ownership between BLE camera families
+- [x] Aggregate connected-camera count
+- [x] Camera join/reconnect state reconciliation
+- [x] START replay when a camera joins while recording is requested
+- [x] STOP replay when a camera joins while stopped state is requested
+
+### Multi-GoPro
+
+- [x] Previous arbitrary six-camera application cap removed
+- [x] Bounded to 8 application slots for deterministic embedded resource use
+- [x] Per-camera recording-known state
+- [x] Per-camera pending shutter state
+- [x] Successful shutter acknowledgement used as local recording-state confirmation
+- [x] Aggregate connected count
+- [x] Aggregate confirmed recording count
+
+**Important:** eight slots are not a promise of eight physical simultaneous BLE links. The practical connection limit depends on controller/host resources, stack configuration, memory, scanning and camera behaviour.
+
+### Multi-camera OSD
+
+- [x] `connected_cameras` telemetry
+- [x] `recording_cameras` telemetry
+- [x] confirmed recording-count flag
+- [x] compact `REC x/y` state when all confirmed recording
+- [x] compact `PART x/y` state for partial confirmed recording
+- [x] `{cams}` token
+- [x] connected-count fallback while recording counts are not fully known
+- [x] lowest battery aggregation
+- [x] lowest remaining-time aggregation
+- [x] hottest-camera aggregation
+- [x] combined media-ready aggregation where supported
+
+### Advanced BLE TX power
+
+- [x] Idle/disarmed power
+- [x] Arm-boost power
+- [x] Arm-boost duration
+- [x] Armed power
+- [x] Disarm-boost power
+- [x] Disarm-boost duration
+- [x] Automatic phase transitions
+- [x] Supported configured levels from -12 to +9 dBm in ESP BLE steps
+- [x] zero-duration boost bypass
+- [x] `power_multi_only` option
+- [x] multi-camera detection latch retained until reboot
+- [x] restoration of normal Low Power behaviour when advanced profile is inactive
+
+### Status LED
+
+- [x] steady connected indication retained for one connected camera
+- [x] multi-camera count pulses for more than one connected camera
+- [x] N short pulses in a repeating three-second period
+- [x] scanning/AP indications retained
+
+### Experimental configurator
+
+- [x] V1.0.2 controls grouped under **Experimental Multi Cam Settings**
+- [x] Experimental master hides/shows the whole section
+- [x] Multi Cam master hides/shows its child controls
+- [x] BLE profile master gates the detailed power controls
+- [x] read/save/verify path includes V1.0.2 settings
+- [x] firmware-version gating for V1.0.2-only controls
+- [x] experimental flasher pinned to experimental firmware path
+- [x] duplicate experimental banner handling
+
+## Stable behaviour intentionally preserved
+
+- [x] normal single-camera mode remains the default
+- [x] normal single-GoPro backend remains separate from Multi Cam
+- [x] GoPro Burst Slo-Mo AUX path remains single-GoPro-only
+- [x] V1.0.1 stable `main` branch left unchanged
+- [x] standard delayed stop-on-disarm flow remains available
+- [x] existing OSD warning/reminder behaviour retained
+
+## Build / CI status
+
+- [x] ESP32-C3 Super Mini build
+- [x] ESP32 build
+- [x] experimental web generation/validation
+- [x] experimental firmware artifacts produced
+- [x] experimental flasher path wired to experimental artifacts
+
+A passing build proves source/build integration. It does **not** prove multi-camera RF reliability.
+
+## Hardware validation still required
+
+### Multi-camera
+
+- [ ] two simultaneous GoPros on real hardware
+- [ ] three or more simultaneous cameras
+- [ ] determine practical maximum C3 camera count
+- [ ] mixed camera-family combinations
+- [ ] long-duration multi-camera stability
+- [ ] one camera moving out of range and rejoining
+- [ ] START reconciliation on reconnect while armed
+- [ ] STOP reconciliation on reconnect after disarm/delay
+
+### OSD
+
+- [ ] `REC 2/2` on real FC/OSD
+- [ ] `PART 1/2` on real FC/OSD
+- [ ] `{cams}` token on real FC/OSD
+- [ ] count/state transition when a camera disconnects
+- [ ] count/state transition when a camera reconnects
+
+### BLE power profile
+
+- [ ] +9 dBm idle/disarmed baseline
+- [ ] +9 dBm arm boost timing
+- [ ] -6 dBm armed reliability
+- [ ] -9 dBm armed reliability
+- [ ] -12 dBm armed reliability
+- [ ] +9 dBm disarm boost timing
+- [ ] `power_multi_only` latch behaviour on real hardware
+- [ ] RF/reconnect behaviour with realistic camera placement
+
+### LED
+
+- [ ] two-camera pulse count
+- [ ] three-camera pulse count
+- [ ] visual distinction from scanning/AP patterns
+
+### Regression
+
+- [ ] V1.0.2 binary with Multi Cam OFF: single-GoPro ARM/DISARM baseline
+- [ ] delayed stop-on-disarm regression
+- [ ] Wake Guard regression
+- [ ] GoPro keepalive regression
+- [ ] BF 4.5 Pilot/Craft OSD regression
+
+## Recommended first hardware-test sequence
+
+1. Flash the latest V1.0.2 experimental C3 build.
+2. Read settings and confirm V1.0.2.
+3. Leave Multi Cam OFF and prove one GoPro works normally.
+4. Enable Experimental Features and Multi Cam.
+5. Test two nearby cameras at full/normal BLE power.
+6. Verify LED connected-camera count.
+7. Verify aggregate OSD count/state.
+8. Force a second-camera disconnect/reconnect while stopped.
+9. Force a second-camera disconnect/reconnect while recording.
+10. Only then enable Advanced BLE Power.
+11. Start armed power at -6 or -9 dBm before trying -12 dBm.
+12. Test arm/disarm boosts independently.
+
+## Existing V1 hardware-confirmed baseline 🤘
+
+The following stable/single-camera behaviour was physically confirmed during V1 development:
+
+- ESP32-C3 Super Mini
+- GoPro BLE discovery/connect/reconnect
+- Wake Guard
+- normal Low Power mode
+- GoPro keepalive
+- real Betaflight 4.5 MSP
+- ARM starts recording
+- DISARM restores normal OSD immediately
+- configured delayed recording stop
+- REC → RDY transition
 - BF 4.5 Pilot/Craft OSD path
-- ERR / RDY / REC camera state reporting
-- REC-only while armed + recording
-- Flash REC behaviour
-- CLEAN LENS first-arm reminder behaviour
-- FPSteVe Easy Config read/save/read-back verification
-- Settings persistence through reconnect and C3 power cycle
-- Web flashing and post-flash power-cycle/configuration flow
+- ERR / RDY / REC
+- REC-only + flashing REC
+- CLEAN LENS first-arm reminder
+- Easy Config read/save/read-back verification
+- settings persistence
+- browser flashing
 
-## Implemented / validated in software, awaiting matching or forced hardware conditions
+## Documentation status
 
-### Betaflight 2026.6+ Custom Messages 1–4
+- [x] README updated for V1.0.2 experimental
+- [x] Quick Start updated for V1.0.2 experimental
+- [x] Dedicated V1.0.2 experimental feature guide added
+- [x] Experimental website feature summary updated
+- [x] Hardware-test caveats documented
+- [x] Camera-count limitation wording corrected
 
-Implemented with four independently configurable Custom Message templates and integrated into the same OSD state/priority system. The Preview and firmware logic have been tested, but the V1 physical flight controller available for acceptance testing runs Betaflight 4.5.
+## Release direction
 
-Therefore this path is deliberately documented as **not yet hardware-tested**, rather than being presented as physically confirmed.
+V1.0.2 should remain experimental until the multi-camera and BLE-power hardware-test items above are sufficiently validated.
 
-### Camera warning conditions
-
-BATT LOW / REC LOW / CAM HOT and the warning priority/alternation logic are implemented and validated in the integrated Preview/firmware flow. The installed flight-test camera has not been deliberately forced through every individual warning condition, so the docs do not label all warning triggers as physical hardware tests.
-
-## V1 defaults
-
-### Camera / flight
-- Camera match: Any
-- Wake Guard: ON
-- Stop recording on disarm: ON
-- Disarm delay: 5000 ms
-- Low Power: ON
-- Wi-Fi AP: OFF
-- AUX: OFF
-
-### BF 4.5 legacy
-- Pilot Name: ON
-- Pilot template: `{stateonly} {batt} {rectf}`
-- Craft Name: OFF
-- Craft latent/default template: `{res} {fps}`
-
-### BF 2026.6+
-- OSD templates: ON
-- Custom Messages 1–4: ON
-- Message 1: `{batt}`
-- Message 2: `{state} {recdur}`
-- Message 3: `{mode} {res} {fps} {eis}`
-- Message 4: `{rectf} {rcap}`
-
-### OSD behaviour
-- REC-only when armed + recording: ON
-- Flash REC at 1 Hz: ON
-- Temporary message: ON
-- Temporary text: `CLEAN LENS`
-- Only before first arm: ON
-- Duration: 1.0 second
-- Destination: Custom Message 2
-- Camera warnings: ON
-- Low camera battery: 10%
-- Low recording time: 5 minutes
-- CAM HOT: automatic
-- Warning destination: Custom Message 1
-
-Priority:
-
-**Warning → Temporary Message → REC-only → normal configured OSD**
-
-## V1 pairing observation
-
-A camera that FreeCLinker has not paired with before may need to be placed in its **Pair** menu for the initial connection. A HERO11 Black Mini followed by a MAX2 is one example observed during V1 testing; those models are examples, not a restriction to those specific cameras.
-
-## Final release checklist
-
-- [x] README and Quick Start finalised
-- [x] Homepage and OSD demonstration visually signed off
-- [x] Squadding Quads Discord support invite added to public documentation/site
-- [ ] Final validation/build/site review
-- [ ] Publish final `v1.0.0` release as **V1.0.0**
-- [ ] Verify release firmware assets and live Web Flasher release selection
-- [ ] Retire the hardware-test preview release after V1.0.0 is verified
-
-## Post-V1 candidates
-
-Keep post-V1 feature development separate from the V1 release-preparation pass. Possible future work includes broader camera-specific testing/support and improvements driven by community feedback.
+Stable V1.0.1 should remain untouched until an explicit release decision is made.
