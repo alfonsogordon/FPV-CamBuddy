@@ -93,7 +93,7 @@ function maxBaseLen(base,source){
  return {batt:5,recdur:5,mode:9,res:4,fps:3,eis:3,rectf:6,rcap:5}[base]||8;
 }
 function tokenWorst(tok){
- const raw=String(tok||'').replace(/^\{|\}$/g,'');const p=parseToken(raw);const base=p?.base||baseToken('{'+raw+'}');
+ const raw=String(tok||'').replace(/^\{|\}$/g,''),p=parseToken(raw),base=p?.base||baseToken('{'+raw+'}');
  let n=maxBaseLen(base,p?.source||0);
  if(p){
   const identifiable=p.source>0||base==='batt'||base==='rectf';
@@ -170,10 +170,15 @@ function mergeRegistry(list){
  refreshAll();
 }
 function ensureDemoDefaults(){if(cameras.size)return;[['FRONT',82,41],['REAR',69,14],['ACT 5',76,32],['360CAM',61,55]].forEach((x,i)=>cameras.set(i+1,{number:i+1,label:x[0],type:i<2?1:(i===2?0:5),connected:i<2,battery:x[1],remain:x[2],recording:false,hot:false,error:false,mode:'VIDEO',res:'4K',fps:'60',eis:'HS',rcap:'128GB'}))}
+function setLegacyPreviewControlsVisible(show){
+ for(const id of ['fpsPreviewBattery','fpsPreviewRemain','fpsPreviewHot','fpsPreviewError']){const e=$(id);if(e?.parentElement)e.parentElement.style.display=show?'':'none'}
+ const count=$('fpsPreviewCameraCountRow');if(count&&advancedOn())count.style.display='none';
+ const warn=$('fpsPreviewWarnCameraRow');if(warn&&advancedOn())warn.style.display='none';
+}
 function ensurePreviewSimulator(){
  const sim=document.querySelector('#fpsIntegratedPreview .fps-preview-sim');if(!sim)return;
  let box=$('fpsMultiOsdSimulator');if(!box){box=document.createElement('div');box.id='fpsMultiOsdSimulator';box.className='fps-multiosd-simulator';sim.appendChild(box)}
- const show=advancedOn()&&multiOn();box.style.display=show?'grid':'none';if(!show)return;
+ const show=advancedOn()&&multiOn();box.style.display=show?'grid':'none';setLegacyPreviewControlsVisible(!show);if(!show)return;
  ensureDemoDefaults();
  const live=cameraList();box.innerHTML=`<div class="fps-multiosd-sim-head"><strong>Advanced Multi Cam preview</strong><span>${demo()?'Demo telemetry':'Live/preview telemetry'}</span></div><div class="fps-note">Change each camera independently to test lowest-value switching, pinned sources, OFF state and warnings.</div>`;
  for(const meta of live){const c=cameras.get(Number(meta.number))||meta;const card=document.createElement('div');card.className='fps-multiosd-sim-card';card.innerHTML=`<strong>C${c.number}${cleanLabel(c.label)?' · '+cleanLabel(c.label):''}</strong><label>Connected <input data-k="connected" type="checkbox" ${c.connected?'checked':''}></label><label>Battery <input data-k="battery" type="number" min="0" max="100" value="${Number.isFinite(Number(c.battery))?Number(c.battery):69}"></label><label>Time left <input data-k="remain" type="number" min="0" max="999" value="${Number.isFinite(Number(c.remain))?Number(c.remain):45}"></label><label>State <select data-k="state"><option value="RDY" ${!c.recording&&!c.error?'selected':''}>RDY</option><option value="REC" ${c.recording?'selected':''}>REC</option><option value="ERR" ${c.error?'selected':''}>ERR</option></select></label><label>Hot <input data-k="hot" type="checkbox" ${c.hot?'checked':''}></label>`;
@@ -188,7 +193,11 @@ function init(){
  document.addEventListener('fps-camera-registry-update',e=>mergeRegistry(e.detail));
  document.addEventListener('fps-demo-camera-connections',e=>{if(Array.isArray(e.detail?.cameras))mergeRegistry(e.detail.cameras)});
  document.addEventListener('change',e=>{if(e.target?.id==='fpsMultiCamSync'||e.target?.id==='fpsExperimentalMaster')setTimeout(refreshAll,0)},true);
- const obs=new MutationObserver(()=>{if(document.querySelector('.fps-builder'))refreshBuilders();if($('fpsIntegratedPreview'))ensurePreviewSimulator()});obs.observe(document.body,{childList:true,subtree:true});
+ // The main OSD UI and preview build asynchronously. Poll briefly during page
+ // startup instead of using a permanent subtree MutationObserver; repopulating
+ // Source dropdowns itself changes the DOM and a permanent observer can create
+ // an accidental refresh loop.
+ let tries=0;const boot=setInterval(()=>{ensureAdvancedPanel();refreshAll();if(($('fpsIntegratedPreview')&&document.querySelector('.fps-builder'))||++tries>25)clearInterval(boot)},150);
  window.fpsMultiCamOsd={advancedOn,multiOn,resolvePreviewToken,aggregate,hasPinnedStatus,cameras,refresh:refreshAll};
 }
 const css=document.createElement('style');css.textContent=`
