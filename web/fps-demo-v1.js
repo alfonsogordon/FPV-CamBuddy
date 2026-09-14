@@ -26,7 +26,7 @@ function publishDemoConnections(){
  document.dispatchEvent(new CustomEvent('fps-demo-camera-connections',{detail:{connected:[...connected],cameras:detail}}));
  document.dispatchEvent(new CustomEvent('fps-camera-registry-update',{detail}));
  const count=connected.size,c=document.getElementById('fpsPreviewCameraCount');
- if(c){for(let i=0;i<=4;i++)if(![...c.options].some(o=>Number(o.value)===i))c.add(new Option(String(i),String(i)));c.value=String(Math.min(2,count));c.dispatchEvent(new Event('change',{bubbles:true}))}
+ if(c){for(let i=0;i<=4;i++)if(![...c.options].some(o=>Number(o.value)===i))c.add(new Option(String(i),String(i)));c.value=String(count);c.dispatchEvent(new Event('change',{bubbles:true}))}
  const note=document.getElementById('fpsPreviewNotice');if(note)note.textContent=`Demo cameras connected: ${count}`;
 }
 function patchDemoRows(){
