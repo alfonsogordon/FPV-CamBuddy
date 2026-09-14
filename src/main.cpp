@@ -142,9 +142,9 @@ static void updateStatusLed(uint32_t now, bool camConnected, bool apRunning, uin
     if (apRunning) {
         shouldBeOn = (now % STATUS_LED_AP_PERIOD_MS) < STATUS_LED_AP_ON_MS;
     } else if (camConnected && configManager.config().multiCamSync && cameraCount > 1) {
-        // Multi Cam count code: N short pulses every three seconds. Single-camera
+        // Multi Cam count code: N short pulses every 1.5 seconds. Single-camera
         // behaviour remains the proven steady-ON indication.
-        constexpr uint32_t COUNT_PERIOD_MS = 3000;
+        constexpr uint32_t COUNT_PERIOD_MS = 1500;
         constexpr uint32_t COUNT_SLOT_MS = 260;
         constexpr uint32_t COUNT_ON_MS = 110;
         const uint32_t phase = now % COUNT_PERIOD_MS;
