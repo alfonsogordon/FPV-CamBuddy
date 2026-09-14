@@ -37,6 +37,9 @@ write(c, cs)
 
 h = Path('web/index.html')
 hs = read(h)
+# Remove the obsolete explanatory line below the homepage OSD preview from the
+# generated HTML itself rather than relying on JavaScript to hide it at runtime.
+hs = re.sub(r'<div class="demo-caption">.*?</div>', '', hs, count=1, flags=re.S)
 home = '<script src="fps-home-updates.js"></script>'
 if home not in hs:
     if '</body>' not in hs: raise SystemExit('Homepage has no body close')
@@ -50,6 +53,10 @@ if 'href="test.html"' in final or 'osd-preview-tab' in final: raise SystemExit('
 if "setTimeout(() => sendCommand('show'), 300)" in final or "target === 'config'  && port" in final: raise SystemExit('Automatic device read reintroduced')
 for required in ['<script src="fps-ui-rebuild.js"></script>','<script src="fps-demo-v1.js"></script>','<script src="fps-integrated-preview.js"></script>','<script src="fps-stage3-parity.js"></script>','<script src="fps-autosync.js"></script>','fps-theme.css']:
     if required not in final: raise SystemExit(f'Generated configurator missing: {required}')
+
+home_final = read(h)
+if 'class="demo-caption"' in home_final:
+    raise SystemExit('Obsolete OSD preview caption is still present on homepage')
 
 # Pre-V1 UI regression guards
 if 'id="disarmDelay"' not in final:
