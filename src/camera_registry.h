@@ -3,8 +3,9 @@
 #include <Preferences.h>
 #include <string>
 
-static constexpr uint8_t  CAMREG_MAX      = 64;
-static constexpr uint8_t  CAMREG_NAME_LEN = 30;
+static constexpr uint8_t  CAMREG_MAX       = 64;
+static constexpr uint8_t  CAMREG_NAME_LEN  = 30;
+static constexpr uint8_t  CAMREG_LABEL_LEN = 8;  // 7 visible chars + NUL; fits 16-char OSD warnings
 // Sized to fit either a BLE address ("aa:bb:cc:dd:ee:ff\0", 18 bytes) or a
 // Wi-Fi SSID (32 bytes max + NUL) — Caddx entries store their SSID here.
 static constexpr uint8_t  CAMREG_ADDR_LEN = 33;
@@ -54,6 +55,14 @@ public:
     // Updates just the password of an existing entry (Caddx only).
     bool setPassword(uint8_t idx, const char *pass);
 
+    // V1.0.2 experimental camera identity metadata. The stable camera number
+    // is assigned when a hardware ID is first saved and remains associated
+    // with that registry entry. The optional user label is limited to seven
+    // visible characters so "BATT LOW " + label always fits MSP's 16 chars.
+    bool setLabel(uint8_t idx, const char *label);
+    const char *label(uint8_t idx) const;
+    uint8_t cameraNumber(uint8_t idx) const;
+
     // Manually select a camera by index for the next connection attempt.
     // The selection is volatile (not persisted) and is cleared after a
     // successful connection.
@@ -74,6 +83,8 @@ public:
 
 private:
     CameraEntry _entries[CAMREG_MAX];
+    char        _labels[CAMREG_MAX][CAMREG_LABEL_LEN]{};
+    uint8_t     _numbers[CAMREG_MAX]{};
     uint8_t     _count       = 0;
     int8_t      _lastIdx     = -1;
     int8_t      _selectedIdx = -1;  // volatile — not persisted
@@ -83,4 +94,6 @@ private:
     void load();
     void save();
     int  findByAddr(const char *addr) const;
+    uint8_t nextCameraNumber() const;
+    void initialiseMetadataIfNeeded();
 };
