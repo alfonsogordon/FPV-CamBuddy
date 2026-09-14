@@ -44,6 +44,8 @@ With Multi Cam enabled, ARM/START and DISARM/STOP requests are sent across the c
 
 A camera that joins or reconnects later is reconciled to the current requested state. If the quad currently wants recording, the camera is told to START; if the system currently wants stopped recording, it is told to STOP.
 
+For **first-time Multi Cam setup with GoPros, connect and save new cameras one at a time**. Let the first GoPro connect and be learned before powering/connecting the next. After each GoPro has been saved once, they can be powered together and normal simultaneous automatic reconnect can resume on later boots. A completely new GoPro may also need its **Pair** menu opened for that first connection.
+
 ### Multi-GoPro
 
 The experimental Multi-GoPro backend now has **8 bounded application slots** instead of the previous arbitrary six-camera limit.
@@ -212,7 +214,9 @@ See [QUICKSTART.md](QUICKSTART.md) before powering the installation.
 
 ## GoPro pairing note
 
-When switching to a GoPro that FreeCLinker has not paired with before, you may need to open that camera's **Pair** menu for the first connection. During V1 testing, a HERO11 Black Mini and MAX2 provided examples of this behaviour; those models are examples, not a restriction to those specific cameras. Once paired, normal automatic connection/reconnection can resume.
+When switching to a GoPro that FreeCLinker has not paired with before, you may need to open that camera's **Pair** menu for the first connection. During V1 testing, a HERO11 Black Mini and MAX2 provided examples of this behaviour; those models are examples, not a restriction to those specific cameras.
+
+In Multi Cam mode, **learn/save new GoPros one at a time on their first connection**. After each camera has been saved, normal automatic simultaneous reconnect can resume on later boots.
 
 ## Help & feedback
 
