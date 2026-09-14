@@ -22,21 +22,27 @@ function publishRegistry(){
  refreshSelector(detail);
 }
 function style(){if($('fpsMultiCamUiStyle'))return;const s=document.createElement('style');s.id='fpsMultiCamUiStyle';s.textContent=`
-.cam-badge.connected{background:#dcfce7;color:#15803d;border:1px solid #86efac;font-weight:800;box-shadow:0 0 7px rgba(34,197,94,.16)}
-#fpsPreviewWarnCameraRow{display:none}#fpsPreviewWarnCameraRow select{min-width:125px;max-width:170px}
+.fps-cam-live-status{white-space:nowrap;min-width:92px}.fps-cam-live-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;border-radius:999px;border:1px solid #495365;background:rgba(73,83,101,.12);color:#8b95a7;font-size:9px;font-weight:900;letter-spacing:.04em;text-transform:uppercase}.fps-cam-live-badge::before{content:'';width:7px;height:7px;border-radius:50%;background:#667085}.fps-cam-live-badge.connected{background:#dcfce7;color:#15803d;border-color:#86efac;box-shadow:0 0 7px rgba(34,197,94,.16)}.fps-cam-live-badge.connected::before{background:#22c55e;box-shadow:0 0 5px rgba(34,197,94,.7)}
+#fpsPreviewWarnCameraRow{display:none}#fpsPreviewWarnCameraRow select{min-width:125px;max-width:180px}
 #fpsPreviewWarnCameraHint{grid-column:1/-1;font-size:10px;line-height:1.35;color:#a78bfa;margin-top:-3px}
 `;document.head.appendChild(s)}
+function ensureStatusColumn(table){
+ const head=table?.querySelector('thead tr');if(!head)return;
+ if(!head.querySelector('.fps-cam-live-head')){const th=document.createElement('th');th.className='fps-cam-live-head';th.textContent='Status';head.insertBefore(th,head.lastElementChild)}
+ const rows=[...table.querySelectorAll('tbody tr')];
+ rows.forEach(row=>{if(!row.querySelector('.fps-cam-live-status')){const td=document.createElement('td');td.className='fps-cam-live-status';td.innerHTML='<span class="fps-cam-live-badge">offline</span>';row.insertBefore(td,row.lastElementChild)}})
+}
 function updateBadges(){
  const live=connectedAddresses();
- const rows=[...document.querySelectorAll('#camTableWrap .cam-table tbody tr')];
+ const table=document.querySelector('#camTableWrap .cam-table');if(!table){publishRegistry();return}
+ ensureStatusColumn(table);
+ const rows=[...table.querySelectorAll('tbody tr')];
  rows.forEach((row,i)=>{
   const c=cameras[i];if(!c)return;
-  const nameCell=[...row.children].find(td=>td.textContent.includes(c.name))||row.children[2];
-  if(!nameCell)return;
-  let badge=nameCell.querySelector('.cam-badge.connected');
+  const cell=row.querySelector('.fps-cam-live-status');if(!cell)return;
   const on=live.has(normAddr(c.addr));
-  if(on&&!badge){badge=document.createElement('span');badge.className='cam-badge connected';badge.textContent='connected';nameCell.appendChild(badge)}
-  if(!on&&badge)badge.remove();
+  let badge=cell.querySelector('.fps-cam-live-badge');if(!badge){badge=document.createElement('span');badge.className='fps-cam-live-badge';cell.appendChild(badge)}
+  badge.classList.toggle('connected',on);badge.textContent=on?'connected':'offline';
  });
  publishRegistry();
 }
@@ -54,7 +60,7 @@ function watchLogs(){const t=$('terminal');if(!t)return;scanExistingLogs();new M
 function hookCameraTable(){
  if(typeof window.renderCameraTable!=='function'||window.renderCameraTable.__fpsMultiUi)return false;
  const original=window.renderCameraTable;
- const wrapped=function(list){cameras=Array.isArray(list)?list.slice():[];const r=original.apply(this,arguments);setTimeout(()=>{updateBadges();publishRegistry()},25);return r};
+ const wrapped=function(list){cameras=Array.isArray(list)?list.slice():[];const r=original.apply(this,arguments);setTimeout(()=>{const table=document.querySelector('#camTableWrap .cam-table');ensureStatusColumn(table);scanExistingLogs();updateBadges()},35);return r};
  wrapped.__fpsMultiUi=true;window.renderCameraTable=wrapped;return true;
 }
 function ensurePreviewControl(){
