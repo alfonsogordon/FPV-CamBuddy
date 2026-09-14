@@ -9,7 +9,18 @@ s.textContent=`
 @media(max-width:650px){.fps-test-label{font-size:8px;margin-left:4px}.fps-exp-banner{font-size:11px}}
 `;
 document.head.appendChild(s);
-if(!document.querySelector('.fps-exp-banner')){const b=document.createElement('div');b.className='fps-exp-banner';b.innerHTML='<strong>⚠ EXPERIMENTAL V1.0.2 TEST ENVIRONMENT</strong> — development firmware and controls; bench test before flight';document.body.prepend(b)}
+function dedupeBanner(){
+ const banners=[...document.querySelectorAll('.fps-exp-banner')];
+ let keep=banners.find(b=>b.dataset.fpsCanonical==='1')||banners[0];
+ if(!keep){keep=document.createElement('div');keep.className='fps-exp-banner';document.body.prepend(keep)}
+ keep.dataset.fpsCanonical='1';
+ keep.innerHTML='<strong>⚠ EXPERIMENTAL V1.0.2 TEST ENVIRONMENT</strong> — development firmware and controls; bench test before flight';
+ banners.forEach(b=>{if(b!==keep)b.remove()});
+}
+dedupeBanner();
+const observer=new MutationObserver(()=>dedupeBanner());
+observer.observe(document.body,{childList:true,subtree:false});
+window.addEventListener('load',()=>{dedupeBanner();setTimeout(()=>{dedupeBanner();observer.disconnect()},1500)});
 const brand=document.querySelector('.brand');
 if(brand&&!brand.querySelector('.fps-test-label')){const t=document.createElement('span');t.className='fps-test-label';brand.appendChild(t)}
 })();
