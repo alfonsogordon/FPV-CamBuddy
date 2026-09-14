@@ -8,12 +8,12 @@ MultiCameraCoordinator *MultiCameraCoordinator::_instance = nullptr;
 namespace {
 uint8_t registryTypeForFamily(uint8_t family) {
     switch (family) {
-        case 0: return 1; // GoPro
-        case 1: return 0; // DJI
-        case 2: return 3; // Sony
-        case 3: return 4; // Blackmagic
-        case 4: return 5; // Insta360
-        case 5: return 2; // Caddx
+        case 0: return 1;
+        case 1: return 0;
+        case 2: return 3;
+        case 3: return 4;
+        case 4: return 5;
+        case 5: return 2;
         default: return 0;
     }
 }
@@ -46,10 +46,6 @@ void MultiCameraCoordinator::begin() {
     _insta360.setCameraCallback(cbInsta360);
     _caddx.setCameraCallback(cbCaddx);
 
-    // In Multi Cam mode no individual BLE backend owns the scanner. One shared
-    // scan sees every advertisement and dispatches it through all family
-    // matchers. Single-camera mode never instantiates this path and therefore
-    // keeps the original stop-scanning-on-connect behaviour unchanged.
     _gopro.setScanEnabled(false);
     _dji.setScanEnabled(false);
     _sony.setScanEnabled(false);
@@ -96,17 +92,21 @@ bool MultiCameraCoordinator::anyBleFamilyWantsScan() const {
     return false;
 }
 
+bool MultiCameraCoordinator::claimedConnectionPending() const {
+    if (_claimedFamily < 0) return false;
+    switch (static_cast<uint8_t>(_claimedFamily)) {
+        case GOPRO: return _gopro.sharedConnectionPending();
+        case DJI: return _dji.sharedConnectionPending();
+        case SONY: return _sony.sharedConnectionPending();
+        case BLACKMAGIC: return _blackmagic.sharedConnectionPending();
+        case INSTA360: return _insta360.sharedConnectionPending();
+        default: return false;
+    }
+}
+
 void MultiCameraCoordinator::startSharedScan() {
-    if (_sharedScanning || !anyBleFamilyWantsScan()) return;
+    if (_sharedScanning || !anyBleFamilyWantsScan() || claimedConnectionPending()) return;
 
-    // A GoPro advertisement reserves a slot before its deferred connect and
-    // Open GoPro handshake run in update(). Do not let a new controller scan
-    // overlap that work: on ESP32-C3 this can prevent the second slot from ever
-    // reaching a clean GATT connection even though its advertisement was seen.
-    if (_gopro.sharedConnectionPending()) return;
-
-    // Pick the next free GoPro slot before advertisements start arriving.
-    // Other camera families each have one connection slot in V1.0.2.
     if (familyWantsScan(GOPRO)) _gopro.prepareSharedScanSlot();
 
     BLEScan *scan = BLEDevice::getScan();
@@ -144,14 +144,15 @@ void MultiCameraCoordinator::onResult(BLEAdvertisedDevice device) {
 
     if (!accepted) return;
 
-    // Stop as soon as one family claims the advertisement. The selected
-    // backend will connect from update(); shared discovery resumes only after
-    // that claimed GoPro reaches READY (or the attempt fails), rather than on
-    // a blind 120 ms timer that can overlap the GATT handshake.
+    _claimedFamily = static_cast<int8_t>(family);
+    if (family < BLE_FAMILY_COUNT)
+        _familyAddr[family] = device.getAddress().toString();
+
     BLEDevice::getScan()->stop();
     _sharedScanning = false;
     _sharedScanStoppedMs = millis();
-    DBG_SERIAL.printf("[MULTI] Shared discovery matched family %u; pausing scan for connection\n", family);
+    DBG_SERIAL.printf("[MULTI] Shared discovery matched family %u addr=%s; pausing scan until ready\n",
+                      family, family < BLE_FAMILY_COUNT ? _familyAddr[family].c_str() : "-");
 }
 
 void MultiCameraCoordinator::syncNewConnection(uint8_t family) {
@@ -170,17 +171,27 @@ void MultiCameraCoordinator::update() {
         const bool nowConnected = _all[i]->isConnected();
         if (nowConnected && !_wasConnected[i]) {
             DBG_SERIAL.printf("[MULTI] family %u joined; reconciling requested record state\n", i);
+            if (i < BLE_FAMILY_COUNT && !_familyAddr[i].empty())
+                DBG_SERIAL.printf("[MULTI] FAMILY LIVE family=%u addr=%s connected=1\n", i, _familyAddr[i].c_str());
             syncNewConnection(i);
             connectionChanged = true;
         } else if (!nowConnected && _wasConnected[i]) {
             DBG_SERIAL.printf("[MULTI] family %u left; republishing aggregate state\n", i);
+            if (i < BLE_FAMILY_COUNT && !_familyAddr[i].empty())
+                DBG_SERIAL.printf("[MULTI] FAMILY LIVE family=%u addr=%s connected=0\n", i, _familyAddr[i].c_str());
             connectionChanged = true;
         }
         _wasConnected[i] = nowConnected;
     }
     if (connectionChanged) publishState();
 
-    if (!_sharedScanning && !_gopro.sharedConnectionPending() &&
+    if (_claimedFamily >= 0 && !claimedConnectionPending()) {
+        DBG_SERIAL.printf("[MULTI] family %d connection settled; shared discovery may resume\n", _claimedFamily);
+        _claimedFamily = -1;
+        _sharedScanStoppedMs = millis();
+    }
+
+    if (!_sharedScanning && !claimedConnectionPending() &&
         anyBleFamilyWantsScan() &&
         millis() - _sharedScanStoppedMs >= SHARED_SCAN_RESTART_MS) {
         startSharedScan();
