@@ -62,6 +62,10 @@ public:
     bool setLabel(uint8_t idx, const char *label);
     const char *label(uint8_t idx) const;
     uint8_t cameraNumber(uint8_t idx) const;
+    bool identityForAddr(const char *addr, uint8_t &number,
+                         char *labelOut, size_t labelOutLen) const;
+    bool identityForType(uint8_t cameraType, uint8_t &number,
+                         char *labelOut, size_t labelOutLen) const;
 
     // Manually select a camera by index for the next connection attempt.
     // The selection is volatile (not persisted) and is cleared after a
