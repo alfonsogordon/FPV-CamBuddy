@@ -166,6 +166,9 @@ bool MultiGoProCamera::connectSlot(uint8_t slot) {
     s.pendingHwInfo = true;
     s.pendingRegisterSettings = false;
     s.pendingRegisterStatus = false;
+    s.telemetry = CameraData{};
+    s.cameraNumber = 0;
+    s.cameraLabel[0] = '\0';
     s.lastKeepAliveMs = millis();
     DBG_SERIAL.printf("[MULTI] Slot %u BLE transport ready; starting Open GoPro handshake\n", slot + 1);
     return true;
@@ -184,6 +187,7 @@ void MultiGoProCamera::onDisconnect(BLEClient *client) {
     s.cmdWrite = s.cmdNotify = s.settingWrite = s.settingNotify = s.queryWrite = s.queryNotify = nullptr;
     s.bleConnected = s.ready = s.pendingHwInfo = s.pendingRegisterSettings = s.pendingRegisterStatus = s.found = false;
     s.recording = false; s.recordingKnown = false; s.pendingShutter = false;
+    s.telemetry = CameraData{}; s.cameraNumber = 0; s.cameraLabel[0] = '\0';
     s.addr.clear(); s.name.clear();
     s.cmdRx.reset(); s.settingRx.reset(); s.queryRx.reset();
     s.lastAttemptMs = millis(); s.lastKeepAliveMs = 0;
@@ -232,6 +236,68 @@ void MultiGoProCamera::sendKeepAlive(uint8_t slot) {
     DBG_SERIAL.printf("[MULTI] Slot %u keep-alive\n", slot + 1);
 }
 
+void MultiGoProCamera::stampSlotIdentity(uint8_t slot) {
+    if (slot >= MAX_MULTI_GOPRO_SLOTS || !_registry) return;
+    Slot &s = _slots[slot];
+    uint8_t number = 0;
+    char label[CAMREG_LABEL_LEN] = {};
+    if (_registry->identityForAddr(s.addr.c_str(), number, label, sizeof(label))) {
+        s.cameraNumber = number;
+        strlcpy(s.cameraLabel, label, sizeof(s.cameraLabel));
+    }
+}
+
+void MultiGoProCamera::parseSlotStatusTlv(uint8_t slot, const uint8_t *tlv, size_t len) {
+    if (slot >= MAX_MULTI_GOPRO_SLOTS || !tlv) return;
+    Slot &s = _slots[slot];
+    CameraData &d = s.telemetry;
+    d.valid = true;
+
+    size_t pos = 0;
+    while (pos + 2 <= len) {
+        const uint8_t id = tlv[pos++];
+        const uint8_t vlen = tlv[pos++];
+        if (pos + vlen > len) break;
+        const uint8_t *v = tlv + pos;
+        pos += vlen;
+
+        switch (id) {
+            case GP_STATUS_BATTERY_PCT:
+                if (vlen >= 1) { d.percent = v[0]; d.has_battery = true; }
+                break;
+            case GP_STATUS_REMAINING_TIME:
+                if (vlen >= 4) {
+                    d.remain_time = ((uint32_t)v[0] << 24) | ((uint32_t)v[1] << 16) |
+                                    ((uint32_t)v[2] << 8) | (uint32_t)v[3];
+                    d.has_remain_time = true;
+                }
+                break;
+            case GP_STATUS_OVERHEATING:
+                if (vlen >= 1) { d.temp_over = v[0] ? 1 : 0; d.has_temperature = true; }
+                break;
+            case GP_STATUS_ENCODING:
+            case GP_STATUS_LEGACY_RECORDING:
+                if (vlen >= 1) {
+                    s.recording = (v[0] != 0);
+                    s.recordingKnown = true;
+                    d.recording = s.recording;
+                    d.has_recording = true;
+                }
+                break;
+            case GP_STATUS_ENC_DURATION:
+                if (vlen >= 4) {
+                    const uint32_t secs = ((uint32_t)v[0] << 24) | ((uint32_t)v[1] << 16) |
+                                          ((uint32_t)v[2] << 8) | (uint32_t)v[3];
+                    d.record_time = secs > 65535UL ? 65535U : (uint16_t)secs;
+                }
+                break;
+            default:
+                break;
+        }
+    }
+    publishState();
+}
+
 void MultiGoProCamera::cmdNotifyCallback(BLERemoteCharacteristic *ch, uint8_t *data, size_t len, bool) {
     if (!_instance) return; const int slot = _instance->slotForNotify(ch);
     if (slot >= 0) _instance->handleCmdNotify((uint8_t)slot, data, len);
@@ -265,6 +331,8 @@ void MultiGoProCamera::handleCmdNotify(uint8_t slot, uint8_t *data, size_t len) 
             if (s.pendingShutter && status == 0) {
                 s.recording = requestedOn;
                 s.recordingKnown = true;
+                s.telemetry.recording = requestedOn;
+                s.telemetry.has_recording = true;
             }
             s.pendingShutter = false;
             publishState();
@@ -290,9 +358,18 @@ void MultiGoProCamera::handleQueryNotify(uint8_t slot, uint8_t *data, size_t len
             DBG_SERIAL.printf("[MULTI] Slot %u status registration status=0x%02X -> READY\n", slot + 1, status);
             s.ready = true;
             s.lastKeepAliveMs = millis();
-            if (_registry) _registry->onConnected(s.name.c_str(), s.addr.c_str(), (uint8_t)s.addrType, 1);
+            if (_registry) {
+                _registry->onConnected(s.name.c_str(), s.addr.c_str(), (uint8_t)s.addrType, 1);
+                stampSlotIdentity(slot);
+            }
             publishState();
             syncSlotToDesiredState(slot);
+        }
+
+        if (s.queryRx.expected > 2 &&
+            (query == GP_QUERY_REGISTER_STATUS || query == GP_QUERY_GET_STATUS ||
+             query == GP_NOTIFY_STATUS_UPDATE || query == GP_NOTIFY_SETTING_UPDATE)) {
+            parseSlotStatusTlv(slot, s.queryRx.buf + 2, s.queryRx.expected - 2);
         }
     }
     s.queryRx.reset();
@@ -354,16 +431,49 @@ void MultiGoProCamera::publishState() {
     uint8_t knownCount = 0;
     for (const auto &s : _slots) if (s.ready && s.recordingKnown) ++knownCount;
 
-    _camera.valid = count > 0;
-    _camera.has_recording = true;
-    _camera.connected_cameras = count;
-    _camera.has_recording_count = count > 0 && knownCount == count;
-    _camera.recording_cameras = recCount;
-    if (_camera.has_recording_count)
-        _camera.recording = recCount > 0;
+    CameraData out{};
+    out.valid = count > 0;
+    out.has_recording = true;
+    out.connected_cameras = count;
+    out.has_recording_count = count > 0 && knownCount == count;
+    out.recording_cameras = recCount;
+    if (out.has_recording_count)
+        out.recording = recCount > 0;
     else
-        _camera.recording = _recordingRequested && count > 0;
-    _camera.record_time = _camera.recording ? (uint16_t)((millis() - _recordStartedMs) / 1000UL) : 0;
+        out.recording = _recordingRequested && count > 0;
+    out.record_time = out.recording ? (uint16_t)((millis() - _recordStartedMs) / 1000UL) : 0;
+
+    bool haveBatt = false, haveRemain = false, haveTemp = false;
+    for (uint8_t i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i) {
+        Slot &s = _slots[i];
+        if (!s.ready) continue;
+        stampSlotIdentity(i);
+        const CameraData &d = s.telemetry;
+
+        if (d.has_battery && (!haveBatt || d.percent < out.percent)) {
+            haveBatt = true;
+            out.has_battery = true;
+            out.percent = d.percent;
+            out.battery_source_camera = s.cameraNumber;
+            strlcpy(out.battery_source_label, s.cameraLabel, sizeof(out.battery_source_label));
+        }
+        if (d.has_remain_time && (!haveRemain || d.remain_time < out.remain_time)) {
+            haveRemain = true;
+            out.has_remain_time = true;
+            out.remain_time = d.remain_time;
+            out.remain_source_camera = s.cameraNumber;
+            strlcpy(out.remain_source_label, s.cameraLabel, sizeof(out.remain_source_label));
+        }
+        if (d.has_temperature && (!haveTemp || d.temp_over > out.temp_over)) {
+            haveTemp = true;
+            out.has_temperature = true;
+            out.temp_over = d.temp_over;
+            out.temp_source_camera = s.cameraNumber;
+            strlcpy(out.temp_source_label, s.cameraLabel, sizeof(out.temp_source_label));
+        }
+    }
+
+    _camera = out;
     if (_cameraCb) _cameraCb(_camera);
 }
 
