@@ -8,7 +8,11 @@ function setEnabled(root,toggle){root.classList.toggle('fps-menu-enabled',!!togg
 function addButton(header,key,getTargets,toggle){
  if(!header||header.querySelector(':scope > .fps-menu-collapse-btn'))return;
  const btn=document.createElement('button');btn.type='button';btn.className='fps-menu-collapse-btn';
- let collapsed=!!load()[key];
+ const saved=load();
+ // Disabled feature blocks behave exactly like the rest of the configurator:
+ // compact by default. Enabled blocks may remember a user's manual collapse.
+ let collapsed=toggle?.checked?!!saved[key]:true;
+ function persist(){const s=load();s[key]=collapsed;save(s)}
  function draw(){
   for(const el of getTargets())el.classList.toggle('fps-menu-collapsed-target',collapsed);
   btn.textContent=collapsed?'Show':'Hide';
@@ -16,10 +20,17 @@ function addButton(header,key,getTargets,toggle){
   btn.title=collapsed?'Show settings':'Hide settings';
   setEnabled(header.closest('.fps-menu-collapse-root')||header.parentElement,toggle);
  }
- btn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();collapsed=!collapsed;const s=load();s[key]=collapsed;save(s);draw()});
+ btn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();collapsed=!collapsed;persist();draw()});
  const sw=header.querySelector(':scope > .switch');
  if(sw)header.insertBefore(btn,sw);else header.appendChild(btn);
- toggle?.addEventListener('change',()=>setEnabled(header.closest('.fps-menu-collapse-root')||header.parentElement,toggle));
+ toggle?.addEventListener('change',()=>{
+  // Turning a feature on should always reveal it immediately so the user can
+  // configure what they just enabled. Turning it off returns it to the same
+  // compact appearance as other disabled feature blocks.
+  collapsed=!toggle.checked;
+  persist();
+  draw();
+ });
  draw();
 }
 function enhanceOsd(){
