@@ -50,6 +50,11 @@ static uint32_t bootBtnLogSec  = 0;
 
 static bool ledState = false;
 
+enum class BlePowerPhase : uint8_t { IDLE, ARM_BOOST, ARMED, DISARM_BOOST };
+static BlePowerPhase blePowerPhase = BlePowerPhase::IDLE;
+static uint32_t blePowerPhaseSinceMs = 0;
+static bool multiPowerLatched = false;
+static int16_t lastAppliedBlePowerDbm = 127;
 
 static esp_power_level_t blePowerForDbm(int8_t dbm) {
     if (dbm <= -12) return ESP_PWR_LVL_N12;
@@ -62,12 +67,74 @@ static esp_power_level_t blePowerForDbm(int8_t dbm) {
     return ESP_PWR_LVL_P9;
 }
 
-static void applyConfiguredBleTxPower(bool armed) {
-    const auto &cfg = configManager.config();
-    if (!cfg.dynamicTxPower) return;
-    const int8_t dbm = armed ? cfg.armedTxPowerDbm : cfg.disarmedTxPowerDbm;
+static const char *blePowerPhaseName(BlePowerPhase phase) {
+    switch (phase) {
+        case BlePowerPhase::IDLE: return "IDLE";
+        case BlePowerPhase::ARM_BOOST: return "ARM-BOOST";
+        case BlePowerPhase::ARMED: return "ARMED";
+        case BlePowerPhase::DISARM_BOOST: return "DISARM-BOOST";
+    }
+    return "UNKNOWN";
+}
+
+static void applyBlePowerDbm(int8_t dbm, const char *reason) {
+    if (lastAppliedBlePowerDbm == dbm) return;
     BLEDevice::setPower(blePowerForDbm(dbm));
-    DBG_SERIAL.printf("[power] BLE TX -> %d dBm (%s)\n", dbm, armed ? "ARMED" : "DISARMED");
+    lastAppliedBlePowerDbm = dbm;
+    DBG_SERIAL.printf("[power] BLE TX -> %d dBm (%s)\n", dbm, reason ? reason : "profile");
+}
+
+static bool blePowerProfileAllowed() {
+    const auto &cfg = configManager.config();
+    return cfg.dynamicTxPower && (!cfg.powerMultiOnly || multiPowerLatched);
+}
+
+static void restoreBaseBlePowerIfNeeded() {
+    if (lastAppliedBlePowerDbm == 127) return;
+    const auto &cfg = configManager.config();
+    const int8_t baseDbm = cfg.lowPowerMode ? -12 : 9;
+    applyBlePowerDbm(baseDbm, "normal Low Power setting");
+    lastAppliedBlePowerDbm = 127;
+}
+
+static void setBlePowerPhase(BlePowerPhase phase, uint32_t now) {
+    blePowerPhase = phase;
+    blePowerPhaseSinceMs = now;
+}
+
+static void updateConfiguredBleTxPower(uint32_t now) {
+    const auto &cfg = configManager.config();
+    if (!blePowerProfileAllowed()) {
+        restoreBaseBlePowerIfNeeded();
+        return;
+    }
+
+    if (blePowerPhase == BlePowerPhase::ARM_BOOST &&
+        (cfg.armBoostMs == 0 || now - blePowerPhaseSinceMs >= cfg.armBoostMs)) {
+        setBlePowerPhase(BlePowerPhase::ARMED, now);
+    } else if (blePowerPhase == BlePowerPhase::DISARM_BOOST &&
+               (cfg.disarmBoostMs == 0 || now - blePowerPhaseSinceMs >= cfg.disarmBoostMs)) {
+        setBlePowerPhase(BlePowerPhase::IDLE, now);
+    }
+
+    int8_t dbm = cfg.disarmedTxPowerDbm;
+    switch (blePowerPhase) {
+        case BlePowerPhase::IDLE: dbm = cfg.disarmedTxPowerDbm; break;
+        case BlePowerPhase::ARM_BOOST: dbm = cfg.armBoostTxPowerDbm; break;
+        case BlePowerPhase::ARMED: dbm = cfg.armedTxPowerDbm; break;
+        case BlePowerPhase::DISARM_BOOST: dbm = cfg.disarmBoostTxPowerDbm; break;
+    }
+    applyBlePowerDbm(dbm, blePowerPhaseName(blePowerPhase));
+}
+
+static void observeCameraCountForPowerLatch(const CameraData &data) {
+    if (multiPowerLatched || !configManager.config().powerMultiOnly) return;
+    if (data.connected_cameras > 1) {
+        multiPowerLatched = true;
+        DBG_SERIAL.printf("[power] multiple cameras detected (%u) - power profile latched until reboot\n",
+                          data.connected_cameras);
+        updateConfiguredBleTxPower(millis());
+    }
 }
 
 static void updateStatusLed(uint32_t now, bool camConnected, bool apRunning) {
@@ -107,28 +174,34 @@ static void onAuxSwitch(bool high) {
 
 static void onCameraData(const CameraData &data) {
     currentCamera = data;
-    hasCamera     = true;
+    observeCameraCountForPowerLatch(data);
+    hasCamera = true;
 }
 
 static void onArmStateChange(bool armed) {
-    applyConfiguredBleTxPower(armed);
+    const uint32_t now = millis();
+    const auto &cfg = configManager.config();
     if (armed) {
+        setBlePowerPhase(cfg.armBoostMs > 0 ? BlePowerPhase::ARM_BOOST : BlePowerPhase::ARMED, now);
+        updateConfiguredBleTxPower(now);
         pendingStop = false;
         DBG_SERIAL.println("[main] FC armed - starting recording");
         activeCamera->startRecording();
     } else {
+        setBlePowerPhase(cfg.disarmBoostMs > 0 ? BlePowerPhase::DISARM_BOOST : BlePowerPhase::IDLE, now);
+        updateConfiguredBleTxPower(now);
         DBG_SERIAL.println("[main] FC disarmed");
-        if (!configManager.config().stopOnDisarm) {
+        if (!cfg.stopOnDisarm) {
             DBG_SERIAL.println("[main] stop_on_disarm disabled - keeping recording");
         } else {
-            const uint32_t delay = configManager.config().disarmStopDelayMs;
+            const uint32_t delay = cfg.disarmStopDelayMs;
             if (delay == 0) {
                 DBG_SERIAL.println("[main] stopping recording");
                 activeCamera->stopRecording();
             } else {
                 DBG_SERIAL.printf("[main] stopping recording in %u ms\n", delay);
                 pendingStop = true;
-                disarmMs   = millis();
+                disarmMs = now;
             }
         }
     }
@@ -254,7 +327,8 @@ void setup() {
     activeCamera->setCameraCallback(onCameraData);
     configManager.setCamera(activeCamera, &currentCamera);
     activeCamera->begin();
-    applyConfiguredBleTxPower(false);
+    setBlePowerPhase(BlePowerPhase::IDLE, millis());
+    updateConfiguredBleTxPower(millis());
 
     wifiDelayOriginMs = millis();
 }
@@ -268,6 +342,7 @@ void loop() {
 
     const uint32_t now          = millis();
     const bool     camConnected = activeCamera->isConnected();
+    updateConfiguredBleTxPower(now);
 
     if (!forceAP) {
         if (digitalRead(WIFI_FORCE_AP_PIN) == LOW) {
