@@ -1,5 +1,7 @@
 #pragma once
 #include <Arduino.h>
+#include <BLEAdvertisedDevice.h>
+#include <BLEScan.h>
 #include "camera.h"
 #include "ble_camera.h"
 #include "multi_gopro_camera.h"
@@ -8,7 +10,8 @@
 #include "insta360_camera.h"
 #include "caddx_camera.h"
 
-class MultiCameraCoordinator : public Camera {
+class MultiCameraCoordinator : public Camera,
+                               public BLEAdvertisedDeviceCallbacks {
 public:
     MultiCameraCoordinator(MultiGoProCamera &gopro,
                            BLECamera &dji,
@@ -32,14 +35,7 @@ private:
         INSTA360 = 4, CADDX = 5, FAMILY_COUNT = 6
     };
     static constexpr uint8_t BLE_FAMILY_COUNT = 5;
-    // After the initial startup burst, rotate BLE ownership fairly quickly so
-    // mixed-brand cameras are still discovered without long dead periods.
-    static constexpr uint32_t SCAN_OWNER_WINDOW_MS = 4000;
-    // Keep GoPro discovery dominant until the normal two-camera bench setup is
-    // established, but cap that preference so mixed-brand discovery is never
-    // starved if only one GoPro is present.
-    static constexpr uint8_t INITIAL_GOPRO_TARGET = 2;
-    static constexpr uint32_t INITIAL_GOPRO_PRIORITY_MS = 30000;
+    static constexpr uint32_t SHARED_SCAN_RESTART_MS = 120;
 
     MultiGoProCamera &_gopro;
     BLECamera &_dji;
@@ -48,7 +44,6 @@ private:
     Insta360Camera &_insta360;
     CaddxCamera &_caddx;
     Camera *_all[FAMILY_COUNT];
-    Camera *_ble[BLE_FAMILY_COUNT];
 
     CameraData _latest[FAMILY_COUNT]{};
     bool _seenData[FAMILY_COUNT]{};
@@ -56,9 +51,8 @@ private:
     bool _recordingRequested = false;
     bool _stopRequested = false;
     uint32_t _recordStartedMs = 0;
-    uint8_t _scanOwner = 0;
-    uint32_t _scanOwnerSince = 0;
-    uint32_t _startedMs = 0;
+    bool _sharedScanning = false;
+    uint32_t _sharedScanStoppedMs = 0;
     CameraData _camera{};
 
     static MultiCameraCoordinator *_instance;
@@ -68,10 +62,13 @@ private:
     static void cbBlackmagic(const CameraData &d);
     static void cbInsta360(const CameraData &d);
     static void cbCaddx(const CameraData &d);
+    static void sharedScanDoneCallback(BLEScanResults results);
 
+    void onResult(BLEAdvertisedDevice device) override;
     void onSubData(uint8_t family, const CameraData &d);
     void publishState();
-    void rotateScanOwner(bool force = false);
+    void startSharedScan();
+    bool anyBleFamilyWantsScan() const;
     bool familyWantsScan(uint8_t family) const;
     uint8_t familyConnectedCount(uint8_t family) const;
     void syncNewConnection(uint8_t family);
