@@ -170,6 +170,7 @@ bool MultiGoProCamera::connectSlot(uint8_t slot) {
     s.cameraNumber = 0;
     s.cameraLabel[0] = '\0';
     s.lastKeepAliveMs = millis();
+    s.lastStatusPollMs = 0;
     DBG_SERIAL.printf("[MULTI] Slot %u BLE transport ready; starting Open GoPro handshake\n", slot + 1);
     return true;
 }
@@ -190,7 +191,7 @@ void MultiGoProCamera::onDisconnect(BLEClient *client) {
     s.telemetry = CameraData{}; s.cameraNumber = 0; s.cameraLabel[0] = '\0';
     s.addr.clear(); s.name.clear();
     s.cmdRx.reset(); s.settingRx.reset(); s.queryRx.reset();
-    s.lastAttemptMs = millis(); s.lastKeepAliveMs = 0;
+    s.lastAttemptMs = millis(); s.lastKeepAliveMs = 0; s.lastStatusPollMs = 0;
     publishState();
 }
 
@@ -233,7 +234,40 @@ void MultiGoProCamera::sendKeepAlive(uint8_t slot) {
     if (!s.settingWrite || !s.bleConnected) return;
     uint8_t buf[] = {0x03, 91, 0x01, 66};
     s.settingWrite->writeValue(buf, sizeof(buf), false);
-    DBG_SERIAL.printf("[MULTI] Slot %u keep-alive\n", slot + 1);
+    DBG_SERIAL.printf("[MULTI] Slot %u keep-alive addr=%s\n", slot + 1, s.addr.c_str());
+}
+
+void MultiGoProCamera::sendStatusPoll(uint8_t slot) {
+    Slot &s = _slots[slot];
+    if (!s.ready || !s.queryWrite || !s.bleConnected) return;
+    const uint8_t ids[] = {
+        GP_STATUS_BATTERY_PCT,
+        GP_STATUS_REMAINING_TIME,
+        GP_STATUS_OVERHEATING,
+        GP_STATUS_ENCODING,
+        GP_STATUS_LEGACY_RECORDING,
+        GP_STATUS_ENC_DURATION
+    };
+    const uint8_t payloadLen = 1 + sizeof(ids);
+    uint8_t buf[2 + sizeof(ids)];
+    buf[0] = payloadLen & 0x1F;
+    buf[1] = GP_QUERY_GET_STATUS;
+    memcpy(buf + 2, ids, sizeof(ids));
+    s.queryWrite->writeValue(buf, 1 + payloadLen, false);
+}
+
+void MultiGoProCamera::logSlotTelemetry(uint8_t slot) {
+    if (slot >= MAX_MULTI_GOPRO_SLOTS) return;
+    Slot &s = _slots[slot];
+    if (!s.ready) return;
+    stampSlotIdentity(slot);
+    const CameraData &d = s.telemetry;
+    const int batt = d.has_battery ? (int)d.percent : -1;
+    const long remain = d.has_remain_time ? (long)d.remain_time : -1L;
+    const int rec = s.recordingKnown ? (s.recording ? 1 : 0) : -1;
+    const int hot = d.has_temperature ? (d.temp_over ? 1 : 0) : -1;
+    DBG_SERIAL.printf("[MULTI] LIVE slot=%u addr=%s bat=%d remain=%ld rec=%d hot=%d\n",
+                      slot + 1, s.addr.c_str(), batt, remain, rec, hot);
 }
 
 void MultiGoProCamera::stampSlotIdentity(uint8_t slot) {
@@ -296,6 +330,7 @@ void MultiGoProCamera::parseSlotStatusTlv(uint8_t slot, const uint8_t *tlv, size
         }
     }
     publishState();
+    logSlotTelemetry(slot);
 }
 
 void MultiGoProCamera::cmdNotifyCallback(BLERemoteCharacteristic *ch, uint8_t *data, size_t len, bool) {
@@ -336,6 +371,7 @@ void MultiGoProCamera::handleCmdNotify(uint8_t slot, uint8_t *data, size_t len) 
             }
             s.pendingShutter = false;
             publishState();
+            logSlotTelemetry(slot);
         }
     }
     s.cmdRx.reset();
@@ -358,11 +394,13 @@ void MultiGoProCamera::handleQueryNotify(uint8_t slot, uint8_t *data, size_t len
             DBG_SERIAL.printf("[MULTI] Slot %u status registration status=0x%02X -> READY\n", slot + 1, status);
             s.ready = true;
             s.lastKeepAliveMs = millis();
+            s.lastStatusPollMs = 0;
             if (_registry) {
                 _registry->onConnected(s.name.c_str(), s.addr.c_str(), (uint8_t)s.addrType, 1);
                 stampSlotIdentity(slot);
             }
             publishState();
+            logSlotTelemetry(slot);
             syncSlotToDesiredState(slot);
         }
 
@@ -491,6 +529,18 @@ void MultiGoProCamera::update() {
         if (s.ready && s.bleConnected && now - s.lastKeepAliveMs >= 10000UL) {
             s.lastKeepAliveMs = now;
             sendKeepAlive(i);
+            return;
+        }
+    }
+
+    // Poll each READY camera independently. Some GoPros do not push every
+    // registered status value, which previously left only one camera with
+    // useful telemetry in the Cameras page / warning-source logic.
+    for (uint8_t i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i) {
+        Slot &s = _slots[i];
+        if (s.ready && s.bleConnected && (s.lastStatusPollMs == 0 || now - s.lastStatusPollMs >= 2000UL)) {
+            s.lastStatusPollMs = now;
+            sendStatusPoll(i);
             return;
         }
     }
