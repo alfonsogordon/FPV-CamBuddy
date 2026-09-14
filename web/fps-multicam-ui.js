@@ -1,0 +1,84 @@
+(()=>{
+'use strict';
+const MAX_LABEL=7;
+const $=id=>document.getElementById(id);
+const slots=new Map();
+let cameras=[];
+let selectedNumber=0;
+
+function clean(v){return String(v||'').replace(/[\[\]\x00-\x1f\x7f]/g,'').trim().replace(/\s+/g,' ').slice(0,MAX_LABEL)}
+function normAddr(v){return String(v||'').trim().toLowerCase()}
+function metaFor(c){
+ const tags=String(c?.tags||'');
+ const n=tags.match(/\[cam=(\d+)\]/);
+ const l=tags.match(/\[label=([^\]]*)\]/);
+ return {number:n?parseInt(n[1],10):(Number(c?.idx)||0)+1,label:clean(l?l[1]:'')};
+}
+function displayName(c){const m=metaFor(c);return m.label||('C'+m.number)}
+function connectedAddresses(){const out=new Set();for(const s of slots.values())if(s.ready&&s.addr)out.add(normAddr(s.addr));return out}
+function publishRegistry(){
+ const detail=cameras.map(c=>{const m=metaFor(c);return {idx:c.idx,number:m.number,label:m.label,name:c.name,addr:c.addr,type:c.type,connected:connectedAddresses().has(normAddr(c.addr))}});
+ document.dispatchEvent(new CustomEvent('fps-camera-registry-update',{detail}));
+ refreshSelector(detail);
+}
+function style(){if($('fpsMultiCamUiStyle'))return;const s=document.createElement('style');s.id='fpsMultiCamUiStyle';s.textContent=`
+.cam-badge.connected{background:#dcfce7;color:#15803d;border:1px solid #86efac;font-weight:800;box-shadow:0 0 7px rgba(34,197,94,.16)}
+#fpsPreviewWarnCameraRow{display:none}#fpsPreviewWarnCameraRow select{min-width:125px;max-width:170px}
+#fpsPreviewWarnCameraHint{grid-column:1/-1;font-size:10px;line-height:1.35;color:#a78bfa;margin-top:-3px}
+`;document.head.appendChild(s)}
+function updateBadges(){
+ const live=connectedAddresses();
+ const rows=[...document.querySelectorAll('#camTableWrap .cam-table tbody tr')];
+ rows.forEach((row,i)=>{
+  const c=cameras[i];if(!c)return;
+  const nameCell=[...row.children].find(td=>td.textContent.includes(c.name))||row.children[2];
+  if(!nameCell)return;
+  let badge=nameCell.querySelector('.cam-badge.connected');
+  const on=live.has(normAddr(c.addr));
+  if(on&&!badge){badge=document.createElement('span');badge.className='cam-badge connected';badge.textContent='connected';nameCell.appendChild(badge)}
+  if(!on&&badge)badge.remove();
+ });
+ publishRegistry();
+}
+function consume(line){
+ const t=String(line||'');let m;
+ m=t.match(/^\[MULTI\] Slot (\d+) found .* \(([^)]+)\) rssi=/);
+ if(m){const n=Number(m[1]);const s=slots.get(n)||{};s.addr=normAddr(m[2]);slots.set(n,s);return}
+ m=t.match(/^\[MULTI\] Slot (\d+) status registration .*-> READY/);
+ if(m){const n=Number(m[1]);const s=slots.get(n)||{};s.ready=true;slots.set(n,s);updateBadges();return}
+ m=t.match(/^\[MULTI\] GoPro slot (\d+) disconnected/);
+ if(m){const n=Number(m[1]);const s=slots.get(n)||{};s.ready=false;slots.set(n,s);updateBadges();return}
+}
+function scanExistingLogs(){document.querySelectorAll('#terminal .line').forEach(n=>consume(n.textContent))}
+function watchLogs(){const t=$('terminal');if(!t)return;scanExistingLogs();new MutationObserver(ms=>ms.forEach(mu=>mu.addedNodes.forEach(n=>{if(n.nodeType===1&&n.classList?.contains('line'))consume(n.textContent)}))).observe(t,{childList:true})}
+function hookCameraTable(){
+ if(typeof window.renderCameraTable!=='function'||window.renderCameraTable.__fpsMultiUi)return false;
+ const original=window.renderCameraTable;
+ const wrapped=function(list){cameras=Array.isArray(list)?list.slice():[];const r=original.apply(this,arguments);setTimeout(()=>{updateBadges();publishRegistry()},25);return r};
+ wrapped.__fpsMultiUi=true;window.renderCameraTable=wrapped;return true;
+}
+function ensurePreviewControl(){
+ const sim=document.querySelector('#fpsIntegratedPreview .fps-preview-sim');if(!sim||$('fpsPreviewWarnCameraRow'))return;
+ const row=document.createElement('label');row.id='fpsPreviewWarnCameraRow';row.innerHTML='<span>Warning camera</span><select id="fpsPreviewWarnCamera"><option value="0">Camera 1</option></select>';
+ const hint=document.createElement('div');hint.id='fpsPreviewWarnCameraHint';hint.textContent='Select which saved camera should be blamed for simulated BATT LOW / REC LOW / CAM HOT warnings.';
+ sim.append(row,hint);$('fpsPreviewWarnCamera').addEventListener('change',e=>selectedNumber=Number(e.target.value)||0);
+ refreshSelector();
+}
+function refreshSelector(detail){
+ const sel=$('fpsPreviewWarnCamera'),row=$('fpsPreviewWarnCameraRow');if(!sel)return;
+ const list=Array.isArray(detail)?detail:cameras.map(c=>{const m=metaFor(c);return {number:m.number,label:m.label,connected:connectedAddresses().has(normAddr(c.addr))}});
+ const previous=selectedNumber||Number(sel.value)||0;sel.innerHTML='';
+ if(list.length){for(const c of list){const o=document.createElement('option');o.value=String(c.number);o.textContent=`C${c.number}${c.label?' · '+c.label:''}${c.connected?' · connected':''}`;sel.appendChild(o)}sel.value=[...sel.options].some(o=>Number(o.value)===previous)?String(previous):sel.options[0].value;selectedNumber=Number(sel.value)||0}else{sel.add(new Option('C1','1'));selectedNumber=1}
+ const multi=!!$('fpsMultiCamSync')?.checked||localStorage.getItem('fpsExperimentalMultiCamSync')==='1';if(row)row.style.display=multi?'flex':'none';
+}
+function selectedSuffix(){
+ const c=cameras.map(c=>({c,m:metaFor(c)})).find(x=>x.m.number===selectedNumber);if(c)return c.m.label||('('+c.m.number+')');
+ return selectedNumber?('('+selectedNumber+')'):'';
+}
+function patchPreviewWarnings(){
+ const suffix=selectedSuffix();if(suffix){document.querySelectorAll('#fpsPreviewRows .fps-preview-line').forEach(line=>{const raw=line.textContent.trim();if(raw==='BATT LOW'||raw==='REC LOW'||raw==='CAM HOT')line.textContent=(raw+' '+suffix).slice(0,16)})}
+ requestAnimationFrame(patchPreviewWarnings);
+}
+function init(){style();watchLogs();let tries=0;const t=setInterval(()=>{ensurePreviewControl();const hooked=hookCameraTable();if((hooked||window.renderCameraTable?.__fpsMultiUi)&&$('fpsIntegratedPreview')){clearInterval(t);scanExistingLogs();setTimeout(updateBadges,50)}else if(++tries>60)clearInterval(t)},100);document.addEventListener('fps-camera-registry-update',e=>refreshSelector(e.detail));document.addEventListener('change',e=>{if(e.target?.id==='fpsMultiCamSync'||e.target?.id==='fpsExperimentalMaster')setTimeout(()=>refreshSelector(),0)},true);requestAnimationFrame(patchPreviewWarnings)}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
