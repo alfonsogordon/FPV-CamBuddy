@@ -22,7 +22,7 @@ for script in legacy_scripts:
 cs = cs.replace("    if (target === 'config'  && port) sendCommand('show');\n", '')
 cs = cs.replace("  // Populate Easy Config fields after a brief settle time\n  setTimeout(() => sendCommand('show'), 300);\n", '')
 
-for script in ['fps-ui-rebuild.js','fps-demo-v1.js','fps-integrated-preview.js','fps-stage3-parity.js','fps-v102-experimental.js','fps-camera-labels.js','fps-multicam-ui.js','fps-multicam-osd.js','fps-autosync.js','fps-version-check.js','fps-read-completion-guard.js','experimental-banner.js']:
+for script in ['fps-ui-rebuild.js','fps-demo-v1.js','fps-integrated-preview.js','fps-stage3-parity.js','fps-v102-experimental.js','fps-camera-labels.js','fps-multicam-ui.js','fps-multicam-osd.js','fps-collapsible-sections.js','fps-autosync.js','fps-version-check.js','fps-read-completion-guard.js','experimental-banner.js']:
     tag = f'<script src="{script}"></script>'
     if tag not in cs:
         if '</body>' not in cs: raise SystemExit('Configurator has no body close')
@@ -31,8 +31,6 @@ write(c, cs)
 
 h = Path('web/index.html')
 hs = read(h)
-# Remove the obsolete explanatory line below the homepage OSD preview from the
-# generated HTML itself rather than relying on JavaScript to hide it at runtime.
 hs = re.sub(r'<div class="demo-caption">.*?</div>', '', hs, count=1, flags=re.S)
 for home_script in ['fps-home-updates.js','experimental-banner.js']:
     home = f'<script src="{home_script}"></script>'
@@ -46,7 +44,7 @@ for script in legacy_scripts:
     if f'<script src="{script}"></script>' in final: raise SystemExit(f'Legacy configurator layer still active: {script}')
 if 'href="test.html"' in final or 'osd-preview-tab' in final: raise SystemExit('Standalone OSD Preview navigation has been reintroduced')
 if "setTimeout(() => sendCommand('show'), 300)" in final or "target === 'config'  && port" in final: raise SystemExit('Legacy automatic device read reintroduced')
-for required in ['<script src="fps-ui-rebuild.js"></script>','<script src="fps-demo-v1.js"></script>','<script src="fps-integrated-preview.js"></script>','<script src="fps-stage3-parity.js"></script>','<script src="fps-v102-experimental.js"></script>','<script src="fps-camera-labels.js"></script>','<script src="fps-multicam-ui.js"></script>','<script src="fps-multicam-osd.js"></script>','<script src="fps-autosync.js"></script>','<script src="fps-version-check.js"></script>','<script src="fps-read-completion-guard.js"></script>','<script src="experimental-banner.js"></script>','fps-theme.css']:
+for required in ['<script src="fps-ui-rebuild.js"></script>','<script src="fps-demo-v1.js"></script>','<script src="fps-integrated-preview.js"></script>','<script src="fps-stage3-parity.js"></script>','<script src="fps-v102-experimental.js"></script>','<script src="fps-camera-labels.js"></script>','<script src="fps-multicam-ui.js"></script>','<script src="fps-multicam-osd.js"></script>','<script src="fps-collapsible-sections.js"></script>','<script src="fps-autosync.js"></script>','<script src="fps-version-check.js"></script>','<script src="fps-read-completion-guard.js"></script>','<script src="experimental-banner.js"></script>','fps-theme.css']:
     if required not in final: raise SystemExit(f'Generated configurator missing: {required}')
 
 home_final = read(h)
@@ -68,7 +66,7 @@ if "fps-config-read-complete" not in ui or "fpsRefreshUiVisibility" not in ui:
     raise SystemExit('Authoritative board read no longer refreshes master/child visibility')
 
 v102 = read('web/fps-v102-experimental.js')
-for marker in ['fpsMultiCamSync','fpsArmBoostPower','fpsArmBoostMs','fpsArmedPowerV102','fpsDisBoostPower','fpsDisBoostMs','fpsPowerMultiOnly']:
+for marker in ['fpsMultiCamSync','fpsArmBoostPower','fpsArmBoostMs','fpsArmedPowerV102','fpsDisBoostPower','fpsDisBoostMs','fpsPowerMultiOnly','fpsMultiCamMatchInfo']:
     if marker not in v102:
         raise SystemExit(f'V1.0.2 experimental UI missing: {marker}')
 labels = read('web/fps-camera-labels.js')
@@ -83,6 +81,10 @@ multicam_osd = read('web/fps-multicam-osd.js')
 for marker in ['fpsAdvancedMultiCamOsd','Default Multi Cam OSD','Camera identifier','fpsMultiOsdSimulator','16']:
     if marker not in multicam_osd:
         raise SystemExit(f'Advanced Multi Cam OSD helper missing: {marker}')
+collapsible = read('web/fps-collapsible-sections.js')
+for marker in ['fps-section-collapsed','fps-section-enabled','fps-collapse-btn']:
+    if marker not in collapsible:
+        raise SystemExit(f'Collapsible section UI missing: {marker}')
 autosync = read('web/fps-autosync.js')
 for command in ['set multi_cam','set arm_boost_dbm','set arm_boost_ms','set dis_boost_dbm','set dis_boost_ms','set power_multi_only']:
     if command not in autosync:
