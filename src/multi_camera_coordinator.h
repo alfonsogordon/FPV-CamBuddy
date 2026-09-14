@@ -32,7 +32,13 @@ private:
         INSTA360 = 4, CADDX = 5, FAMILY_COUNT = 6
     };
     static constexpr uint8_t BLE_FAMILY_COUNT = 5;
-    static constexpr uint32_t SCAN_OWNER_WINDOW_MS = 8000;
+    // After the initial startup burst, rotate BLE ownership fairly quickly so
+    // mixed-brand cameras are still discovered without long dead periods.
+    static constexpr uint32_t SCAN_OWNER_WINDOW_MS = 4000;
+    // Multi-GoPro is the primary V1.0.2 hardware-test path. Give GoPro one
+    // uninterrupted startup window so a second camera can be found/handshaken
+    // before short Auto Power Down timers (notably HERO11) put it back to sleep.
+    static constexpr uint32_t INITIAL_GOPRO_PRIORITY_MS = 12000;
 
     MultiGoProCamera &_gopro;
     BLECamera &_dji;
@@ -51,6 +57,7 @@ private:
     uint32_t _recordStartedMs = 0;
     uint8_t _scanOwner = 0;
     uint32_t _scanOwnerSince = 0;
+    uint32_t _startedMs = 0;
     CameraData _camera{};
 
     static MultiCameraCoordinator *_instance;
