@@ -16,6 +16,14 @@ function supportsLabels(){
  const api=window.fpsFirmwareVersion;
  return !!(api&&typeof api.supports==='function'&&api.supports(MIN_FW));
 }
+function refreshSupportState(){
+ const ok=supportsLabels();
+ document.querySelectorAll('.fps-cam-label-edit input,.fps-cam-label-edit button').forEach(el=>{
+  el.disabled=!ok;
+  el.title=ok?'':'Camera labels require V1.0.2 experimental firmware or newer.';
+ });
+ window.fpsFirmwareVersion?.applyFeatureGates?.();
+}
 function addStyle(){
  if(document.getElementById('fpsCameraLabelStyle'))return;
  const s=document.createElement('style');s.id='fpsCameraLabelStyle';s.textContent=`
@@ -63,10 +71,10 @@ function enhance(cameras){
   const draw=()=>{const v=cleanLabel(input.value);preview.textContent=`BATT LOW ${v||('C'+meta.number)}`.slice(0,16)};
   input.addEventListener('input',draw);input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();save.click()}});
   save.addEventListener('click',()=>saveLabel(c.idx,input,save));
-  if(!ok){input.title=save.title='Camera labels require V1.0.2 experimental firmware or newer.'}
   edit.append(input,save);labelTd.append(edit,preview);draw();
   row.insertBefore(labelTd,row.children[3]);
  });
+ refreshSupportState();
 }
 function hook(){
  if(typeof window.renderCameraTable!=='function'||window.renderCameraTable.__fpsLabels)return false;
@@ -74,6 +82,6 @@ function hook(){
  const wrapped=function(cameras){const r=original.apply(this,arguments);setTimeout(()=>enhance(cameras||[]),0);return r};
  wrapped.__fpsLabels=true;window.renderCameraTable=wrapped;return true;
 }
-function init(){addStyle();ensureInfo();let tries=0;const t=setInterval(()=>{if(hook()||++tries>40)clearInterval(t)},100);document.addEventListener('fps-firmware-version',()=>{if(typeof window.startCamCapture==='function'&&window.port){window.startCamCapture();window.sendCommand?.('cameras list')}},false)}
+function init(){addStyle();ensureInfo();let tries=0;const t=setInterval(()=>{if(hook()||++tries>40)clearInterval(t)},100);document.addEventListener('fps-firmware-version',refreshSupportState,false)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
