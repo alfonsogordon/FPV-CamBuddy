@@ -134,6 +134,7 @@ void CameraRegistry::onConnected(const char *name, const char *addr,
             idx = (int)_count++;
         }
         memset(_labels[idx], 0, CAMREG_LABEL_LEN);
+        _numbers[idx] = 0;
         _numbers[idx] = nextCameraNumber();
     }
     strlcpy(_entries[idx].name, name, CAMREG_NAME_LEN);
