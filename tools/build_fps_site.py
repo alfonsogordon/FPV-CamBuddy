@@ -52,7 +52,10 @@ if '<script src="fps-home-updates.js"></script>' not in home_final:
     raise SystemExit('Experimental homepage update layer is missing')
 if 'class="demo-caption"' in home_final:
     raise SystemExit('Obsolete OSD preview caption is still present on experimental homepage')
-home_updates = read(h)
+home_updates = read('web/fps-home-updates.js')
+for marker in ['fpsExperimentalFeatures','V1.0.2 · EXPERIMENTAL','Multi Cam Coordinator','Multi-Camera OSD','Advanced BLE TX Power','Experimental Multi Cam Settings','Hardware Validation']:
+    if marker not in home_updates:
+        raise SystemExit(f'Experimental homepage feature list missing: {marker}')
 
 if 'id="disarmDelay"' not in final:
     raise SystemExit('Configurator lost Disarm Delay control')
@@ -87,7 +90,7 @@ for marker in ['fps-menu-collapsed-target','fps-menu-enabled','fps-menu-collapse
     if marker not in collapsible:
         raise SystemExit(f'Collapsible menu UI missing: {marker}')
 capacity = read('web/fps-osd-capacity-guard.js')
-for marker in ['LIMIT=16','fps-osd-capacity-guard','fpsCapacityBlocked','Won\'t fit','stopImmediatePropagation']:
+for marker in ['LIMIT=16','fps-osd-capacity-guard','fpsCapacityBlocked',"Won't fit",'stopImmediatePropagation']:
     if marker not in capacity:
         raise SystemExit(f'OSD capacity guard missing: {marker}')
 autosync = read('web/fps-autosync.js')
