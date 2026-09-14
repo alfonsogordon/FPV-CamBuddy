@@ -34,7 +34,12 @@ bool startsWith(const char *s, const char *prefix) {
 }
 
 bool templateHasStatus(const char *tpl) {
-    return tpl && (strstr(tpl, "{state}") || strstr(tpl, "{stateonly}"));
+    return tpl && (strstr(tpl, "{state}") || strstr(tpl, "{stateonly}") ||
+                   strstr(tpl, "{state@") || strstr(tpl, "{stateonly@"));
+}
+
+bool templateHasPinnedStatus(const char *tpl) {
+    return tpl && (strstr(tpl, "{state@") || strstr(tpl, "{stateonly@"));
 }
 
 void blankRecToken(char *text) {
@@ -99,8 +104,149 @@ void formatWarning(const char *base, uint8_t sourceCamera, const char *sourceLab
         snprintf(out, outLen, "%s", base);
 }
 
-void resolveToken(const char *tok, const CameraData &data, const char *state,
-                  char *val, size_t valLen) {
+struct TokenSpec {
+    char base[16] = {};
+    bool advanced = false;
+    uint8_t source = 0;
+    char idMode = 'n';
+};
+
+TokenSpec parseTokenSpec(const char *tok) {
+    TokenSpec s{};
+    if (!tok) return s;
+    const char *at = strchr(tok, '@');
+    if (!at) {
+        strlcpy(s.base, tok, sizeof(s.base));
+        return s;
+    }
+    const size_t baseLen = static_cast<size_t>(at - tok);
+    if (baseLen == 0 || baseLen >= sizeof(s.base)) return s;
+    memcpy(s.base, tok, baseLen);
+    s.base[baseLen] = '\0';
+    ++at;
+    unsigned source = 0;
+    bool anyDigit = false;
+    while (*at >= '0' && *at <= '9') {
+        anyDigit = true;
+        source = source * 10U + static_cast<unsigned>(*at - '0');
+        ++at;
+    }
+    if (!anyDigit || (*at != 'n' && *at != 't') || at[1] != '\0' || source > 255U) {
+        strlcpy(s.base, tok, sizeof(s.base));
+        return s;
+    }
+    s.advanced = true;
+    s.source = static_cast<uint8_t>(source);
+    s.idMode = *at;
+    return s;
+}
+
+const CameraSourceData *findSource(const CameraData &data, uint8_t number) {
+    if (number == 0) return nullptr;
+    for (uint8_t i = 0; i < data.source_count && i < CAM_OSD_SOURCE_MAX; ++i)
+        if (data.sources[i].camera_number == number) return &data.sources[i];
+    return nullptr;
+}
+
+const CameraSourceData *firstSource(const CameraData &data) {
+    for (uint8_t i = 0; i < data.source_count && i < CAM_OSD_SOURCE_MAX; ++i)
+        if (data.sources[i].camera_number > 0) return &data.sources[i];
+    return nullptr;
+}
+
+void makeIdentifier(uint8_t number, const char *label, char mode, char *out, size_t outLen) {
+    if (!out || outLen == 0) return;
+    out[0] = '\0';
+    if (number == 0) return;
+    if (mode == 't' && label && label[0]) snprintf(out, outLen, "%s", label);
+    else snprintf(out, outLen, "C%u", number);
+}
+
+void appendIdentifier(char *val, size_t valLen, uint8_t number, const char *label, char mode) {
+    if (!val || valLen == 0 || number == 0) return;
+    char id[CAM_WARNING_LABEL_LEN + 2] = {};
+    makeIdentifier(number, label, mode, id, sizeof(id));
+    if (!id[0]) return;
+    char tmp[32] = {};
+    snprintf(tmp, sizeof(tmp), "%s-%s", val, id);
+    strlcpy(val, tmp, valLen);
+}
+
+void formatSourceToken(const char *tok, const CameraSourceData *src,
+                       uint8_t requestedNumber, char idMode,
+                       char *val, size_t valLen) {
+    val[0] = '\0';
+    const uint8_t number = src && src->camera_number ? src->camera_number : requestedNumber;
+    const char *label = src ? src->camera_label : "";
+
+    if (!src) {
+        if (strcmp(tok, "state") == 0 || strcmp(tok, "stateonly") == 0 ||
+            strcmp(tok, "rec") == 0 || strcmp(tok, "fpv") == 0) snprintf(val, valLen, "OFF");
+        else if (strcmp(tok, "batt") == 0) snprintf(val, valLen, "B:--");
+        else if (strcmp(tok, "bat") == 0) snprintf(val, valLen, "--%%");
+        else if (strcmp(tok, "batn") == 0) snprintf(val, valLen, "--");
+        else if (strcmp(tok, "recdur") == 0) snprintf(val, valLen, "--:--");
+        else if (strcmp(tok, "rectf") == 0 || strcmp(tok, "rect") == 0) snprintf(val, valLen, "T:--");
+        else if (strcmp(tok, "rleft") == 0) snprintf(val, valLen, "--");
+        else if (strcmp(tok, "fps") == 0) snprintf(val, valLen, "--");
+        else snprintf(val, valLen, "---");
+        appendIdentifier(val, valLen, number, label, idMode);
+        return;
+    }
+
+    const unsigned pct = src->percent > 100 ? 100 : src->percent;
+    if (strcmp(tok, "state") == 0 || strcmp(tok, "stateonly") == 0 ||
+        strcmp(tok, "rec") == 0 || strcmp(tok, "fpv") == 0) {
+        if (!src->valid || !src->has_recording) snprintf(val, valLen, "ERR");
+        else snprintf(val, valLen, "%s", src->recording ? "REC" : "RDY");
+    } else if (strcmp(tok, "batt") == 0) {
+        if (src->valid && src->has_battery) snprintf(val, valLen, "B:%u", pct);
+        else snprintf(val, valLen, "B:--");
+    } else if (strcmp(tok, "bat") == 0) {
+        if (src->valid && src->has_battery) snprintf(val, valLen, "%u%%", pct);
+        else snprintf(val, valLen, "--%%");
+    } else if (strcmp(tok, "batn") == 0) {
+        if (src->valid && src->has_battery) snprintf(val, valLen, "%u", pct);
+        else snprintf(val, valLen, "--");
+    } else if (strcmp(tok, "recdur") == 0) {
+        if (src->valid && src->has_recording && src->recording) {
+            const unsigned mins = src->record_time / 60U;
+            const unsigned secs = src->record_time % 60U;
+            snprintf(val, valLen, "%02u:%02u", mins, secs);
+        } else snprintf(val, valLen, "00:00");
+    } else if (strcmp(tok, "mode") == 0) {
+        snprintf(val, valLen, "%s", src->valid ? modeLabel(src->camera_mode) : "---");
+    } else if (strcmp(tok, "res") == 0) {
+        snprintf(val, valLen, "%s", src->valid ? resolutionLabel(src->resolution) : "---");
+    } else if (strcmp(tok, "fps") == 0) {
+        snprintf(val, valLen, "%s", src->valid ? fpsLabel(src->fps_idx) : "--");
+    } else if (strcmp(tok, "eis") == 0) {
+        snprintf(val, valLen, "%s", src->valid ? eisLabel(src->eis_mode) : "---");
+    } else if (strcmp(tok, "rectf") == 0 || strcmp(tok, "rect") == 0) {
+        if (src->valid && src->has_remain_time) {
+            uint32_t mins = (src->remain_time + 59UL) / 60UL;
+            if (mins > 999UL) mins = 999UL;
+            if (strcmp(tok, "rectf") == 0) snprintf(val, valLen, "T:%lum", (unsigned long)mins);
+            else snprintf(val, valLen, "%lum", (unsigned long)mins);
+        } else snprintf(val, valLen, "T:--");
+    } else if (strcmp(tok, "rleft") == 0) {
+        if (src->valid && src->has_remain_time) {
+            const uint32_t mins = src->remain_time / 60UL;
+            if (mins >= 60UL) snprintf(val, valLen, "%luh%02lum", (unsigned long)(mins / 60UL), (unsigned long)(mins % 60UL));
+            else snprintf(val, valLen, "%lum", (unsigned long)mins);
+        } else snprintf(val, valLen, "--");
+    } else if (strcmp(tok, "rcap") == 0) {
+        if (!src->valid || src->remain_cap_mb == 0) snprintf(val, valLen, "---");
+        else if (src->remain_cap_mb >= 1000UL) {
+            const uint32_t gb = (src->remain_cap_mb + 999UL) / 1000UL;
+            snprintf(val, valLen, "%luGB", (unsigned long)gb);
+        } else snprintf(val, valLen, "%luMB", (unsigned long)src->remain_cap_mb);
+    }
+    appendIdentifier(val, valLen, number, label, idMode);
+}
+
+void resolveAggregateToken(const char *tok, const CameraData &data, const char *state,
+                           char *val, size_t valLen) {
     val[0] = '\0';
     const unsigned pct = data.percent > 100 ? 100 : data.percent;
 
@@ -158,6 +304,44 @@ void resolveToken(const char *tok, const CameraData &data, const char *state,
     } else if (strcmp(tok, "rec") == 0 || strcmp(tok, "fpv") == 0) {
         formatState(data, state, val, valLen);
     }
+}
+
+void resolveToken(const char *tok, const CameraData &data, const char *state,
+                  char *val, size_t valLen) {
+    const TokenSpec spec = parseTokenSpec(tok);
+    if (!spec.advanced) {
+        resolveAggregateToken(spec.base, data, state, val, valLen);
+        return;
+    }
+
+    if (spec.source > 0) {
+        formatSourceToken(spec.base, findSource(data, spec.source), spec.source,
+                          spec.idMode, val, valLen);
+        return;
+    }
+
+    // Source 0 means "Auto / lowest where applicable". Battery and remaining
+    // time retain the proven aggregate lowest-value behaviour and simply add
+    // the identity of the camera which supplied that value. Other fields use
+    // the first live source; aggregate Status deliberately stays RDY/REC (N).
+    if (strcmp(spec.base, "state") == 0 || strcmp(spec.base, "stateonly") == 0 ||
+        strcmp(spec.base, "rec") == 0 || strcmp(spec.base, "fpv") == 0) {
+        resolveAggregateToken(spec.base, data, state, val, valLen);
+        return;
+    }
+    if (strcmp(spec.base, "batt") == 0 || strcmp(spec.base, "bat") == 0 || strcmp(spec.base, "batn") == 0) {
+        resolveAggregateToken(spec.base, data, state, val, valLen);
+        appendIdentifier(val, valLen, data.battery_source_camera, data.battery_source_label, spec.idMode);
+        return;
+    }
+    if (strcmp(spec.base, "rectf") == 0 || strcmp(spec.base, "rect") == 0 || strcmp(spec.base, "rleft") == 0) {
+        resolveAggregateToken(spec.base, data, state, val, valLen);
+        appendIdentifier(val, valLen, data.remain_source_camera, data.remain_source_label, spec.idMode);
+        return;
+    }
+    const CameraSourceData *src = firstSource(data);
+    formatSourceToken(spec.base, src, src ? src->camera_number : 0,
+                      spec.idMode, val, valLen);
 }
 
 void expandTemplate(const char *tpl, const CameraData &data, const char *state,
@@ -416,7 +600,8 @@ void MSPSerial::sendCustomOSD(uint8_t textType, const CameraData &data, const ch
 
     char text[TEXT_LIMIT + 1] = {};
     const bool recOnlyTakeover = recOnlyWhenArmed && _armed && cameraRecording &&
-                                 !cameraError && templateHasStatus(tpl);
+                                 !cameraError && templateHasStatus(tpl) &&
+                                 !templateHasPinnedStatus(tpl);
     if (recOnlyTakeover) {
         formatState(data, "REC", text, sizeof(text));
     } else {
