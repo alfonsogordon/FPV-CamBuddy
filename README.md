@@ -141,4 +141,6 @@ FPSteVe Edition is based on **[FreeCLinker by sheeprine](https://github.com/shee
 
 ---
 
+💜 **No donation link here.** If you like the project and feel like giving something back, take whatever you would've donated and spend it on more props 🤘 — or, even better, donate it to a local charity of your choice.
+
 **FPSteVe Edition V1.0** 🤘
