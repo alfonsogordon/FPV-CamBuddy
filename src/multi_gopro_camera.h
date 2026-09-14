@@ -33,6 +33,7 @@ public:
 
     bool prepareSharedScanSlot();
     bool acceptSharedAdvertisement(BLEAdvertisedDevice device);
+    bool sharedConnectionPending() const;
 
 private:
     struct Slot {
@@ -128,4 +129,19 @@ inline bool MultiGoProCamera::acceptSharedAdvertisement(BLEAdvertisedDevice devi
     const bool had = s.found;
     onResult(device);
     return !had && s.found;
+}
+
+inline bool MultiGoProCamera::sharedConnectionPending() const {
+    // Once shared discovery has claimed a GoPro, do not restart the BLE scan
+    // until that slot has completed the Open GoPro handshake (READY) or the
+    // connection attempt has failed and cleared its state. This is especially
+    // important for camera 2: slot 1 can otherwise be found while slot 0 still
+    // has deferred handshake/status work, causing the shared scan to restart
+    // before slot 1 gets its GATT connection attempt.
+    for (const auto &s : _slots) {
+        if (!s.ready && (s.found || s.bleConnected || s.pendingHwInfo ||
+                         s.pendingRegisterSettings || s.pendingRegisterStatus))
+            return true;
+    }
+    return false;
 }
