@@ -51,6 +51,8 @@ public:
     // Not supported — see class comment above.
     bool switchCameraMode(uint8_t mode) override;
 
+    bool acceptSharedAdvertisement(BLEAdvertisedDevice device);
+
 private:
     // BLE stack callbacks
     void onResult(BLEAdvertisedDevice device) override;
@@ -109,3 +111,27 @@ private:
 
     static Insta360Camera *_instance;
 };
+
+inline bool Insta360Camera::acceptSharedAdvertisement(BLEAdvertisedDevice device) {
+    if (_instaConnected || _bleConnected || _targetFound) return false;
+    const bool hadCandidate = !_candidateAddr.empty() || !_bestAddr.empty();
+    onResult(device);
+    if (_targetFound) return true;
+    if (!hadCandidate && !_candidateAddr.empty()) {
+        _targetAddr = _candidateAddr;
+        _targetName = _candidateName;
+        _targetType = _candidateType;
+        _targetFound = true;
+        _scanning = false;
+        return true;
+    }
+    if (!hadCandidate && !_bestAddr.empty()) {
+        _targetAddr = _bestAddr;
+        _targetName = _bestName;
+        _targetType = _bestType;
+        _targetFound = true;
+        _scanning = false;
+        return true;
+    }
+    return false;
+}
