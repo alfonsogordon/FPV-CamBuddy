@@ -42,6 +42,7 @@ MultiCameraCoordinator::MultiCameraCoordinator(MultiGoProCamera &gopro,
 
 void MultiCameraCoordinator::begin() {
     _instance = this;
+    _registry = _gopro.registry();
 
     _gopro.setCameraCallback(cbGoPro);
     _dji.setCameraCallback(cbDji);
