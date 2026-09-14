@@ -80,16 +80,10 @@ const char *modeLabel(uint8_t v) {
 
 void formatState(const CameraData &data, const char *state, char *val, size_t valLen) {
     const char *base = state ? state : "ERR";
-    if (strcmp(base, "REC") == 0 && data.connected_cameras > 1 && data.has_recording_count) {
-        if (data.recording_cameras < data.connected_cameras)
-            snprintf(val, valLen, "PART %u/%u", data.recording_cameras, data.connected_cameras);
-        else
-            snprintf(val, valLen, "REC %u/%u", data.recording_cameras, data.connected_cameras);
-    } else if (data.connected_cameras > 1) {
+    if (data.connected_cameras > 1)
         snprintf(val, valLen, "%s (%u)", base, data.connected_cameras);
-    } else {
+    else
         snprintf(val, valLen, "%s", base);
-    }
 }
 
 void formatWarning(const char *base, uint8_t sourceCamera, const char *sourceLabel,
@@ -100,7 +94,7 @@ void formatWarning(const char *base, uint8_t sourceCamera, const char *sourceLab
     if (sourceLabel && sourceLabel[0])
         snprintf(out, outLen, "%s %s", base, sourceLabel);
     else if (sourceCamera > 0)
-        snprintf(out, outLen, "%s (%u)", base, sourceCamera);
+        snprintf(out, outLen, "%s CAM%u", base, sourceCamera);
     else
         snprintf(out, outLen, "%s", base);
 }
