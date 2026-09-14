@@ -71,7 +71,7 @@ for marker in ['MAX_LABEL=7','fpsCameraLabelsInfo','cameras label','BATT LOW','s
     if marker not in labels:
         raise SystemExit(f'V1.0.2 camera-label UI missing: {marker}')
 multicam_ui = read('web/fps-multicam-ui.js')
-for marker in ['cam-badge connected','fpsPreviewWarnCamera','BATT LOW','REC LOW','CAM HOT','fps-camera-registry-update']:
+for marker in ['fps-cam-live-badge','fpsPreviewWarnCamera','BATT LOW','REC LOW','CAM HOT','fps-camera-registry-update']:
     if marker not in multicam_ui:
         raise SystemExit(f'V1.0.2 multi-camera UI helper missing: {marker}')
 autosync = read('web/fps-autosync.js')
