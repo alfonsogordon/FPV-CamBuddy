@@ -50,12 +50,18 @@ function refresh(builder){
  let any=false;
  for(const btn of builder.querySelectorAll('.fps-menu button')){
   const c=candidate(builder,btn);if(c===null)continue;
-  const overflow=worst(c)>LIMIT;
-  btn.dataset.fpsCapacityBlocked=overflow?'1':'0';
-  if(overflow){btn.disabled=true;btn.title=`Won't fit: this OSD box is limited to ${LIMIT} displayed characters.`}
-  else if(btn.dataset.fpsCapacityWasDisabled==='1'){btn.disabled=false;btn.removeAttribute('title')}
-  btn.dataset.fpsCapacityWasDisabled=overflow?'1':'0';
-  if(!overflow)any=true;
+  const overflow=worst(c)>LIMIT,wasCapacityBlocked=btn.dataset.fpsCapacityBlocked==='1';
+  if(overflow){
+   if(!wasCapacityBlocked)btn.dataset.fpsCapacityPrevDisabled=btn.disabled?'1':'0';
+   btn.dataset.fpsCapacityBlocked='1';btn.disabled=true;btn.dataset.fpsCapacityPrevTitle=btn.title||'';btn.title=`Won't fit: this OSD box is limited to ${LIMIT} displayed characters.`;
+  }else{
+   if(wasCapacityBlocked){
+    btn.dataset.fpsCapacityBlocked='0';
+    if(!advanced()&&btn.dataset.fpsCapacityPrevDisabled!=='1')btn.disabled=false;
+    if(btn.dataset.fpsCapacityPrevTitle!==undefined)btn.title=btn.dataset.fpsCapacityPrevTitle;
+   }
+   if(!btn.disabled)any=true;
+  }
  }
  const add=builder.querySelector('.fps-add');if(add){add.disabled=!any;add.title=any?'':`This OSD box is full (${LIMIT} displayed characters max). Remove an element to add another.`}
 }
