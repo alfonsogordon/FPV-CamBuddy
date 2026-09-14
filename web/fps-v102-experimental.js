@@ -13,10 +13,11 @@ function style(){if($('fpsV102Style'))return;const s=document.createElement('sty
 #fpsV102Experimental.fps-exp-feature:not(.is-visible){display:none!important}
 #fpsV102Experimental.fps-exp-feature.is-visible{display:block}
 .fps-v102-badge{display:inline-block;margin-left:7px;padding:2px 6px;border-radius:5px;background:#f5ff00;color:#111;font-size:9px;font-weight:950;letter-spacing:.08em;vertical-align:middle}
-.fps-v102-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(125px,165px);gap:10px 14px;align-items:center}.fps-v102-grid label{font-size:12px}.fps-v102-grid select,.fps-v102-grid input[type=number]{width:100%;min-width:0}.fps-v102-note{grid-column:1/-1;color:#786f32;font-size:11px;line-height:1.45}.fps-v102-sub{grid-column:1/-1;border-top:1px solid rgba(180,185,0,.24);padding-top:10px;margin-top:2px;font-weight:800;color:#665f00}.fps-v102-group{grid-column:1/-1;font-size:11px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;color:#756d13;margin-top:2px}
-.fps-v102-info{grid-column:1/-1;margin:3px 0 2px;border:1px solid rgba(211,219,43,.35);border-radius:7px;background:rgba(245,255,0,.045);overflow:hidden}.fps-v102-info summary{cursor:pointer;list-style:none;padding:9px 11px;font-size:11px;font-weight:900;color:#8b831c;user-select:none}.fps-v102-info summary::-webkit-details-marker{display:none}.fps-v102-info summary::before{content:'ⓘ ';color:#a59b12}.fps-v102-info[open] summary{border-bottom:1px solid rgba(211,219,43,.22)}.fps-v102-info-body{padding:10px 12px 12px;color:#756f37;font-size:11px;line-height:1.55}.fps-v102-info-body p{margin:0 0 8px}.fps-v102-info-body p:last-child{margin-bottom:0}.fps-v102-info-body strong{color:#675f00}.fps-v102-flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:9px 0}.fps-v102-step{padding:7px 6px;border:1px solid rgba(211,219,43,.25);border-radius:5px;text-align:center;font-size:10px;line-height:1.35}.fps-v102-step strong{display:block;margin-bottom:2px}
+.fps-v102-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(125px,165px);gap:10px 14px;align-items:center}.fps-v102-grid label{font-size:12px}.fps-v102-grid select,.fps-v102-grid input[type=number]{width:100%;min-width:0}.fps-v102-note{grid-column:1/-1;color:#edf0bd;font-size:11px;line-height:1.48}.fps-v102-sub{grid-column:1/-1;border-top:1px solid rgba(225,235,90,.34);padding-top:10px;margin-top:2px;font-weight:800;color:#f3f69f}.fps-v102-group{grid-column:1/-1;font-size:11px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;color:#eef38e;margin-top:2px}
+.fps-v102-info{grid-column:1/-1;margin:3px 0 2px;border:1px solid rgba(225,235,90,.52);border-radius:7px;background:rgba(245,255,0,.07);overflow:hidden}.fps-v102-info summary{cursor:pointer;list-style:none;padding:9px 11px;font-size:11px;font-weight:900;color:#f4f7a3;user-select:none}.fps-v102-info summary::-webkit-details-marker{display:none}.fps-v102-info summary::before{content:'ⓘ ';color:#f5ff00}.fps-v102-info[open] summary{border-bottom:1px solid rgba(225,235,90,.34)}.fps-v102-info-body{padding:10px 12px 12px;color:#eef0c6;font-size:11px;line-height:1.6}.fps-v102-info-body p{margin:0 0 8px}.fps-v102-info-body p:last-child{margin-bottom:0}.fps-v102-info-body strong{color:#ffffba}.fps-v102-info-body ol{margin:7px 0 9px;padding-left:21px}.fps-v102-info-body li{margin:5px 0}.fps-v102-flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:9px 0}.fps-v102-step{padding:7px 6px;border:1px solid rgba(225,235,90,.34);border-radius:5px;text-align:center;font-size:10px;line-height:1.35}.fps-v102-step strong{display:block;margin-bottom:2px;color:#ffffba}
 .fps-v102-hidden{display:none!important}
-.fps-lowpower-locked{opacity:.42;filter:grayscale(.8);transition:opacity .15s ease,filter .15s ease}.fps-lowpower-locked .switch{cursor:not-allowed}.fps-lowpower-locked .fps-inline-desc,.fps-lowpower-locked .cfg-hint{opacity:.8}
+.fps-lowpower-locked{opacity:.52;filter:grayscale(.65);transition:opacity .15s ease,filter .15s ease}.fps-lowpower-locked .switch{cursor:not-allowed}.fps-lowpower-locked .fps-inline-desc,.fps-lowpower-locked .cfg-hint{opacity:.9}
+#fpsMultiCamMatchInfo{margin:6px 0 10px}.fps-match-multicam-disabled{opacity:.55}
 @media(max-width:620px){.fps-v102-grid{grid-template-columns:1fr}.fps-v102-note,.fps-v102-sub,.fps-v102-group,.fps-v102-info{grid-column:1}.fps-v102-flow{grid-template-columns:1fr 1fr}}
 `;document.head.appendChild(s)}
 function makeToggle(id){return `<label class="switch"><input type="checkbox" id="${id}"><span class="track"><span class="thumb"></span></span></label>`}
@@ -31,6 +32,16 @@ function refreshLegacyLowPower(){
  lp.setAttribute('aria-disabled',lock?'true':'false');
  lp.title=lock?'Controlled by the Advanced Multi Cam BLE power profile. Enable “Only after multiple cameras detected” to use normal Low Power before the multi-camera latch triggers.':'';
 }
+function refreshCameraMatching(){
+ const match=$('cameraMatch');if(!match)return;
+ const multi=!!$('fpsMultiCamSync')?.checked;
+ const row=match.closest('.cfg-field,.fps-row');
+ match.disabled=multi || (!$('connectBtn')?.disabled && localStorage.getItem('freeclinkerDemoMode')!=='1');
+ row?.classList.toggle('fps-match-multicam-disabled',multi);
+ let info=$('fpsMultiCamMatchInfo');
+ if(!info){info=document.createElement('details');info.id='fpsMultiCamMatchInfo';info.className='fps-v102-info';info.innerHTML='<summary>More info — Camera matching and Multi Cam</summary><div class="fps-v102-info-body"><p><strong>Camera matching is a Single Cam setting.</strong> Fallback, Strict and Strongest Signal decide which one camera FreeCLinker should select during a normal single-camera scan.</p><p>When Multi Cam is enabled, FreeCLinker is intentionally trying to reconnect multiple saved cameras, so this selector is disabled and does not choose C1 versus C2. Saved camera identities remain persistent for Multi Cam and OSD source selection.</p><p>Turn Multi Cam off to use Camera matching again.</p></div>';row?.insertAdjacentElement('afterend',info)}
+ if(info)info.style.display=multi?'':'none';
+}
 function refreshVisibility(){
  const sec=$('fpsV102Experimental');
  const exp=$('fpsExperimentalMaster');
@@ -43,7 +54,7 @@ function refreshVisibility(){
  const en=multi&&!!$('fpsDynamicPowerV102')?.checked;
  if(children)children.classList.toggle('fps-v102-hidden',!en);
  ['fpsIdlePower','fpsArmBoostPower','fpsArmBoostMs','fpsArmedPowerV102','fpsDisBoostPower','fpsDisBoostMs','fpsPowerMultiOnly'].forEach(id=>{const e=$(id);if(e)e.disabled=!en});
- refreshLegacyLowPower();
+ refreshLegacyLowPower();refreshCameraMatching();
 }
 function reconcileExperimentalUi(){
  const sec=$('fpsV102Experimental');if(!sec)return;
@@ -59,27 +70,27 @@ function reconcileExperimentalUi(){
 function build(){if($('fpsV102Experimental'))return;const old=$('fpsDynamicPowerWrap');if(!old)return;
  old.style.display='none';
  const sec=document.createElement('section');sec.id='fpsV102Experimental';sec.className='fps-section fps-exp-feature';sec.innerHTML=`
- <div class="fps-section-head"><div><strong>Experimental Multi Cam Settings <span class="fps-v102-badge">V1.0.2</span></strong><div class="fps-section-desc">Everything specific to the V1.0.2 Multi Cam test build is grouped here: multi-camera coordination and the BLE power profile used around arm/disarm transitions.</div></div></div>
+ <div class="fps-section-head"><div><strong>Experimental Multi Cam Settings <span class="fps-v102-badge">V1.0.2</span></strong><div class="fps-section-desc">Multi-camera coordination and optional BLE power controls.</div></div></div>
  <div class="fps-section-body" style="display:grid">
-  <div id="fpsMultiCamSyncWrap" class="fps-row fps-toggle-row"><div><strong>Enable Multi Cam coordinator</strong><div class="fps-inline-desc">Discover and coordinate all supported ready camera families. Reboot required after changing.</div></div>${makeToggle('fpsMultiCamSync')}</div>
+  <div id="fpsMultiCamSyncWrap" class="fps-row fps-toggle-row"><div><strong>Enable Multi Cam coordinator</strong><div class="fps-inline-desc">Connect and control multiple saved cameras together. Reboot required after changing.</div></div>${makeToggle('fpsMultiCamSync')}</div>
   <details class="fps-v102-info">
    <summary>More info — first-time Multi Cam setup</summary>
    <div class="fps-v102-info-body">
-    <p><strong>Connect new GoPros one at a time the first time.</strong> Power on one camera, let FreeCLinker discover and save it, then power on the next camera and repeat.</p>
-    <p>After each GoPro has been learned/saved once, you can power them together and Multi Cam will reconnect to the saved cameras automatically on later boots.</p>
-    <p>If a GoPro has never been paired with FreeCLinker before, you may also need to open that camera's <strong>Pair</strong> menu for its initial connection.</p>
+    <p><strong>New cameras must be learned one at a time, with a C3 power cycle between each new camera.</strong></p>
+    <ol><li>Power on only the first new camera and let FreeCLinker discover, connect and save it.</li><li>Power-cycle the C3.</li><li>Power on only the next new camera and let FreeCLinker save it.</li><li>Power-cycle the C3 again before adding another new camera.</li></ol>
+    <p>If a GoPro has never been paired with FreeCLinker before, open that camera's <strong>Pair</strong> menu for the initial connection if required.</p>
+    <p>Once all cameras have been learned, normal use is easy: power them on <strong>all together or one by one</strong>. Multi Cam will reconnect to whichever saved cameras are available.</p>
    </div>
   </details>
-  <div id="fpsDynamicPowerV102Wrap" class="fps-row fps-toggle-row"><div><strong>Advanced power settings</strong><div class="fps-inline-desc">Enable to show and use the staged Multi Cam BLE power controls.</div></div>${makeToggle('fpsDynamicPowerV102')}</div>
+  <div id="fpsDynamicPowerV102Wrap" class="fps-row fps-toggle-row"><div><strong>Advanced power settings</strong><div class="fps-inline-desc">Optional staged BLE power around arm/disarm transitions.</div></div>${makeToggle('fpsDynamicPowerV102')}</div>
   <div class="fps-v102-grid" id="fpsPowerChildren">
    <details class="fps-v102-info">
-    <summary>More info — why use several BLE power levels?</summary>
+    <summary>More info — staged BLE power</summary>
     <div class="fps-v102-info-body">
-     <p>The aim is to use <strong>high BLE power only when it is most useful</strong>, then reduce it during normal flight. Around ARM and DISARM the C3 may need to send important start/stop commands, recover a camera that is reconnecting, or bring multiple cameras into the same state. A short high-power boost gives those transitions the best chance of succeeding.</p>
-     <div class="fps-v102-flow"><div class="fps-v102-step"><strong>Idle</strong>Reliable nearby connection while preparing the quad.</div><div class="fps-v102-step"><strong>Arm boost</strong>Brief strong signal for START commands and reconciliation.</div><div class="fps-v102-step"><strong>Armed</strong>Lower power during flight to reduce unnecessary 2.4 GHz RF near the receiver and flight electronics.</div><div class="fps-v102-step"><strong>Disarm boost</strong>Brief strong signal for STOP commands and camera reacquisition.</div></div>
-     <p>After the disarm boost expires, the C3 returns to the configured idle power. Setting either boost duration to <strong>0 ms</strong> skips that boost, giving you a simpler two-level armed/disarmed setup.</p>
-     <p><strong>Only after multiple cameras detected</strong> is useful if you want the normal Low Power setting to remain in charge for ordinary single-camera use. The staged profile takes over only after the C3 has actually seen more than one connected camera, then stays latched until reboot so the RF behaviour does not keep changing as a camera briefly drops in and out.</p>
-    </div>
+     <p>Use higher BLE power only around important transitions, then lower it during normal flight.</p>
+     <div class="fps-v102-flow"><div class="fps-v102-step"><strong>Idle</strong>Nearby connection before flight.</div><div class="fps-v102-step"><strong>Arm boost</strong>Short boost for START/reconnect.</div><div class="fps-v102-step"><strong>Armed</strong>Lower in-flight BLE power.</div><div class="fps-v102-step"><strong>Disarm boost</strong>Short boost for STOP/reconnect.</div></div>
+     <p>A boost duration of <strong>0 ms</strong> skips that boost. <strong>Only after multiple cameras detected</strong> keeps the normal Low Power setting in charge until more than one camera has actually connected; after that the staged profile stays latched until reboot.</p>
+   </div>
    </details>
    <div class="fps-v102-group">BLE power stages</div>
    <label for="fpsIdlePower">Idle / disarmed power</label><select id="fpsIdlePower">${optionHtml()}</select>
@@ -89,8 +100,8 @@ function build(){if($('fpsV102Experimental'))return;const old=$('fpsDynamicPower
    <label for="fpsDisBoostPower">Disarm-boost power</label><select id="fpsDisBoostPower">${optionHtml()}</select>
    <label for="fpsDisBoostMs">Disarm-boost duration (ms)</label><input id="fpsDisBoostMs" type="number" min="0" max="60000" step="100" value="0">
    <div class="fps-v102-sub">Multi-camera activation</div>
-   <div><strong>Only after multiple cameras detected</strong><div class="fps-inline-desc">Do not override normal Low Power mode until the coordinator has observed more than one connected camera. Once triggered, the latch stays active until reboot even if a camera disconnects.</div></div>${makeToggle('fpsPowerMultiOnly')}
-   <div class="fps-v102-note">Power levels use the ESP32 BLE steps from -12 to +9 dBm. This is experimental RF behaviour: bench-test camera reacquisition and RC link quality before flight.</div>
+   <div><strong>Only after multiple cameras detected</strong><div class="fps-inline-desc">Keep normal Low Power mode until more than one camera has connected. Once triggered, stays active until reboot.</div></div>${makeToggle('fpsPowerMultiOnly')}
+   <div class="fps-v102-note">Experimental RF behaviour: bench-test camera reacquisition and RC link quality before flight.</div>
   </div>
  </div>`;
  old.insertAdjacentElement('afterend',sec);
@@ -102,9 +113,7 @@ function build(){if($('fpsV102Experimental'))return;const old=$('fpsDynamicPower
   refreshVisibility();
  };
  sec.addEventListener('change',mirror);sec.addEventListener('input',mirror);mirror();
- setTimeout(reconcileExperimentalUi,550);
- setTimeout(reconcileExperimentalUi,900);
- setTimeout(()=>window.fpsFirmwareVersion?.applyFeatureGates?.(),100);
+ setTimeout(reconcileExperimentalUi,550);setTimeout(reconcileExperimentalUi,900);setTimeout(()=>window.fpsFirmwareVersion?.applyFeatureGates?.(),100);
 }
 function receive(line){let v;
  if((v=valueText(line,'multi_cam'))!==null)setVal('fpsMultiCamSync',parseBool(v));
@@ -119,7 +128,7 @@ function receive(line){let v;
  refreshVisibility();
 }
 function hookParser(){if(typeof parseConfigLine!=='function'||parseConfigLine.__fpsV102Wrapped)return false;const original=parseConfigLine;const wrapped=function(line){receive(line);return original(line)};wrapped.__fpsV102Wrapped=true;parseConfigLine=wrapped;return true}
-function init(){style();let tries=0;const t=setInterval(()=>{build();hookParser();reconcileExperimentalUi();if($('fpsV102Experimental')&&typeof parseConfigLine==='function'){clearInterval(t);refreshVisibility();window.fpsFirmwareVersion?.applyFeatureGates?.()}else if(++tries>40)clearInterval(t)},100);document.addEventListener('change',e=>{if(e.target?.id==='fpsExperimentalMaster')setTimeout(reconcileExperimentalUi,0)},true)}
-window.fpsV102Experimental={receive,refreshVisibility,reconcileExperimentalUi,refreshLegacyLowPower};
+function init(){style();let tries=0;const t=setInterval(()=>{build();hookParser();reconcileExperimentalUi();if($('fpsV102Experimental')&&typeof parseConfigLine==='function'){clearInterval(t);refreshVisibility();window.fpsFirmwareVersion?.applyFeatureGates?.()}else if(++tries>40)clearInterval(t)},100);document.addEventListener('change',e=>{if(e.target?.id==='fpsExperimentalMaster'||e.target?.id==='fpsMultiCamSync')setTimeout(reconcileExperimentalUi,0)},true)}
+window.fpsV102Experimental={receive,refreshVisibility,reconcileExperimentalUi,refreshLegacyLowPower,refreshCameraMatching};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
