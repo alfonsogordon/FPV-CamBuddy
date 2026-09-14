@@ -6,6 +6,8 @@ on:
     branches:
       - main
       - experimental
+    paths-ignore:
+      - 'web/firmware/**'
   workflow_dispatch:
 
 permissions:
