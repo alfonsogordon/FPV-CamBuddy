@@ -99,6 +99,12 @@ bool MultiCameraCoordinator::anyBleFamilyWantsScan() const {
 void MultiCameraCoordinator::startSharedScan() {
     if (_sharedScanning || !anyBleFamilyWantsScan()) return;
 
+    // A GoPro advertisement reserves a slot before its deferred connect and
+    // Open GoPro handshake run in update(). Do not let a new controller scan
+    // overlap that work: on ESP32-C3 this can prevent the second slot from ever
+    // reaching a clean GATT connection even though its advertisement was seen.
+    if (_gopro.sharedConnectionPending()) return;
+
     // Pick the next free GoPro slot before advertisements start arriving.
     // Other camera families each have one connection slot in V1.0.2.
     if (familyWantsScan(GOPRO)) _gopro.prepareSharedScanSlot();
@@ -138,9 +144,10 @@ void MultiCameraCoordinator::onResult(BLEAdvertisedDevice device) {
 
     if (!accepted) return;
 
-    // Connecting while an active scan owns the controller is needlessly
-    // fragile on the C3. Stop only long enough for the selected backend to do
-    // its GATT setup; update() restarts the all-family scan ~120 ms later.
+    // Stop as soon as one family claims the advertisement. The selected
+    // backend will connect from update(); shared discovery resumes only after
+    // that claimed GoPro reaches READY (or the attempt fails), rather than on
+    // a blind 120 ms timer that can overlap the GATT handshake.
     BLEDevice::getScan()->stop();
     _sharedScanning = false;
     _sharedScanStoppedMs = millis();
@@ -173,7 +180,8 @@ void MultiCameraCoordinator::update() {
     }
     if (connectionChanged) publishState();
 
-    if (!_sharedScanning && anyBleFamilyWantsScan() &&
+    if (!_sharedScanning && !_gopro.sharedConnectionPending() &&
+        anyBleFamilyWantsScan() &&
         millis() - _sharedScanStoppedMs >= SHARED_SCAN_RESTART_MS) {
         startSharedScan();
     }
