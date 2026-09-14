@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <BLEAdvertisedDevice.h>
 #include <BLEScan.h>
+#include <string>
 #include "camera.h"
 #include "ble_camera.h"
 #include "multi_gopro_camera.h"
@@ -53,6 +54,8 @@ private:
     uint32_t _recordStartedMs = 0;
     bool _sharedScanning = false;
     uint32_t _sharedScanStoppedMs = 0;
+    int8_t _claimedFamily = -1;
+    std::string _familyAddr[BLE_FAMILY_COUNT];
     CameraData _camera{};
 
     static MultiCameraCoordinator *_instance;
@@ -70,6 +73,7 @@ private:
     void startSharedScan();
     bool anyBleFamilyWantsScan() const;
     bool familyWantsScan(uint8_t family) const;
+    bool claimedConnectionPending() const;
     uint8_t familyConnectedCount(uint8_t family) const;
     void syncNewConnection(uint8_t family);
 };
