@@ -1,7 +1,23 @@
 #include "multi_camera_coordinator.h"
+#include "camera_registry.h"
 #include "config.h"
+#include <cstring>
 
 MultiCameraCoordinator *MultiCameraCoordinator::_instance = nullptr;
+
+namespace {
+uint8_t registryTypeForFamily(uint8_t family) {
+    switch (family) {
+        case 0: return 1; // GoPro
+        case 1: return 0; // DJI
+        case 2: return 3; // Sony
+        case 3: return 4; // Blackmagic
+        case 4: return 5; // Insta360
+        case 5: return 2; // Caddx
+        default: return 0;
+    }
+}
+}
 
 MultiCameraCoordinator::MultiCameraCoordinator(MultiGoProCamera &gopro,
                                                BLECamera &dji,
@@ -192,17 +208,32 @@ void MultiCameraCoordinator::publishState() {
             if (d.recording) recordingCount += familyCount;
         }
 
-        if (d.has_battery) {
-            if (!haveBatt || d.percent < minBatt) minBatt = d.percent;
+        if (d.has_battery && (!haveBatt || d.percent < minBatt)) {
+            minBatt = d.percent;
             haveBatt = true;
+            out.battery_source_camera = d.battery_source_camera;
+            strlcpy(out.battery_source_label, d.battery_source_label, sizeof(out.battery_source_label));
+            if (out.battery_source_camera == 0 && _registry)
+                _registry->identityForType(registryTypeForFamily(i), out.battery_source_camera,
+                                           out.battery_source_label, sizeof(out.battery_source_label));
         }
-        if (d.has_remain_time) {
-            if (!haveRemain || d.remain_time < minRemain) minRemain = d.remain_time;
+        if (d.has_remain_time && (!haveRemain || d.remain_time < minRemain)) {
+            minRemain = d.remain_time;
             haveRemain = true;
+            out.remain_source_camera = d.remain_source_camera;
+            strlcpy(out.remain_source_label, d.remain_source_label, sizeof(out.remain_source_label));
+            if (out.remain_source_camera == 0 && _registry)
+                _registry->identityForType(registryTypeForFamily(i), out.remain_source_camera,
+                                           out.remain_source_label, sizeof(out.remain_source_label));
         }
-        if (d.has_temperature) {
-            if (!haveTemp || d.temp_over > hottest) hottest = d.temp_over;
+        if (d.has_temperature && (!haveTemp || d.temp_over > hottest)) {
+            hottest = d.temp_over;
             haveTemp = true;
+            out.temp_source_camera = d.temp_source_camera;
+            strlcpy(out.temp_source_label, d.temp_source_label, sizeof(out.temp_source_label));
+            if (out.temp_source_camera == 0 && _registry)
+                _registry->identityForType(registryTypeForFamily(i), out.temp_source_camera,
+                                           out.temp_source_label, sizeof(out.temp_source_label));
         }
         if (d.has_media_ready) {
             out.media_ready = haveMedia ? (out.media_ready && d.media_ready) : d.media_ready;
