@@ -30,6 +30,7 @@ public:
 
     uint8_t connectedCount() const;
     uint8_t recordingCount() const;
+    uint8_t copySources(CameraData &out) const;
 
     bool prepareSharedScanSlot();
     bool acceptSharedAdvertisement(BLEAdvertisedDevice device);
@@ -160,4 +161,30 @@ inline bool MultiGoProCamera::sharedConnectionPending() const {
             return true;
     }
     return false;
+}
+
+inline uint8_t MultiGoProCamera::copySources(CameraData &out) const {
+    out.source_count = 0;
+    for (const auto &s : _slots) {
+        if (!s.ready || out.source_count >= CAM_OSD_SOURCE_MAX) continue;
+        CameraSourceData &dst = out.sources[out.source_count++];
+        dst.valid = s.telemetry.valid;
+        dst.camera_number = s.cameraNumber;
+        strlcpy(dst.camera_label, s.cameraLabel, sizeof(dst.camera_label));
+        dst.has_battery = s.telemetry.has_battery;
+        dst.percent = s.telemetry.percent;
+        dst.has_recording = s.recordingKnown || s.telemetry.has_recording;
+        dst.recording = s.recordingKnown ? s.recording : s.telemetry.recording;
+        dst.has_temperature = s.telemetry.has_temperature;
+        dst.temp_over = s.telemetry.temp_over;
+        dst.has_remain_time = s.telemetry.has_remain_time;
+        dst.remain_time = s.telemetry.remain_time;
+        dst.remain_cap_mb = s.telemetry.remain_cap_mb;
+        dst.record_time = s.telemetry.record_time;
+        dst.camera_mode = s.telemetry.camera_mode;
+        dst.eis_mode = s.telemetry.eis_mode;
+        dst.resolution = s.telemetry.resolution;
+        dst.fps_idx = s.telemetry.fps_idx;
+    }
+    return out.source_count;
 }
