@@ -31,6 +31,9 @@ write(c, cs)
 
 h = Path('web/index.html')
 hs = read(h)
+# Remove the obsolete explanatory line below the homepage OSD preview from the
+# generated HTML itself rather than relying on JavaScript to hide it at runtime.
+hs = re.sub(r'<div class="demo-caption">.*?</div>', '', hs, count=1, flags=re.S)
 for home_script in ['fps-home-updates.js','experimental-banner.js']:
     home = f'<script src="{home_script}"></script>'
     if home not in hs:
@@ -49,6 +52,8 @@ for required in ['<script src="fps-ui-rebuild.js"></script>','<script src="fps-d
 home_final = read(h)
 if '<script src="fps-home-updates.js"></script>' not in home_final:
     raise SystemExit('Experimental homepage update layer is missing')
+if 'class="demo-caption"' in home_final:
+    raise SystemExit('Obsolete OSD preview caption is still present on experimental homepage')
 home_updates = read('web/fps-home-updates.js')
 for marker in ['fpsExperimentalFeatures','V1.0.2 · EXPERIMENTAL','Multi Cam Coordinator','Multi-Camera OSD','Advanced BLE TX Power','Experimental Multi Cam Settings','Hardware Validation']:
     if marker not in home_updates:
