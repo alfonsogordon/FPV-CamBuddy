@@ -357,9 +357,9 @@ void MultiGoProCamera::publishState() {
     _camera.valid = count > 0;
     _camera.has_recording = true;
     _camera.connected_cameras = count;
-    _camera.has_recording_count = knownCount > 0;
+    _camera.has_recording_count = count > 0 && knownCount == count;
     _camera.recording_cameras = recCount;
-    if (knownCount == count && count > 0)
+    if (_camera.has_recording_count)
         _camera.recording = recCount > 0;
     else
         _camera.recording = _recordingRequested && count > 0;
