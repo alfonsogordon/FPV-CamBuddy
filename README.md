@@ -15,6 +15,21 @@ FPSteVe Edition builds on that foundation with a simplified configurator, GoPro-
 - **Quick start:** [QUICKSTART.md](QUICKSTART.md)
 - **Project website:** https://alfonsogordon.github.io/freeclinker/
 
+## Supported cameras
+
+FreeCLinker includes camera backends/support paths for:
+
+- **GoPro**
+- **DJI Action**
+- **Sony**
+- **Blackmagic**
+- **Insta360**
+- **Caddx**
+
+**FPSteVe Edition hardware-tested:** GoPro HERO11 Black Mini and GoPro MAX2.
+
+The other camera families are supported by the FreeCLinker firmware foundations/backends but have **not necessarily been physically validated by FPSteVe**. Protocol capabilities and available OSD telemetry can vary by camera family and model.
+
 ## See the OSD in action
 
 The project homepage includes a compact animated demonstration using the same background image and **BF 4.5 Pilot Name default** as the integrated Easy Config OSD Preview: **ERR → RDY → CLEAN LENS → ARM/flashing REC → DISARM/full Pilot line while the camera is still recording → delayed stop → RDY**.
@@ -24,6 +39,7 @@ You can exercise the same behaviour interactively in the **OSD Preview** inside 
 ## What it does
 
 ### Camera control
+- **GoPro, DJI Action, Sony, Blackmagic, Insta360 and Caddx camera support paths**
 - Automatic camera discovery and reconnect
 - GoPro BLE control with wake/sleep-aware connection behaviour
 - Start recording automatically when Betaflight arms
@@ -89,7 +105,7 @@ REC-only, flashing REC, CLEAN LENS and camera warnings are enabled by default on
 
 ## Tested for V1 🤘
 
-The following have been physically confirmed on the FPSteVe Edition hardware-test setup:
+The following have been physically confirmed on the FPSteVe Edition hardware-test setup using **GoPro HERO11 Black Mini and GoPro MAX2**:
 
 - ESP32-C3 Super Mini + GoPro BLE connection and automatic reconnect
 - GoPro control from a real Betaflight 4.5 flight controller
@@ -108,7 +124,7 @@ Camera-warning behaviour and priority have been validated in the integrated Prev
 
 **Betaflight 2026.6+ Custom Messages 1–4** are implemented and exercised through the FPSteVe OSD Preview/firmware logic, but have **not yet been physically tested against a flight controller running that Betaflight generation**. The V1 hardware available for testing currently runs Betaflight 4.5, so this distinction is intentional.
 
-Some telemetry fields also depend on what a particular camera/model reports over its protocol.
+Camera-family support beyond the GoPro models listed above has not necessarily been physically validated by FPSteVe. Some telemetry fields also depend on what a particular camera/model reports over its protocol.
 
 ## Quick hardware connection
 
