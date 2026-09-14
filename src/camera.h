@@ -31,6 +31,7 @@ public:
 
     void setCameraCallback(CameraCallback cb) { _cameraCb = cb; }
     void setRegistry(CameraRegistry *reg)     { _registry = reg; }
+    CameraRegistry *registry() const          { return _registry; }
     // v is one of the CAM_MATCH_* constants above.
     void setMatchMode(uint8_t v)              { _matchMode = v; }
     // When true (default), avoid connecting to a camera whose advertisement
