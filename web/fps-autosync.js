@@ -16,7 +16,10 @@ function snapshot(){
  const legacy=val('fpsBfMode','current')==='legacy';
  const msgs=[1,2,3,4].map(n=>({enabled:chk('fpsMsg'+n),tpl:normTpl(val('osd'+n))}));
  return {
-  cameraType:val('cameraType','1'),cameraMatch:val('cameraMatch','0'),wakeGuard:chk('wakeGuard'),debugBle:chk('debugBle'),lowPower:chk('lowPower'),dynamicPower:chk('fpsDynamicPower'),armedTxPower:parseInt(val('fpsArmedPower','-12')),disarmedTxPower:parseInt(val('fpsDisarmedPower','9')),multiCamSync:chk('fpsMultiCamSync'),wifiApEnabled:chk('wifiApEnabled'),wifiApDelay:parseInt(val('wifiApDelay','0'))||0,disarmDelay:parseInt(val('disarmDelay','0'))||0,stopOnDisarm:chk('stopOnDisarm'),
+  cameraType:val('cameraType','1'),cameraMatch:val('cameraMatch','0'),wakeGuard:chk('wakeGuard'),debugBle:chk('debugBle'),lowPower:chk('lowPower'),
+  dynamicPower:chk('fpsDynamicPowerV102',chk('fpsDynamicPower')),armedTxPower:parseInt(val('fpsArmedPowerV102',val('fpsArmedPower','-12'))),disarmedTxPower:parseInt(val('fpsIdlePower',val('fpsDisarmedPower','9'))),
+  armBoostPower:parseInt(val('fpsArmBoostPower','9')),armBoostMs:Math.max(0,Math.min(60000,parseInt(val('fpsArmBoostMs','0'))||0)),disBoostPower:parseInt(val('fpsDisBoostPower','9')),disBoostMs:Math.max(0,Math.min(60000,parseInt(val('fpsDisBoostMs','0'))||0)),powerMultiOnly:chk('fpsPowerMultiOnly'),
+  multiCamSync:chk('fpsMultiCamSync'),wifiApEnabled:chk('wifiApEnabled'),wifiApDelay:parseInt(val('wifiApDelay','0'))||0,disarmDelay:parseInt(val('disarmDelay','0'))||0,stopOnDisarm:chk('stopOnDisarm'),
   auxEnabled:chk('fpsAuxMaster'),auxChannel:val('auxChannel','0'),auxMode:val('auxMode','10'),
   bfMode:legacy?'legacy':'current',osdEnabled:chk('fpsOsdMaster'),msgs,pilotEnabled:chk('fpsPilotMaster'),pilotTpl:normTpl(val('pilotTpl')),craftEnabled:chk('fpsCraftMaster'),craftTpl:normTpl(val('craftTpl')),recOnly:chk('fpsRecOnly'),flashRec:chk('fpvFlash'),
   tempEnabled:chk('fpsTempMaster'),tempOnlyBeforeFirstArm:chk('fpvPreArm'),tempText:String(val('fpvPreArmText','CLEAN LENS')).replace(/^@[1-4]:/,''),tempDuration:Math.max(.1,Number(val('fpvCustomDurationSec','1'))||1),tempTarget:targetCode(val('fpsTempDest',legacy?'pilot':'1'),legacy),
@@ -26,7 +29,9 @@ function snapshot(){
 function flat(s){const o={...s};delete o.msgs;s.msgs.forEach((m,i)=>{o['msg'+(i+1)+'Enabled']=m.enabled;o['msg'+(i+1)+'Tpl']=m.tpl});return o}
 function compare(a,b){const aa=flat(a),bb=flat(b),bad=[];for(const k of Object.keys(aa)){if(String(aa[k])!==String(bb[k]))bad.push(k)}return bad}
 async function writeSnapshot(s){
- await strictCmd(`set camera_type ${s.cameraType}`);await strictCmd(`set camera_match ${s.cameraMatch}`);await strictCmd(`set wake_guard ${s.wakeGuard?1:0}`);await strictCmd(`set debug_ble ${s.debugBle?1:0}`);await strictCmd(`set low_power ${s.lowPower?1:0}`);await strictCmd(`set dyn_power ${s.dynamicPower?1:0}`);await strictCmd(`set arm_dbm ${s.armedTxPower}`);await strictCmd(`set dis_dbm ${s.disarmedTxPower}`);await strictCmd(`set multi_cam ${s.multiCamSync?1:0}`);await strictCmd(`set wifi_ap_enabled ${s.wifiApEnabled?1:0}`);await strictCmd(`set wifi_ap_delay ${s.wifiApDelay}`);await strictCmd(`set disarm_delay ${s.disarmDelay}`);await strictCmd(`set stop_on_disarm ${s.stopOnDisarm?1:0}`);
+ await strictCmd(`set camera_type ${s.cameraType}`);await strictCmd(`set camera_match ${s.cameraMatch}`);await strictCmd(`set wake_guard ${s.wakeGuard?1:0}`);await strictCmd(`set debug_ble ${s.debugBle?1:0}`);await strictCmd(`set low_power ${s.lowPower?1:0}`);
+ await strictCmd(`set dyn_power ${s.dynamicPower?1:0}`);await strictCmd(`set dis_dbm ${s.disarmedTxPower}`);await strictCmd(`set arm_boost_dbm ${s.armBoostPower}`);await strictCmd(`set arm_boost_ms ${s.armBoostMs}`);await strictCmd(`set arm_dbm ${s.armedTxPower}`);await strictCmd(`set dis_boost_dbm ${s.disBoostPower}`);await strictCmd(`set dis_boost_ms ${s.disBoostMs}`);await strictCmd(`set power_multi_only ${s.powerMultiOnly?1:0}`);await strictCmd(`set multi_cam ${s.multiCamSync?1:0}`);
+ await strictCmd(`set wifi_ap_enabled ${s.wifiApEnabled?1:0}`);await strictCmd(`set wifi_ap_delay ${s.wifiApDelay}`);await strictCmd(`set disarm_delay ${s.disarmDelay}`);await strictCmd(`set stop_on_disarm ${s.stopOnDisarm?1:0}`);
  const auxCh=s.auxEnabled?(parseInt(s.auxChannel)||1):0,auxMode='0x'+parseInt(s.auxMode||10).toString(16).padStart(2,'0').toUpperCase();await strictCmd(`set aux_channel ${auxCh}`);await strictCmd(`set aux_mode ${auxMode}`);
  const legacy=s.bfMode==='legacy';
  if(s.osdEnabled){
