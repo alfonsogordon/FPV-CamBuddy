@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const MODE='freeclinkerDemoMode', CFG='freeclinkerDemoConfig', STORE='fpsUiV2State';
+const MODE='freeclinkerDemoMode', CFG='freeclinkerDemoConfig', STORE='fpsUiV2State', LABELS='freeclinkerDemoCameraLabels';
 const demo=()=>localStorage.getItem(MODE)==='1';
 const multi=()=>!!document.getElementById('fpsMultiCamSync')?.checked||localStorage.getItem('fpsExperimentalMultiCamSync')==='1';
 const dummyCameras=[
@@ -10,6 +10,20 @@ const dummyCameras=[
  {idx:3,name:'Insta360 X5',addr:'DE:MO:00:00:00:04',type:'Insta360',tags:'[cam=4][label=360CAM]'}
 ];
 function parse(k){try{return JSON.parse(localStorage.getItem(k)||'{}')}catch{return{}}}
+function cleanLabel(v){return String(v||'').replace(/[\[\]\x00-\x1f\x7f]/g,'').trim().replace(/\s+/g,' ').slice(0,7)}
+function setCameraLabel(cam,label){
+ const clean=cleanLabel(label),number=cam.idx+1;
+ cam.tags=`[cam=${number}][label=${clean}]`;
+ return clean;
+}
+function loadDummyLabels(){
+ const saved=parse(LABELS);
+ dummyCameras.forEach(cam=>{if(Object.prototype.hasOwnProperty.call(saved,String(cam.idx+1)))setCameraLabel(cam,saved[String(cam.idx+1)])});
+}
+function saveDummyLabel(number,label){
+ const cam=dummyCameras[number-1];if(!cam)return;
+ const clean=setCameraLabel(cam,label),saved=parse(LABELS);saved[String(number)]=clean;localStorage.setItem(LABELS,JSON.stringify(saved));
+}
 function enter(){const current=parse(STORE);if(Object.keys(current).length)localStorage.setItem(CFG,JSON.stringify(current));localStorage.setItem(MODE,'1');location.reload()}
 function exit(){const current=parse(STORE);if(Object.keys(current).length)localStorage.setItem(CFG,JSON.stringify(current));localStorage.removeItem(MODE);location.reload()}
 function applyDummyCameraState(){
@@ -39,16 +53,30 @@ function hookDummyCameras(){
  renderDummyCameras();
  return true;
 }
+function handleDemoLabelSave(e){
+ if(!demo())return;
+ const button=e.target?.closest?.('.fps-cam-label-edit button');if(!button)return;
+ const row=button.closest('tbody tr'),table=button.closest('.cam-table');if(!row||!table)return;
+ const rows=[...table.querySelectorAll('tbody tr')],idx=rows.indexOf(row);if(idx<0)return;
+ if(idx>0&&!multi())return;
+ const input=row.querySelector('.fps-cam-label-edit input');if(!input)return;
+ e.preventDefault();e.stopImmediatePropagation();
+ const number=idx+1,clean=cleanLabel(input.value);input.value=clean;saveDummyLabel(number,clean);
+ button.textContent='Saved ✓';
+ setTimeout(()=>{renderDummyCameras();},220);
+}
 function init(){
  const connect=document.getElementById('connectBtn');if(!connect)return;
  const b=document.createElement('button');b.type='button';b.id='fpsDemoModeBtn';b.className='fps-demo-v1';b.textContent=demo()?'Exit Demo Mode':'Demo Mode';b.title=demo()?'Return to real ESP32 connection mode':'Try all configurator settings without a connected board';b.onclick=demo()?exit:enter;connect.insertAdjacentElement('afterend',b);
  if(!demo())return;
+ loadDummyLabels();
  document.documentElement.classList.add('fps-demo-active');document.body.classList.add('fps-demo-active');
  const frame=document.createElement('div');frame.className='fps-demo-frame';frame.setAttribute('aria-hidden','true');document.body.appendChild(frame);
  const badge=document.createElement('div');badge.className='fps-demo-v1-banner';badge.innerHTML='<strong>DEMO MODE</strong><span>Virtual C3 — settings are saved locally. No commands are sent to hardware.</span>';const panel=document.getElementById('panel-config');if(panel)panel.prepend(badge);
  panel?.querySelectorAll('input,select,button').forEach(e=>{if(e.id!=='connectBtn')e.disabled=false});
  ['applyBtn','auxApplyBtn','osdApplyBtn','bf45ApplyBtn'].forEach(id=>{const e=document.getElementById(id);if(e){e.disabled=false;e.textContent='Saved in Demo';e.onclick=ev=>{ev.preventDefault();ev.stopImmediatePropagation();localStorage.setItem(CFG,localStorage.getItem(STORE)||'{}');const old=e.textContent;e.textContent='Saved ✓';setTimeout(()=>e.textContent=old,900)}}});
  let tries=0;const hook=setInterval(()=>{if(hookDummyCameras()||++tries>40)clearInterval(hook)},100);
+ document.addEventListener('click',handleDemoLabelSave,true);
  document.addEventListener('change',e=>{if(e.target?.id==='fpsMultiCamSync'||e.target?.id==='fpsExperimentalMaster')setTimeout(()=>{renderDummyCameras();applyDummyCameraState()},20)},true);
  const wrap=document.getElementById('camTableWrap');if(wrap)new MutationObserver(()=>setTimeout(applyDummyCameraState,0)).observe(wrap,{childList:true,subtree:true});
 }
