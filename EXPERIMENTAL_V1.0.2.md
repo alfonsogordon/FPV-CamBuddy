@@ -42,17 +42,37 @@ The coordinator currently contains backends for:
 
 It rotates BLE scanning between supported BLE camera families so that one family does not permanently own discovery.
 
-### First-time GoPro setup
+### Current first-time camera setup
 
-For the **first connection of each GoPro in Multi Cam mode, connect the cameras one at a time**.
+The current **Camera type** setting is still used by the normal Single Cam path to choose which camera backend runs at boot. Multi Cam itself uses the multi-brand coordinator, but a new camera may first need to be learned/saved using its correct Single Cam backend.
 
-1. Power on the first GoPro and let FreeCLinker discover/connect to it and save it.
-2. Then power on the second GoPro and let FreeCLinker discover/connect to that one.
-3. Repeat for any additional GoPros.
+For a new camera that is not already known to the C3:
 
-Once each GoPro has been learned/saved once, they can be powered together and Multi Cam will reconnect to the saved cameras automatically on later boots.
+1. Leave **Multi Cam OFF**.
+2. Select the correct **Camera type** for that camera.
+3. Power/connect that camera and allow FreeCLinker to discover it and save it.
+4. Power-cycle the C3 before registering another new camera.
+5. Repeat with the correct Camera type for each additional camera.
+6. Once the cameras have been learned/saved, enable **Multi Cam**. The coordinator can then work with those saved cameras without one manual Camera type selecting the active Multi Cam backend.
+
+For example, for a new **GoPro + Insta360** setup: register the GoPro in Single Cam with Camera type set to GoPro, power-cycle, register the Insta360 in Single Cam with Camera type set to Insta360, then enable Multi Cam.
+
+For multiple new GoPros, the same one-at-a-time rule applies: connect/save one new GoPro, power-cycle the C3, then register the next. Once each GoPro has been learned/saved once, they can be powered together and Multi Cam can reconnect to the saved cameras automatically on later boots.
 
 A GoPro that has never been paired with FreeCLinker before may also need its **Pair** menu opened for that initial connection.
+
+### Planned experimental Automatic Camera Detection
+
+A separate **Automatic Camera Detection** switch is planned for V1.0.2 testing. It will be introduced as an experimental opt-in rather than immediately replacing Camera type.
+
+The intended test behaviour is:
+
+- **OFF:** preserve the current proven manual Camera type / Single Cam behaviour.
+- **ON:** use the multi-brand camera coordinator/handler to identify and connect the appropriate supported camera family automatically, even when Multi Cam is disabled.
+- **Multi Cam remains separate:** automatic detection decides what camera/backend is present; Multi Cam decides whether multiple cameras are coordinated at the same time.
+- The manual Camera type option remains available as the fallback while GoPro, DJI Action, Sony, Blackmagic, Insta360 and Caddx behaviour is validated by hardware testers.
+
+If Automatic Camera Detection proves reliable across the supported camera families, it can replace the old manual Camera type workflow in a later cleanup. Until that testing is complete, Camera type remains functional and should not be removed.
 
 ### Start and stop behaviour
 
@@ -259,6 +279,7 @@ The following still require real hardware validation and should be treated as ex
 - simultaneous 2+ and especially 3+ BLE camera operation
 - practical maximum simultaneous camera count on an ESP32-C3
 - mixed camera-family operation in real installations
+- **Automatic Camera Detection in Single Cam mode across supported camera families (planned experimental switch)**
 - low-power armed operation at -12/-9/-6 dBm with cameras in realistic positions
 - reconnect/rejoin behaviour when a second camera moves out of range
 - delayed STOP reconciliation after reconnect
@@ -278,15 +299,16 @@ Do not interpret a successful compile as proof of RF reliability. Bench-test wit
 2. Open the **experimental configurator** and connect to the C3.
 3. Read settings and confirm the board reports V1.0.2.
 4. Leave Multi Cam OFF and prove the normal single-GoPro ARM/DISARM workflow first.
-5. Enable Experimental Features and then Multi Cam.
-6. For first-time Multi Cam setup, connect/save each new GoPro **one at a time**. After each has been learned once, they can be powered together for normal auto-reconnect.
-7. Test two nearby cameras before adding more.
-8. Confirm the status LED count matches the number of connected cameras.
-9. Confirm the OSD count/state changes when one camera disconnects or fails to confirm recording.
-10. Test a camera leaving and re-entering Bluetooth range while stopped and while recording.
-11. Only after basic Multi Cam behaviour is reliable, enable the advanced BLE power profile.
-12. Start with higher BLE power and reduce armed power gradually while checking command reliability.
-13. Test ARM boost, armed power, DISARM boost and delayed stop separately.
+5. Enable Experimental Features.
+6. Before enabling Multi Cam, register any completely new cameras one at a time in Single Cam mode using the correct Camera type. Power-cycle the C3 between first-time camera registrations.
+7. Enable Multi Cam after the cameras have been learned/saved. Previously learned cameras can then be powered together for normal coordinator reconnect.
+8. Test two nearby cameras before adding more.
+9. Confirm the status LED count matches the number of connected cameras.
+10. Confirm the OSD count/state changes when one camera disconnects or fails to confirm recording.
+11. Test a camera leaving and re-entering Bluetooth range while stopped and while recording.
+12. Only after basic Multi Cam behaviour is reliable, enable the advanced BLE power profile.
+13. Start with higher BLE power and reduce armed power gradually while checking command reliability.
+14. Test ARM boost, armed power, DISARM boost and delayed stop separately.
 
 ---
 
