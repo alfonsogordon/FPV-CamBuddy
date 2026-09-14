@@ -56,6 +56,7 @@ private:
         bool pendingShutterOn = false;
         uint32_t lastAttemptMs = 0;
         uint32_t lastKeepAliveMs = 0;
+        uint32_t lastStatusPollMs = 0;
         uint8_t cameraNumber = 0;
         char cameraLabel[CAMREG_LABEL_LEN] = {};
         CameraData telemetry{};
@@ -74,6 +75,8 @@ private:
     void sendRegisterSettings(uint8_t slot);
     void sendRegisterStatus(uint8_t slot);
     void sendKeepAlive(uint8_t slot);
+    void sendStatusPoll(uint8_t slot);
+    void logSlotTelemetry(uint8_t slot);
     bool sendShutter(uint8_t slot, bool on);
     void syncSlotToDesiredState(uint8_t slot);
     void stampSlotIdentity(uint8_t slot);
