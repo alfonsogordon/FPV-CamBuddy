@@ -42,6 +42,18 @@ The coordinator currently contains backends for:
 
 It rotates BLE scanning between supported BLE camera families so that one family does not permanently own discovery.
 
+### First-time GoPro setup
+
+For the **first connection of each GoPro in Multi Cam mode, connect the cameras one at a time**.
+
+1. Power on the first GoPro and let FreeCLinker discover/connect to it and save it.
+2. Then power on the second GoPro and let FreeCLinker discover/connect to that one.
+3. Repeat for any additional GoPros.
+
+Once each GoPro has been learned/saved once, they can be powered together and Multi Cam will reconnect to the saved cameras automatically on later boots.
+
+A GoPro that has never been paired with FreeCLinker before may also need its **Pair** menu opened for that initial connection.
+
 ### Start and stop behaviour
 
 ARM and DISARM still represent one requested recording state for the whole system:
@@ -267,13 +279,14 @@ Do not interpret a successful compile as proof of RF reliability. Bench-test wit
 3. Read settings and confirm the board reports V1.0.2.
 4. Leave Multi Cam OFF and prove the normal single-GoPro ARM/DISARM workflow first.
 5. Enable Experimental Features and then Multi Cam.
-6. Test two nearby cameras before adding more.
-7. Confirm the status LED count matches the number of connected cameras.
-8. Confirm the OSD count/state changes when one camera disconnects or fails to confirm recording.
-9. Test a camera leaving and re-entering Bluetooth range while stopped and while recording.
-10. Only after basic Multi Cam behaviour is reliable, enable the advanced BLE power profile.
-11. Start with higher BLE power and reduce armed power gradually while checking command reliability.
-12. Test ARM boost, armed power, DISARM boost and delayed stop separately.
+6. For first-time Multi Cam setup, connect/save each new GoPro **one at a time**. After each has been learned once, they can be powered together for normal auto-reconnect.
+7. Test two nearby cameras before adding more.
+8. Confirm the status LED count matches the number of connected cameras.
+9. Confirm the OSD count/state changes when one camera disconnects or fails to confirm recording.
+10. Test a camera leaving and re-entering Bluetooth range while stopped and while recording.
+11. Only after basic Multi Cam behaviour is reliable, enable the advanced BLE power profile.
+12. Start with higher BLE power and reduce armed power gradually while checking command reliability.
+13. Test ARM boost, armed power, DISARM boost and delayed stop separately.
 
 ---
 
