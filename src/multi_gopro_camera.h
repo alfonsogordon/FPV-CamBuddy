@@ -56,6 +56,9 @@ private:
         bool pendingShutterOn = false;
         uint32_t lastAttemptMs = 0;
         uint32_t lastKeepAliveMs = 0;
+        uint8_t cameraNumber = 0;
+        char cameraLabel[CAMREG_LABEL_LEN] = {};
+        CameraData telemetry{};
         GpRxAssembler cmdRx;
         GpRxAssembler settingRx;
         GpRxAssembler queryRx;
@@ -73,6 +76,8 @@ private:
     void sendKeepAlive(uint8_t slot);
     bool sendShutter(uint8_t slot, bool on);
     void syncSlotToDesiredState(uint8_t slot);
+    void stampSlotIdentity(uint8_t slot);
+    void parseSlotStatusTlv(uint8_t slot, const uint8_t *tlv, size_t len);
     void publishState();
     bool addressAlreadyUsed(const std::string &addr) const;
     int slotForClient(BLEClient *client) const;
