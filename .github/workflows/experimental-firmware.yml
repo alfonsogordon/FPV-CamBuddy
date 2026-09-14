@@ -60,7 +60,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           git clone --depth 1 --branch experimental "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /tmp/freeclinker-experimental
-          DEST=/tmp/freeclinker-experimental/web/firmware/v1.0.2-experimental
+          DEST=/tmp/freeclinker-experimental/web/firmware/experimental
           mkdir -p "$DEST"
           cp .pio/build/esp32c3supermini/bootloader.bin "$DEST/bootloader-esp32c3supermini.bin"
           cp .pio/build/esp32c3supermini/partitions.bin "$DEST/partitions-esp32c3supermini.bin"
@@ -71,7 +71,7 @@ jobs:
           cd /tmp/freeclinker-experimental
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add web/firmware/v1.0.2-experimental
+          git add web/firmware/experimental
           if git diff --cached --quiet; then
             echo 'Experimental V1.0.2 binaries already current'
           else
