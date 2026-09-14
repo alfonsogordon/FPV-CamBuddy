@@ -36,6 +36,12 @@ public:
     bool stopRecording() override;
     bool switchCameraMode(uint8_t mode) override;  // DJI_MODE_* constants
 
+    // Multi Cam uses one shared BLE scan for every supported BLE family.
+    // Feed an advertisement through the existing DJI matcher and, if it was
+    // accepted as a candidate, promote it immediately instead of waiting for
+    // this backend's private scan window to finish.
+    bool acceptSharedAdvertisement(BLEAdvertisedDevice device);
+
 private:
     // BLE stack callbacks
     void onResult(BLEAdvertisedDevice device) override;
@@ -107,3 +113,27 @@ private:
 
     static BLECamera *_instance;
 };
+
+inline bool BLECamera::acceptSharedAdvertisement(BLEAdvertisedDevice device) {
+    if (_djiConnected || _bleConnected || _targetFound) return false;
+    const bool hadCandidate = !_candidateAddr.empty() || !_bestAddr.empty();
+    onResult(device);
+    if (_targetFound) return true;
+    if (!hadCandidate && !_candidateAddr.empty()) {
+        _targetAddr = _candidateAddr;
+        _targetName = _candidateName;
+        _targetType = _candidateType;
+        _targetFound = true;
+        _scanning = false;
+        return true;
+    }
+    if (!hadCandidate && !_bestAddr.empty()) {
+        _targetAddr = _bestAddr;
+        _targetName = _bestName;
+        _targetType = _bestType;
+        _targetFound = true;
+        _scanning = false;
+        return true;
+    }
+    return false;
+}
