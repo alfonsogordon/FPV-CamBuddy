@@ -44,6 +44,11 @@
 #define CAM_EIS_AUTO     8
 #define CAM_EIS_STD      9
 
+// V1.0.2 camera labels are seven visible characters max. Keeping the source
+// label directly in normalized telemetry lets the OSD attribute an aggregate
+// warning to the physical camera which caused it.
+#define CAM_WARNING_LABEL_LEN 8
+
 struct CameraData {
     bool     valid        = false;
     bool     has_battery  = false;
@@ -65,4 +70,13 @@ struct CameraData {
     uint16_t record_time  = 0;
     uint32_t remain_cap_mb = 0;
     uint32_t remain_time  = 0;
+
+    // Source identity for aggregate warning-bearing values. camera==0 means
+    // unknown/unattributed and preserves the legacy single-camera behaviour.
+    uint8_t battery_source_camera = 0;
+    char    battery_source_label[CAM_WARNING_LABEL_LEN] = {};
+    uint8_t remain_source_camera = 0;
+    char    remain_source_label[CAM_WARNING_LABEL_LEN] = {};
+    uint8_t temp_source_camera = 0;
+    char    temp_source_label[CAM_WARNING_LABEL_LEN] = {};
 };
