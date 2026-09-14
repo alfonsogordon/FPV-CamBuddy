@@ -39,8 +39,6 @@ void MultiCameraCoordinator::begin() {
     _ble[_scanOwner]->setScanEnabled(true);
     _scanOwnerSince = millis();
 
-    // Start every backend. Only the current BLE scan owner is allowed to scan;
-    // Caddx is Wi-Fi and may associate independently.
     _gopro.begin();
     _dji.begin();
     _sony.begin();
@@ -90,8 +88,6 @@ void MultiCameraCoordinator::rotateScanOwner(bool force) {
         }
     }
 
-    // Nothing else needs discovery right now. Leave GoPro eligible so another
-    // GoPro can still be discovered later without rebooting.
     _scanOwner = GOPRO;
     _ble[_scanOwner]->setScanEnabled(true);
     _scanOwnerSince = now;
@@ -108,17 +104,21 @@ void MultiCameraCoordinator::syncNewConnection(uint8_t family) {
 void MultiCameraCoordinator::update() {
     for (uint8_t i = 0; i < FAMILY_COUNT; ++i) _all[i]->update();
 
+    bool connectionChanged = false;
     for (uint8_t i = 0; i < FAMILY_COUNT; ++i) {
         const bool nowConnected = _all[i]->isConnected();
         if (nowConnected && !_wasConnected[i]) {
-            DBG_SERIAL.printf("[MULTI] family %u joined; syncing requested record state\n", i);
+            DBG_SERIAL.printf("[MULTI] family %u joined; reconciling requested record state\n", i);
             syncNewConnection(i);
+            connectionChanged = true;
+        } else if (!nowConnected && _wasConnected[i]) {
+            DBG_SERIAL.printf("[MULTI] family %u left; republishing aggregate state\n", i);
+            connectionChanged = true;
         }
         _wasConnected[i] = nowConnected;
     }
+    if (connectionChanged) publishState();
 
-    // A non-GoPro family owns one camera, so move on once it joins. GoPro keeps
-    // its full scan window so repeated passes can collect additional GoPros.
     if (_scanOwner != GOPRO && _all[_scanOwner]->isConnected() &&
         millis() - _scanOwnerSince > 500) {
         rotateScanOwner(true);
@@ -170,17 +170,28 @@ void MultiCameraCoordinator::publishState() {
     out.valid = count > 0;
     out.connected_cameras = count;
     out.has_recording = true;
-    out.recording = _recordingRequested && count > 0;
-    out.record_time = out.recording
-        ? static_cast<uint16_t>((millis() - _recordStartedMs) / 1000UL) : 0;
 
     bool haveBatt = false, haveRemain = false, haveTemp = false, haveMedia = false;
     uint8_t minBatt = 100, hottest = 0;
     uint32_t minRemain = 0;
+    uint16_t recordingCount = 0;
+    uint16_t recordingKnownCount = 0;
 
     for (uint8_t i = 0; i < FAMILY_COUNT; ++i) {
         if (!_seenData[i] || !_all[i]->isConnected()) continue;
         const CameraData &d = _latest[i];
+        const uint8_t familyCount = familyConnectedCount(i);
+
+        if (i == GOPRO) {
+            if (d.has_recording_count) {
+                recordingKnownCount += familyCount;
+                recordingCount += d.recording_cameras > familyCount ? familyCount : d.recording_cameras;
+            }
+        } else if (d.has_recording) {
+            recordingKnownCount += familyCount;
+            if (d.recording) recordingCount += familyCount;
+        }
+
         if (d.has_battery) {
             if (!haveBatt || d.percent < minBatt) minBatt = d.percent;
             haveBatt = true;
@@ -202,6 +213,15 @@ void MultiCameraCoordinator::publishState() {
         if (out.fps_idx == CAM_FPS_UNKNOWN && d.fps_idx != CAM_FPS_UNKNOWN) out.fps_idx = d.fps_idx;
         if (out.eis_mode == CAM_EIS_UNKNOWN && d.eis_mode != CAM_EIS_UNKNOWN) out.eis_mode = d.eis_mode;
     }
+
+    out.has_recording_count = count > 0 && recordingKnownCount >= count;
+    out.recording_cameras = recordingCount > 255 ? 255 : static_cast<uint8_t>(recordingCount);
+    if (out.has_recording_count)
+        out.recording = out.recording_cameras > 0;
+    else
+        out.recording = _recordingRequested && count > 0;
+    out.record_time = out.recording
+        ? static_cast<uint16_t>((millis() - _recordStartedMs) / 1000UL) : 0;
 
     out.has_battery = haveBatt;
     if (haveBatt) out.percent = minBatt;
