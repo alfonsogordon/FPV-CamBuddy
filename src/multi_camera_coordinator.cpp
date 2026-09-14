@@ -171,14 +171,20 @@ void MultiCameraCoordinator::update() {
         const bool nowConnected = _all[i]->isConnected();
         if (nowConnected && !_wasConnected[i]) {
             DBG_SERIAL.printf("[MULTI] family %u joined; reconciling requested record state\n", i);
-            if (i < BLE_FAMILY_COUNT && !_familyAddr[i].empty())
+            if (i < BLE_FAMILY_COUNT && !_familyAddr[i].empty()) {
                 DBG_SERIAL.printf("[MULTI] FAMILY LIVE family=%u addr=%s connected=1\n", i, _familyAddr[i].c_str());
+            } else if (i == CADDX && _caddx.liveAddress().length()) {
+                DBG_SERIAL.printf("[MULTI] FAMILY LIVE family=%u addr=%s connected=1\n", i, _caddx.liveAddress().c_str());
+            }
             syncNewConnection(i);
             connectionChanged = true;
         } else if (!nowConnected && _wasConnected[i]) {
             DBG_SERIAL.printf("[MULTI] family %u left; republishing aggregate state\n", i);
-            if (i < BLE_FAMILY_COUNT && !_familyAddr[i].empty())
+            if (i < BLE_FAMILY_COUNT && !_familyAddr[i].empty()) {
                 DBG_SERIAL.printf("[MULTI] FAMILY LIVE family=%u addr=%s connected=0\n", i, _familyAddr[i].c_str());
+            } else if (i == CADDX && _caddx.liveAddress().length()) {
+                DBG_SERIAL.printf("[MULTI] FAMILY LIVE family=%u addr=%s connected=0\n", i, _caddx.liveAddress().c_str());
+            }
             connectionChanged = true;
         }
         _wasConnected[i] = nowConnected;
