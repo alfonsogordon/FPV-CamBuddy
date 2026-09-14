@@ -22,7 +22,7 @@ for script in legacy_scripts:
 cs = cs.replace("    if (target === 'config'  && port) sendCommand('show');\n", '')
 cs = cs.replace("  // Populate Easy Config fields after a brief settle time\n  setTimeout(() => sendCommand('show'), 300);\n", '')
 
-for script in ['fps-ui-rebuild.js','fps-demo-v1.js','fps-integrated-preview.js','fps-stage3-parity.js','fps-v102-experimental.js','fps-camera-labels.js','fps-multicam-ui.js','fps-multicam-osd.js','fps-collapsible-sections.js','fps-autosync.js','fps-version-check.js','fps-read-completion-guard.js','experimental-banner.js']:
+for script in ['fps-ui-rebuild.js','fps-demo-v1.js','fps-integrated-preview.js','fps-stage3-parity.js','fps-v102-experimental.js','fps-camera-labels.js','fps-multicam-ui.js','fps-multicam-osd.js','fps-multicam-osd-visibility-fix.js','fps-collapsible-sections.js','fps-autosync.js','fps-version-check.js','fps-read-completion-guard.js','experimental-banner.js']:
     tag = f'<script src="{script}"></script>'
     if tag not in cs:
         if '</body>' not in cs: raise SystemExit('Configurator has no body close')
@@ -44,7 +44,7 @@ for script in legacy_scripts:
     if f'<script src="{script}"></script>' in final: raise SystemExit(f'Legacy configurator layer still active: {script}')
 if 'href="test.html"' in final or 'osd-preview-tab' in final: raise SystemExit('Standalone OSD Preview navigation has been reintroduced')
 if "setTimeout(() => sendCommand('show'), 300)" in final or "target === 'config'  && port" in final: raise SystemExit('Legacy automatic device read reintroduced')
-for required in ['<script src="fps-ui-rebuild.js"></script>','<script src="fps-demo-v1.js"></script>','<script src="fps-integrated-preview.js"></script>','<script src="fps-stage3-parity.js"></script>','<script src="fps-v102-experimental.js"></script>','<script src="fps-camera-labels.js"></script>','<script src="fps-multicam-ui.js"></script>','<script src="fps-multicam-osd.js"></script>','<script src="fps-collapsible-sections.js"></script>','<script src="fps-autosync.js"></script>','<script src="fps-version-check.js"></script>','<script src="fps-read-completion-guard.js"></script>','<script src="experimental-banner.js"></script>','fps-theme.css']:
+for required in ['<script src="fps-ui-rebuild.js"></script>','<script src="fps-demo-v1.js"></script>','<script src="fps-integrated-preview.js"></script>','<script src="fps-stage3-parity.js"></script>','<script src="fps-v102-experimental.js"></script>','<script src="fps-camera-labels.js"></script>','<script src="fps-multicam-ui.js"></script>','<script src="fps-multicam-osd.js"></script>','<script src="fps-multicam-osd-visibility-fix.js"></script>','<script src="fps-collapsible-sections.js"></script>','<script src="fps-autosync.js"></script>','<script src="fps-version-check.js"></script>','<script src="fps-read-completion-guard.js"></script>','<script src="experimental-banner.js"></script>','fps-theme.css']:
     if required not in final: raise SystemExit(f'Generated configurator missing: {required}')
 
 home_final = read(h)
@@ -81,8 +81,12 @@ multicam_osd = read('web/fps-multicam-osd.js')
 for marker in ['fpsAdvancedMultiCamOsd','Default Multi Cam OSD','Camera identifier','fpsMultiOsdSimulator','16']:
     if marker not in multicam_osd:
         raise SystemExit(f'Advanced Multi Cam OSD helper missing: {marker}')
+multicam_osd_fix = read('web/fps-multicam-osd-visibility-fix.js')
+for marker in ['fpsAdvancedMultiOsdPanel','fpsOsdMaster','fpsMultiCamSync','insertAdjacentElement']:
+    if marker not in multicam_osd_fix:
+        raise SystemExit(f'Advanced Multi Cam OSD placement helper missing: {marker}')
 collapsible = read('web/fps-collapsible-sections.js')
-for marker in ['fps-menu-collapsed-target','fps-menu-enabled','fps-menu-collapse-btn','collapsed=!toggle.checked']:
+for marker in ['fps-menu-collapsed-target','fps-menu-enabled','fps-menu-collapse-arrow','fps-menu-collapsed','collapsed=!toggle.checked']:
     if marker not in collapsible:
         raise SystemExit(f'Collapsible menu UI missing: {marker}')
 autosync = read('web/fps-autosync.js')
