@@ -11,25 +11,26 @@ function style(){if($('fpsV102Style'))return;const s=document.createElement('sty
 #fpsV102Experimental{border:2px solid #e5ef00!important;box-shadow:0 0 0 1px rgba(245,255,0,.12),0 0 22px rgba(245,255,0,.09)}
 #fpsV102Experimental>.fps-section-head{background:linear-gradient(90deg,rgba(245,255,0,.16),rgba(245,255,0,.04))}
 .fps-v102-badge{display:inline-block;margin-left:7px;padding:2px 6px;border-radius:5px;background:#f5ff00;color:#111;font-size:9px;font-weight:950;letter-spacing:.08em;vertical-align:middle}
-.fps-v102-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(125px,165px);gap:10px 14px;align-items:center}.fps-v102-grid label{font-size:12px}.fps-v102-grid select,.fps-v102-grid input[type=number]{width:100%;min-width:0}.fps-v102-note{grid-column:1/-1;color:#786f32;font-size:11px;line-height:1.45}.fps-v102-sub{grid-column:1/-1;border-top:1px solid rgba(180,185,0,.24);padding-top:10px;margin-top:2px;font-weight:800;color:#665f00}
-@media(max-width:620px){.fps-v102-grid{grid-template-columns:1fr}.fps-v102-note,.fps-v102-sub{grid-column:1}}
+.fps-v102-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(125px,165px);gap:10px 14px;align-items:center}.fps-v102-grid label{font-size:12px}.fps-v102-grid select,.fps-v102-grid input[type=number]{width:100%;min-width:0}.fps-v102-note{grid-column:1/-1;color:#786f32;font-size:11px;line-height:1.45}.fps-v102-sub{grid-column:1/-1;border-top:1px solid rgba(180,185,0,.24);padding-top:10px;margin-top:2px;font-weight:800;color:#665f00}.fps-v102-group{grid-column:1/-1;font-size:11px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;color:#756d13;margin-top:2px}
+@media(max-width:620px){.fps-v102-grid{grid-template-columns:1fr}.fps-v102-note,.fps-v102-sub,.fps-v102-group{grid-column:1}}
 `;document.head.appendChild(s)}
 function makeToggle(id){return `<label class="switch"><input type="checkbox" id="${id}"><span class="track"><span class="thumb"></span></span></label>`}
 function build(){if($('fpsV102Experimental'))return;const old=$('fpsDynamicPowerWrap');if(!old)return;
  old.style.display='none';
  const sec=document.createElement('section');sec.id='fpsV102Experimental';sec.className='fps-section';sec.innerHTML=`
- <div class="fps-section-head"><div><strong>Multi Cam + BLE Power <span class="fps-v102-badge">EXPERIMENTAL V1.0.2</span></strong><div class="fps-section-desc">Test-only controls for coordinating multiple supported cameras and changing BLE TX power around arm/disarm transitions.</div></div></div>
+ <div class="fps-section-head"><div><strong>Experimental Multi Cam Settings <span class="fps-v102-badge">V1.0.2</span></strong><div class="fps-section-desc">Everything specific to the V1.0.2 Multi Cam test build is grouped here: multi-camera coordination and the BLE power profile used around arm/disarm transitions.</div></div></div>
  <div class="fps-section-body" style="display:grid">
-  <div id="fpsMultiCamSyncWrap" class="fps-row fps-toggle-row"><div><strong>Multi Cam coordinator</strong><div class="fps-inline-desc">Discover and coordinate all supported ready camera families. Reboot required after changing.</div></div>${makeToggle('fpsMultiCamSync')}</div>
-  <div id="fpsDynamicPowerV102Wrap" class="fps-row fps-toggle-row"><div><strong>Advanced BLE power profile</strong><div class="fps-inline-desc">Idle → arm boost → armed → disarm boost → idle. Boost timings of 0 ms preserve the earlier two-state behaviour.</div></div>${makeToggle('fpsDynamicPowerV102')}</div>
+  <div id="fpsMultiCamSyncWrap" class="fps-row fps-toggle-row"><div><strong>Enable Multi Cam coordinator</strong><div class="fps-inline-desc">Discover and coordinate all supported ready camera families. Reboot required after changing.</div></div>${makeToggle('fpsMultiCamSync')}</div>
+  <div id="fpsDynamicPowerV102Wrap" class="fps-row fps-toggle-row"><div><strong>Enable Multi Cam BLE power profile</strong><div class="fps-inline-desc">Idle → arm boost → armed → disarm boost → idle. Boost timings of 0 ms preserve the earlier two-state behaviour.</div></div>${makeToggle('fpsDynamicPowerV102')}</div>
   <div class="fps-v102-grid" id="fpsPowerChildren">
+   <div class="fps-v102-group">BLE power stages</div>
    <label for="fpsIdlePower">Idle / disarmed power</label><select id="fpsIdlePower">${optionHtml()}</select>
    <label for="fpsArmBoostPower">Arm-boost power</label><select id="fpsArmBoostPower">${optionHtml()}</select>
    <label for="fpsArmBoostMs">Arm-boost duration (ms)</label><input id="fpsArmBoostMs" type="number" min="0" max="60000" step="100" value="0">
    <label for="fpsArmedPowerV102">Armed power</label><select id="fpsArmedPowerV102">${optionHtml()}</select>
    <label for="fpsDisBoostPower">Disarm-boost power</label><select id="fpsDisBoostPower">${optionHtml()}</select>
    <label for="fpsDisBoostMs">Disarm-boost duration (ms)</label><input id="fpsDisBoostMs" type="number" min="0" max="60000" step="100" value="0">
-   <div class="fps-v102-sub">Latch behaviour</div>
+   <div class="fps-v102-sub">Multi-camera activation</div>
    <div><strong>Only after multiple cameras detected</strong><div class="fps-inline-desc">Do not override normal Low Power mode until the coordinator has observed more than one connected camera. Once triggered, the latch stays active until reboot even if a camera disconnects.</div></div>${makeToggle('fpsPowerMultiOnly')}
    <div class="fps-v102-note">Power levels use the ESP32 BLE steps from -12 to +9 dBm. This is experimental RF behaviour: bench-test camera reacquisition and RC link quality before flight.</div>
   </div>
