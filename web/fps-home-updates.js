@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 function init(){
- document.querySelectorAll('p,div').forEach(el=>{if(el.children.length===0&&el.textContent.includes('Animated preview based on the FPSteVe V1 default profile'))el.remove()});
+ document.querySelector('.demo-caption')?.remove();
  const hero=document.querySelector('.cta-row');if(hero&&!document.querySelector('.fps-socials')){const s=document.createElement('div');s.className='fps-socials';s.innerHTML='<a href="https://www.youtube.com/@FPSteVe" target="_blank" rel="noopener">YouTube · @FPSteVe ↗</a><a href="https://www.instagram.com/fpvsteve/" target="_blank" rel="noopener">Instagram · @fpvsteve ↗</a>';hero.after(s)}
  const foot=document.querySelector('.foot-links');if(foot&&!foot.querySelector('[href*="youtube.com/@FPSteVe"]'))foot.insertAdjacentHTML('beforeend','<a href="https://www.youtube.com/@FPSteVe" target="_blank" rel="noopener">YouTube</a><a href="https://www.instagram.com/fpvsteve/" target="_blank" rel="noopener">Instagram</a>');
  const intro=document.querySelector('.fps-intro');if(intro)intro.textContent='Current FPSteVe Edition development — from the proven camera bridge through the new Betaflight OSD workflow, browser configurator and bench-test tools.';
