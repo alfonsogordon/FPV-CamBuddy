@@ -62,6 +62,14 @@ function build(){if($('fpsV102Experimental'))return;const old=$('fpsDynamicPower
  <div class="fps-section-head"><div><strong>Experimental Multi Cam Settings <span class="fps-v102-badge">V1.0.2</span></strong><div class="fps-section-desc">Everything specific to the V1.0.2 Multi Cam test build is grouped here: multi-camera coordination and the BLE power profile used around arm/disarm transitions.</div></div></div>
  <div class="fps-section-body" style="display:grid">
   <div id="fpsMultiCamSyncWrap" class="fps-row fps-toggle-row"><div><strong>Enable Multi Cam coordinator</strong><div class="fps-inline-desc">Discover and coordinate all supported ready camera families. Reboot required after changing.</div></div>${makeToggle('fpsMultiCamSync')}</div>
+  <details class="fps-v102-info">
+   <summary>More info — first-time Multi Cam setup</summary>
+   <div class="fps-v102-info-body">
+    <p><strong>Connect new GoPros one at a time the first time.</strong> Power on one camera, let FreeCLinker discover and save it, then power on the next camera and repeat.</p>
+    <p>After each GoPro has been learned/saved once, you can power them together and Multi Cam will reconnect to the saved cameras automatically on later boots.</p>
+    <p>If a GoPro has never been paired with FreeCLinker before, you may also need to open that camera's <strong>Pair</strong> menu for its initial connection.</p>
+   </div>
+  </details>
   <div id="fpsDynamicPowerV102Wrap" class="fps-row fps-toggle-row"><div><strong>Enable Multi Cam BLE power profile</strong><div class="fps-inline-desc">Idle → arm boost → armed → disarm boost → idle. Boost timings of 0 ms preserve the earlier two-state behaviour.</div></div>${makeToggle('fpsDynamicPowerV102')}</div>
   <div class="fps-v102-grid" id="fpsPowerChildren">
    <details class="fps-v102-info">
