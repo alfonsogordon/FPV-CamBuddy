@@ -35,6 +35,7 @@ function style(){if($('fpsMultiCamUiStyle'))return;const s=document.createElemen
 #fpsPreviewWarnCameraRow{display:none}#fpsPreviewWarnCameraRow select{min-width:125px;max-width:180px}
 #fpsPreviewWarnCameraHint{grid-column:1/-1;font-size:10px;line-height:1.35;color:#a78bfa;margin-top:-3px}
 #fpsPreviewWarningSourceRow{display:none!important}
+.fps-demo-active #fpsPreviewCameraCountRow{display:none!important}
 `;document.head.appendChild(s)}
 function ensureLiveColumns(table){
  const head=table?.querySelector('thead tr');if(!head)return;
@@ -113,7 +114,14 @@ function selectedSuffix(){
  return selectedNumber?('CAM'+selectedNumber):'';
 }
 function patchPreviewWarnings(){
- const suffix=selectedSuffix();if(suffix){document.querySelectorAll('#fpsPreviewRows .fps-preview-line').forEach(line=>{const raw=line.textContent.trim();if(raw==='BATT LOW'||raw==='REC LOW'||raw==='CAM HOT')line.textContent=(raw+' '+suffix).slice(0,16)})}
+ const suffix=selectedSuffix();
+ if(suffix){
+  document.querySelectorAll('#fpsPreviewRows .fps-preview-line').forEach(line=>{
+   const raw=line.textContent.trim();
+   const m=raw.match(/^(BATT LOW|REC LOW|CAM HOT)(?:\s+.*)?$/);
+   if(m)line.textContent=(m[1]+' '+suffix).slice(0,16);
+  });
+ }
  requestAnimationFrame(patchPreviewWarnings);
 }
 function init(){style();watchLogs();let tries=0;const t=setInterval(()=>{ensurePreviewControl();const hooked=hookCameraTable();if((hooked||window.renderCameraTable?.__fpsMultiUi)&&$('fpsIntegratedPreview')){clearInterval(t);scanExistingLogs();setTimeout(updateBadges,50)}else if(++tries>60)clearInterval(t)},100);document.addEventListener('fps-camera-registry-update',e=>refreshSelector(e.detail));document.addEventListener('change',e=>{if(e.target?.id==='fpsMultiCamSync'||e.target?.id==='fpsExperimentalMaster')setTimeout(()=>refreshSelector(),0)},true);requestAnimationFrame(patchPreviewWarnings)}
