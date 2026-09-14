@@ -127,7 +127,24 @@ inline bool MultiGoProCamera::acceptSharedAdvertisement(BLEAdvertisedDevice devi
     if (_scanSlot < 0 && !prepareSharedScanSlot()) return false;
     Slot &s = _slots[_scanSlot];
     const bool had = s.found;
+
+    // Wake Guard is useful for unknown sleeping GoPros because it prevents an
+    // accidental BLE connection from waking them. A camera already present in
+    // our registry is different: in Multi Cam mode it is one we have explicitly
+    // used before, so after a range drop we must be allowed to reacquire it even
+    // if its reconnect advertisement uses a sleep/remote-wake state byte.
+    bool knownCamera = false;
+    if (_registry) {
+        const std::string addr = device.getAddress().toString();
+        uint8_t number = 0;
+        char label[CAMREG_LABEL_LEN] = {};
+        knownCamera = _registry->identityForAddr(addr.c_str(), number, label, sizeof(label));
+    }
+    const bool wakeGuardWas = _wakeGuard;
+    if (knownCamera) _wakeGuard = false;
     onResult(device);
+    _wakeGuard = wakeGuardWas;
+
     return !had && s.found;
 }
 
