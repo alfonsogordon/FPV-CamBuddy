@@ -15,9 +15,21 @@ function style(){if($('fpsV102Style'))return;const s=document.createElement('sty
 .fps-v102-badge{display:inline-block;margin-left:7px;padding:2px 6px;border-radius:5px;background:#f5ff00;color:#111;font-size:9px;font-weight:950;letter-spacing:.08em;vertical-align:middle}
 .fps-v102-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(125px,165px);gap:10px 14px;align-items:center}.fps-v102-grid label{font-size:12px}.fps-v102-grid select,.fps-v102-grid input[type=number]{width:100%;min-width:0}.fps-v102-note{grid-column:1/-1;color:#786f32;font-size:11px;line-height:1.45}.fps-v102-sub{grid-column:1/-1;border-top:1px solid rgba(180,185,0,.24);padding-top:10px;margin-top:2px;font-weight:800;color:#665f00}.fps-v102-group{grid-column:1/-1;font-size:11px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;color:#756d13;margin-top:2px}
 .fps-v102-hidden{display:none!important}
+.fps-lowpower-locked{opacity:.42;filter:grayscale(.8);transition:opacity .15s ease,filter .15s ease}.fps-lowpower-locked .switch{cursor:not-allowed}.fps-lowpower-locked .fps-inline-desc,.fps-lowpower-locked .cfg-hint{opacity:.8}
 @media(max-width:620px){.fps-v102-grid{grid-template-columns:1fr}.fps-v102-note,.fps-v102-sub,.fps-v102-group{grid-column:1}}
 `;document.head.appendChild(s)}
 function makeToggle(id){return `<label class="switch"><input type="checkbox" id="${id}"><span class="track"><span class="thumb"></span></span></label>`}
+function refreshLegacyLowPower(){
+ const lp=$('lowPower');if(!lp)return;
+ const advanced=!!$('fpsDynamicPowerV102')?.checked;
+ const multiOnly=!!$('fpsPowerMultiOnly')?.checked;
+ const lock=advanced&&!multiOnly;
+ lp.disabled=lock;
+ const row=lp.closest('.cfg-field,.fps-row');
+ if(row)row.classList.toggle('fps-lowpower-locked',lock);
+ lp.setAttribute('aria-disabled',lock?'true':'false');
+ lp.title=lock?'Controlled by the Advanced Multi Cam BLE power profile. Enable “Only after multiple cameras detected” to use normal Low Power before the multi-camera latch triggers.':'';
+}
 function refreshVisibility(){
  const sec=$('fpsV102Experimental');
  const exp=$('fpsExperimentalMaster');
@@ -28,9 +40,9 @@ function refreshVisibility(){
  const children=$('fpsPowerChildren');
  if(dynWrap)dynWrap.classList.toggle('fps-v102-hidden',!multi);
  if(children)children.classList.toggle('fps-v102-hidden',!multi);
- if(!multi)return;
- const en=!!$('fpsDynamicPowerV102')?.checked;
+ const en=multi&&!!$('fpsDynamicPowerV102')?.checked;
  ['fpsIdlePower','fpsArmBoostPower','fpsArmBoostMs','fpsArmedPowerV102','fpsDisBoostPower','fpsDisBoostMs','fpsPowerMultiOnly'].forEach(id=>{const e=$(id);if(e)e.disabled=!en});
+ refreshLegacyLowPower();
 }
 function reconcileExperimentalUi(){
  const sec=$('fpsV102Experimental');if(!sec)return;
@@ -90,6 +102,6 @@ function receive(line){let v;
 }
 function hookParser(){if(typeof parseConfigLine!=='function'||parseConfigLine.__fpsV102Wrapped)return false;const original=parseConfigLine;const wrapped=function(line){receive(line);return original(line)};wrapped.__fpsV102Wrapped=true;parseConfigLine=wrapped;return true}
 function init(){style();let tries=0;const t=setInterval(()=>{build();hookParser();reconcileExperimentalUi();if($('fpsV102Experimental')&&typeof parseConfigLine==='function'){clearInterval(t);refreshVisibility();window.fpsFirmwareVersion?.applyFeatureGates?.()}else if(++tries>40)clearInterval(t)},100);document.addEventListener('change',e=>{if(e.target?.id==='fpsExperimentalMaster')setTimeout(reconcileExperimentalUi,0)},true)}
-window.fpsV102Experimental={receive,refreshVisibility,reconcileExperimentalUi};
+window.fpsV102Experimental={receive,refreshVisibility,reconcileExperimentalUi,refreshLegacyLowPower};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
