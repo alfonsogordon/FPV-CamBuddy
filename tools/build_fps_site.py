@@ -82,9 +82,9 @@ for marker in ['fpsAdvancedMultiCamOsd','Default Multi Cam OSD','Camera identifi
     if marker not in multicam_osd:
         raise SystemExit(f'Advanced Multi Cam OSD helper missing: {marker}')
 collapsible = read('web/fps-collapsible-sections.js')
-for marker in ['fps-section-collapsed','fps-section-enabled','fps-collapse-btn']:
+for marker in ['fps-menu-collapsed-target','fps-menu-enabled','fps-menu-collapse-btn','collapsed=!toggle.checked']:
     if marker not in collapsible:
-        raise SystemExit(f'Collapsible section UI missing: {marker}')
+        raise SystemExit(f'Collapsible menu UI missing: {marker}')
 autosync = read('web/fps-autosync.js')
 for command in ['set multi_cam','set arm_boost_dbm','set arm_boost_ms','set dis_boost_dbm','set dis_boost_ms','set power_multi_only']:
     if command not in autosync:
