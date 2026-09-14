@@ -10,7 +10,12 @@
 #include "camera_registry.h"
 #include "gopro_protocol.h"
 
-static constexpr uint8_t MAX_MULTI_GOPRO_SLOTS = 6;
+// The old experimental backend stopped at an arbitrary six GoPros. C3/S3 BLE
+// controller resources are the real boundary: with scanning active the useful
+// controller ceiling is eight connections, and the configured host limit can
+// be lower. Keep the array bounded for deterministic embedded memory usage, but
+// do not impose an additional six-camera application limit.
+static constexpr uint8_t MAX_MULTI_GOPRO_SLOTS = 8;
 
 class MultiGoProCamera : public Camera,
                          public BLEAdvertisedDeviceCallbacks,
@@ -24,6 +29,7 @@ public:
     bool switchCameraMode(uint8_t mode) override;
 
     uint8_t connectedCount() const;
+    uint8_t recordingCount() const;
 
 private:
     struct Slot {
@@ -44,6 +50,10 @@ private:
         bool pendingRegisterSettings = false;
         bool pendingRegisterStatus = false;
         bool needsStopOnReconnect = false;
+        bool recording = false;
+        bool recordingKnown = false;
+        bool pendingShutter = false;
+        bool pendingShutterOn = false;
         uint32_t lastAttemptMs = 0;
         uint32_t lastKeepAliveMs = 0;
         GpRxAssembler cmdRx;
