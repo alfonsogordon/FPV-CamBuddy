@@ -46,6 +46,14 @@ if "setTimeout(() => sendCommand('show'), 300)" in final or "target === 'config'
 for required in ['<script src="fps-ui-rebuild.js"></script>','<script src="fps-demo-v1.js"></script>','<script src="fps-integrated-preview.js"></script>','<script src="fps-stage3-parity.js"></script>','<script src="fps-v102-experimental.js"></script>','<script src="fps-autosync.js"></script>','<script src="fps-version-check.js"></script>','<script src="experimental-banner.js"></script>','fps-theme.css']:
     if required not in final: raise SystemExit(f'Generated configurator missing: {required}')
 
+home_final = read(h)
+if '<script src="fps-home-updates.js"></script>' not in home_final:
+    raise SystemExit('Experimental homepage update layer is missing')
+home_updates = read('web/fps-home-updates.js')
+for marker in ['fpsExperimentalFeatures','V1.0.2 · EXPERIMENTAL','Multi Cam Coordinator','Multi-Camera OSD','Advanced BLE TX Power','Experimental Multi Cam Settings','Hardware Validation']:
+    if marker not in home_updates:
+        raise SystemExit(f'Experimental homepage feature list missing: {marker}')
+
 if 'id="disarmDelay"' not in final:
     raise SystemExit('Configurator lost Disarm Delay control')
 ui = read('web/fps-ui-rebuild.js')
