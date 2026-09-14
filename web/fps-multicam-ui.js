@@ -34,6 +34,7 @@ function style(){if($('fpsMultiCamUiStyle'))return;const s=document.createElemen
 .fps-cam-live-value{white-space:nowrap;font-size:10px;color:#cbd5e1}.fps-cam-live-value.hot{color:#f87171;font-weight:800}.fps-cam-live-value.rec{color:#fca5a5;font-weight:800}
 #fpsPreviewWarnCameraRow{display:none}#fpsPreviewWarnCameraRow select{min-width:125px;max-width:180px}
 #fpsPreviewWarnCameraHint{grid-column:1/-1;font-size:10px;line-height:1.35;color:#a78bfa;margin-top:-3px}
+#fpsPreviewWarningSourceRow{display:none!important}
 `;document.head.appendChild(s)}
 function ensureLiveColumns(table){
  const head=table?.querySelector('thead tr');if(!head)return;
@@ -84,23 +85,32 @@ function hookCameraTable(){
  const wrapped=function(list){cameras=Array.isArray(list)?list.slice():[];const r=original.apply(this,arguments);setTimeout(()=>{const table=document.querySelector('#camTableWrap .cam-table');ensureLiveColumns(table);scanExistingLogs();updateBadges()},35);return r};
  wrapped.__fpsMultiUi=true;window.renderCameraTable=wrapped;return true;
 }
+function syncPrimaryWarningSource(number){
+ const primary=$('fpsPreviewWarningSource');if(!primary)return;
+ const wanted=String(Math.max(1,Number(number)||1));
+ if([...primary.options].some(o=>o.value===wanted)){
+  primary.value=wanted;
+  primary.dispatchEvent(new Event('change',{bubbles:true}));
+ }
+}
 function ensurePreviewControl(){
  const sim=document.querySelector('#fpsIntegratedPreview .fps-preview-sim');if(!sim||$('fpsPreviewWarnCameraRow'))return;
  const row=document.createElement('label');row.id='fpsPreviewWarnCameraRow';row.innerHTML='<span>Warning camera</span><select id="fpsPreviewWarnCamera"><option value="0">Camera 1</option></select>';
  const hint=document.createElement('div');hint.id='fpsPreviewWarnCameraHint';hint.textContent='Select which saved camera should be blamed for simulated BATT LOW / REC LOW / CAM HOT warnings.';
- sim.append(row,hint);$('fpsPreviewWarnCamera').addEventListener('change',e=>selectedNumber=Number(e.target.value)||0);
+ sim.append(row,hint);$('fpsPreviewWarnCamera').addEventListener('change',e=>{selectedNumber=Number(e.target.value)||1;syncPrimaryWarningSource(selectedNumber)});
  refreshSelector();
 }
 function refreshSelector(detail){
  const sel=$('fpsPreviewWarnCamera'),row=$('fpsPreviewWarnCameraRow');if(!sel)return;
  const list=Array.isArray(detail)?detail:cameras.map(c=>{const m=metaFor(c);return {number:m.number,label:m.label,connected:connectedAddresses().has(normAddr(c.addr))}});
  const previous=selectedNumber||Number(sel.value)||0;sel.innerHTML='';
- if(list.length){for(const c of list){const o=document.createElement('option');o.value=String(c.number);o.textContent=`C${c.number}${c.label?' · '+c.label:''}${c.connected?' · connected':''}`;sel.appendChild(o)}sel.value=[...sel.options].some(o=>Number(o.value)===previous)?String(previous):sel.options[0].value;selectedNumber=Number(sel.value)||0}else{sel.add(new Option('C1','1'));selectedNumber=1}
+ if(list.length){for(const c of list){const o=document.createElement('option');o.value=String(c.number);o.textContent=`C${c.number}${c.label?' · '+c.label:''}${c.connected?' · connected':''}`;sel.appendChild(o)}sel.value=[...sel.options].some(o=>Number(o.value)===previous)?String(previous):sel.options[0].value;selectedNumber=Number(sel.value)||1}else{sel.add(new Option('C1','1'));selectedNumber=1}
+ syncPrimaryWarningSource(selectedNumber);
  const multi=!!$('fpsMultiCamSync')?.checked||localStorage.getItem('fpsExperimentalMultiCamSync')==='1';if(row)row.style.display=multi?'flex':'none';
 }
 function selectedSuffix(){
- const c=cameras.map(c=>({c,m:metaFor(c)})).find(x=>x.m.number===selectedNumber);if(c)return c.m.label||('('+c.m.number+')');
- return selectedNumber?('('+selectedNumber+')'):'';
+ const c=cameras.map(c=>({c,m:metaFor(c)})).find(x=>x.m.number===selectedNumber);if(c)return c.m.label||('CAM'+c.m.number);
+ return selectedNumber?('CAM'+selectedNumber):'';
 }
 function patchPreviewWarnings(){
  const suffix=selectedSuffix();if(suffix){document.querySelectorAll('#fpsPreviewRows .fps-preview-line').forEach(line=>{const raw=line.textContent.trim();if(raw==='BATT LOW'||raw==='REC LOW'||raw==='CAM HOT')line.textContent=(raw+' '+suffix).slice(0,16)})}
