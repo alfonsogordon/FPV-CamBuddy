@@ -1,10 +1,12 @@
 #include "camera_registry.h"
 #include <cstring>
 
-static constexpr const char *NVS_NS   = "cam_reg";
-static constexpr const char *KEY_CNT  = "cnt";
-static constexpr const char *KEY_LAST = "last";
-static constexpr const char *KEY_LIST = "list";
+static constexpr const char *NVS_NS     = "cam_reg";
+static constexpr const char *KEY_CNT    = "cnt";
+static constexpr const char *KEY_LAST   = "last";
+static constexpr const char *KEY_LIST   = "list";
+static constexpr const char *KEY_LABELS = "labels";
+static constexpr const char *KEY_NUMS   = "nums";
 
 static const char *cameraTypeName(uint8_t t) {
     switch (t) {
@@ -22,7 +24,40 @@ void CameraRegistry::begin() {
     load();
 }
 
+void CameraRegistry::initialiseMetadataIfNeeded() {
+    bool changed = false;
+    bool used[CAMREG_MAX + 1] = {};
+
+    for (uint8_t i = 0; i < _count; ++i) {
+        const uint8_t n = _numbers[i];
+        if (n == 0 || n > CAMREG_MAX || used[n]) {
+            _numbers[i] = 0;
+            changed = true;
+        } else {
+            used[n] = true;
+        }
+        _labels[i][CAMREG_LABEL_LEN - 1] = '\0';
+    }
+
+    for (uint8_t i = 0; i < _count; ++i) {
+        if (_numbers[i] != 0) continue;
+        for (uint8_t n = 1; n <= CAMREG_MAX; ++n) {
+            if (!used[n]) {
+                _numbers[i] = n;
+                used[n] = true;
+                changed = true;
+                break;
+            }
+        }
+    }
+
+    if (changed) save();
+}
+
 void CameraRegistry::load() {
+    memset(_labels, 0, sizeof(_labels));
+    memset(_numbers, 0, sizeof(_numbers));
+
     _count   = _prefs.getUChar(KEY_CNT, 0);
     _lastIdx = (int8_t)_prefs.getChar(KEY_LAST, -1);
 
@@ -30,25 +65,51 @@ void CameraRegistry::load() {
     if (_lastIdx >= (int8_t)_count) _lastIdx = -1;
 
     if (_count > 0) {
-        size_t expected = (size_t)_count * sizeof(CameraEntry);
-        size_t got = _prefs.getBytes(KEY_LIST, _entries, expected);
-        if (got != expected) { _count = 0; _lastIdx = -1; }
+        const size_t expectedEntries = (size_t)_count * sizeof(CameraEntry);
+        const size_t gotEntries = _prefs.getBytes(KEY_LIST, _entries, expectedEntries);
+        if (gotEntries != expectedEntries) {
+            _count = 0;
+            _lastIdx = -1;
+            return;
+        }
+
+        const size_t expectedLabels = (size_t)_count * CAMREG_LABEL_LEN;
+        const size_t expectedNums = (size_t)_count * sizeof(uint8_t);
+        _prefs.getBytes(KEY_LABELS, _labels, expectedLabels);
+        _prefs.getBytes(KEY_NUMS, _numbers, expectedNums);
+        initialiseMetadataIfNeeded();
     }
 }
 
 void CameraRegistry::save() {
     _prefs.putUChar(KEY_CNT,  _count);
     _prefs.putChar (KEY_LAST, (char)_lastIdx);
-    if (_count > 0)
+    if (_count > 0) {
         _prefs.putBytes(KEY_LIST, _entries, (size_t)_count * sizeof(CameraEntry));
-    else
+        _prefs.putBytes(KEY_LABELS, _labels, (size_t)_count * CAMREG_LABEL_LEN);
+        _prefs.putBytes(KEY_NUMS, _numbers, (size_t)_count * sizeof(uint8_t));
+    } else {
         _prefs.remove(KEY_LIST);
+        _prefs.remove(KEY_LABELS);
+        _prefs.remove(KEY_NUMS);
+    }
 }
 
 int CameraRegistry::findByAddr(const char *addr) const {
     for (int i = 0; i < (int)_count; i++)
         if (strcmp(_entries[i].addr, addr) == 0) return i;
     return -1;
+}
+
+uint8_t CameraRegistry::nextCameraNumber() const {
+    bool used[CAMREG_MAX + 1] = {};
+    for (uint8_t i = 0; i < _count; ++i) {
+        const uint8_t n = _numbers[i];
+        if (n > 0 && n <= CAMREG_MAX) used[n] = true;
+    }
+    for (uint8_t n = 1; n <= CAMREG_MAX; ++n)
+        if (!used[n]) return n;
+    return 1;
 }
 
 void CameraRegistry::onConnected(const char *name, const char *addr,
@@ -60,14 +121,20 @@ void CameraRegistry::onConnected(const char *name, const char *addr,
         if (_count < CAMREG_MAX) {
             idx = (int)_count++;
         } else {
-            // List full: evict oldest entry that isn't the last connected
+            // List full: evict oldest entry that isn't the last connected.
             int evict = (_lastIdx == 0) ? 1 : 0;
             memmove(&_entries[evict], &_entries[evict + 1],
                     ((size_t)_count - (size_t)evict - 1) * sizeof(CameraEntry));
+            memmove(&_labels[evict], &_labels[evict + 1],
+                    ((size_t)_count - (size_t)evict - 1) * CAMREG_LABEL_LEN);
+            memmove(&_numbers[evict], &_numbers[evict + 1],
+                    ((size_t)_count - (size_t)evict - 1) * sizeof(uint8_t));
             _count--;
             if (_lastIdx > evict) _lastIdx--;
             idx = (int)_count++;
         }
+        memset(_labels[idx], 0, CAMREG_LABEL_LEN);
+        _numbers[idx] = nextCameraNumber();
     }
     strlcpy(_entries[idx].name, name, CAMREG_NAME_LEN);
     strlcpy(_entries[idx].addr, addr, CAMREG_ADDR_LEN);
@@ -107,6 +174,38 @@ bool CameraRegistry::setPassword(uint8_t idx, const char *pass) {
     return true;
 }
 
+bool CameraRegistry::setLabel(uint8_t idx, const char *labelText) {
+    if (idx >= _count || !labelText) return false;
+
+    while (*labelText == ' ') ++labelText;
+    char clean[CAMREG_LABEL_LEN] = {};
+    uint8_t w = 0;
+    bool pendingSpace = false;
+    for (const char *p = labelText; *p && w < CAMREG_LABEL_LEN - 1; ++p) {
+        const unsigned char c = (unsigned char)*p;
+        if (c < 32 || c > 126 || c == '[' || c == ']') continue;
+        if (c == ' ') {
+            pendingSpace = (w > 0);
+            continue;
+        }
+        if (pendingSpace && w < CAMREG_LABEL_LEN - 1) clean[w++] = ' ';
+        pendingSpace = false;
+        if (w < CAMREG_LABEL_LEN - 1) clean[w++] = (char)c;
+    }
+    clean[w] = '\0';
+    strlcpy(_labels[idx], clean, CAMREG_LABEL_LEN);
+    save();
+    return true;
+}
+
+const char *CameraRegistry::label(uint8_t idx) const {
+    return idx < _count ? _labels[idx] : "";
+}
+
+uint8_t CameraRegistry::cameraNumber(uint8_t idx) const {
+    return idx < _count ? _numbers[idx] : 0;
+}
+
 void CameraRegistry::selectCamera(uint8_t idx) {
     if (idx < _count) _selectedIdx = (int8_t)idx;
 }
@@ -125,7 +224,14 @@ bool CameraRegistry::remove(uint8_t idx) {
     if (idx >= _count) return false;
     memmove(&_entries[idx], &_entries[idx + 1],
             ((size_t)_count - idx - 1) * sizeof(CameraEntry));
+    memmove(&_labels[idx], &_labels[idx + 1],
+            ((size_t)_count - idx - 1) * CAMREG_LABEL_LEN);
+    memmove(&_numbers[idx], &_numbers[idx + 1],
+            ((size_t)_count - idx - 1) * sizeof(uint8_t));
     _count--;
+    memset(&_entries[_count], 0, sizeof(CameraEntry));
+    memset(&_labels[_count], 0, CAMREG_LABEL_LEN);
+    _numbers[_count] = 0;
     if (_lastIdx    == (int8_t)idx) _lastIdx = -1;
     else if (_lastIdx    > (int8_t)idx) _lastIdx--;
     if (_selectedIdx == (int8_t)idx) _selectedIdx = -1;
@@ -135,6 +241,9 @@ bool CameraRegistry::remove(uint8_t idx) {
 }
 
 void CameraRegistry::clear() {
+    memset(_entries, 0, sizeof(_entries));
+    memset(_labels, 0, sizeof(_labels));
+    memset(_numbers, 0, sizeof(_numbers));
     _count       = 0;
     _lastIdx     = -1;
     _selectedIdx = -1;
@@ -152,13 +261,12 @@ void CameraRegistry::printList(Stream &out) const {
         else if (isLast)      tag = " [last]";
         else if (isSel)       tag = " [selected]";
         // Two literal spaces (not one) before addr: %-28s only pads up to
-        // its width, so a name at or past 28 chars (real Caddx device
-        // names routinely are) would otherwise leave just one space —
-        // web/index.html's parser needs a guaranteed 2+-space run to find
-        // the field boundary, same as it already gets before the type.
-        out.printf("[reg]  %2u: %-28s  %s  %s%s\n", i,
+        // its width, so a name at or past 28 chars would otherwise leave
+        // just one space — the browser parser needs a 2+-space boundary.
+        out.printf("[reg]  %2u: %-28s  %s  %s%s [cam=%u] [label=%s]\n", i,
                    _entries[i].name, _entries[i].addr,
-                   cameraTypeName(_entries[i].cameraType), tag);
+                   cameraTypeName(_entries[i].cameraType), tag,
+                   _numbers[i], _labels[i]);
     }
 }
 
@@ -166,12 +274,14 @@ String CameraRegistry::toJson() const {
     String out = "[";
     for (uint8_t i = 0; i < _count; i++) {
         if (i) out += ',';
-        out += F("{\"idx\":");      out += i;
-        out += F(",\"name\":\"");   out += _entries[i].name;
-        out += F("\",\"addr\":\""); out += _entries[i].addr;
-        out += F("\",\"type\":");   out += _entries[i].cameraType;
-        out += F(",\"last\":");     out += (i == (uint8_t)_lastIdx    ? F("true") : F("false"));
-        out += F(",\"sel\":");      out += (i == (uint8_t)_selectedIdx ? F("true") : F("false"));
+        out += F("{\"idx\":");       out += i;
+        out += F(",\"name\":\"");    out += _entries[i].name;
+        out += F("\",\"addr\":\"");  out += _entries[i].addr;
+        out += F("\",\"type\":");    out += _entries[i].cameraType;
+        out += F(",\"cam\":");       out += _numbers[i];
+        out += F(",\"label\":\"");   out += _labels[i];
+        out += F("\",\"last\":");    out += (i == (uint8_t)_lastIdx    ? F("true") : F("false"));
+        out += F(",\"sel\":");       out += (i == (uint8_t)_selectedIdx ? F("true") : F("false"));
         out += '}';
     }
     out += ']';
