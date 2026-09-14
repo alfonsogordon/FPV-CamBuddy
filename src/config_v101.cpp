@@ -13,6 +13,7 @@ constexpr const char *KEY_ARM_BOOST_MS = "arm_b_ms";
 constexpr const char *KEY_DISARM_BOOST_POWER = "dis_b_dbm";
 constexpr const char *KEY_DISARM_BOOST_MS = "dis_b_ms";
 constexpr const char *KEY_POWER_MULTI_ONLY = "pwr_multi";
+constexpr const char *KEY_DISARM_DELAY_COMPAT = "disarm_delay";
 constexpr uint32_t MAX_BOOST_MS = 60000;
 
 int8_t clampPower(long v) {
@@ -27,6 +28,12 @@ uint32_t clampBoostMs(unsigned long v) {
 }
 
 void ConfigManager::loadV101Extras() {
+    // A short-lived configurator default wrote 5 instead of 5000 ms. Treat
+    // that exact value as the bad default and repair it once on V1.0.2 load.
+    if (_cfg.disarmStopDelayMs == 5) {
+        _cfg.disarmStopDelayMs = DEFAULT_DISARM_STOP_DELAY_MS;
+        _prefs.putUInt(KEY_DISARM_DELAY_COMPAT, _cfg.disarmStopDelayMs);
+    }
     _cfg.multiCamSync = _prefs.getBool(KEY_MULTI_CAM, DEFAULT_MULTI_CAM_SYNC);
     _cfg.dynamicTxPower = _prefs.getBool(KEY_DYNAMIC_POWER, DEFAULT_DYNAMIC_TX_POWER);
     _cfg.armedTxPowerDbm = clampPower(_prefs.getInt(KEY_ARMED_POWER, DEFAULT_ARMED_TX_POWER_DBM));
