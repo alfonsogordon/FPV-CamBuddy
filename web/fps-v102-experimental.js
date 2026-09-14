@@ -14,9 +14,10 @@ function style(){if($('fpsV102Style'))return;const s=document.createElement('sty
 #fpsV102Experimental.fps-exp-feature.is-visible{display:block}
 .fps-v102-badge{display:inline-block;margin-left:7px;padding:2px 6px;border-radius:5px;background:#f5ff00;color:#111;font-size:9px;font-weight:950;letter-spacing:.08em;vertical-align:middle}
 .fps-v102-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(125px,165px);gap:10px 14px;align-items:center}.fps-v102-grid label{font-size:12px}.fps-v102-grid select,.fps-v102-grid input[type=number]{width:100%;min-width:0}.fps-v102-note{grid-column:1/-1;color:#786f32;font-size:11px;line-height:1.45}.fps-v102-sub{grid-column:1/-1;border-top:1px solid rgba(180,185,0,.24);padding-top:10px;margin-top:2px;font-weight:800;color:#665f00}.fps-v102-group{grid-column:1/-1;font-size:11px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;color:#756d13;margin-top:2px}
+.fps-v102-info{grid-column:1/-1;margin:3px 0 2px;border:1px solid rgba(211,219,43,.35);border-radius:7px;background:rgba(245,255,0,.045);overflow:hidden}.fps-v102-info summary{cursor:pointer;list-style:none;padding:9px 11px;font-size:11px;font-weight:900;color:#8b831c;user-select:none}.fps-v102-info summary::-webkit-details-marker{display:none}.fps-v102-info summary::before{content:'ⓘ ';color:#a59b12}.fps-v102-info[open] summary{border-bottom:1px solid rgba(211,219,43,.22)}.fps-v102-info-body{padding:10px 12px 12px;color:#756f37;font-size:11px;line-height:1.55}.fps-v102-info-body p{margin:0 0 8px}.fps-v102-info-body p:last-child{margin-bottom:0}.fps-v102-info-body strong{color:#675f00}.fps-v102-flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:9px 0}.fps-v102-step{padding:7px 6px;border:1px solid rgba(211,219,43,.25);border-radius:5px;text-align:center;font-size:10px;line-height:1.35}.fps-v102-step strong{display:block;margin-bottom:2px}
 .fps-v102-hidden{display:none!important}
 .fps-lowpower-locked{opacity:.42;filter:grayscale(.8);transition:opacity .15s ease,filter .15s ease}.fps-lowpower-locked .switch{cursor:not-allowed}.fps-lowpower-locked .fps-inline-desc,.fps-lowpower-locked .cfg-hint{opacity:.8}
-@media(max-width:620px){.fps-v102-grid{grid-template-columns:1fr}.fps-v102-note,.fps-v102-sub,.fps-v102-group{grid-column:1}}
+@media(max-width:620px){.fps-v102-grid{grid-template-columns:1fr}.fps-v102-note,.fps-v102-sub,.fps-v102-group,.fps-v102-info{grid-column:1}.fps-v102-flow{grid-template-columns:1fr 1fr}}
 `;document.head.appendChild(s)}
 function makeToggle(id){return `<label class="switch"><input type="checkbox" id="${id}"><span class="track"><span class="thumb"></span></span></label>`}
 function refreshLegacyLowPower(){
@@ -63,6 +64,15 @@ function build(){if($('fpsV102Experimental'))return;const old=$('fpsDynamicPower
   <div id="fpsMultiCamSyncWrap" class="fps-row fps-toggle-row"><div><strong>Enable Multi Cam coordinator</strong><div class="fps-inline-desc">Discover and coordinate all supported ready camera families. Reboot required after changing.</div></div>${makeToggle('fpsMultiCamSync')}</div>
   <div id="fpsDynamicPowerV102Wrap" class="fps-row fps-toggle-row"><div><strong>Enable Multi Cam BLE power profile</strong><div class="fps-inline-desc">Idle → arm boost → armed → disarm boost → idle. Boost timings of 0 ms preserve the earlier two-state behaviour.</div></div>${makeToggle('fpsDynamicPowerV102')}</div>
   <div class="fps-v102-grid" id="fpsPowerChildren">
+   <details class="fps-v102-info">
+    <summary>More info — why use several BLE power levels?</summary>
+    <div class="fps-v102-info-body">
+     <p>The aim is to use <strong>high BLE power only when it is most useful</strong>, then reduce it during normal flight. Around ARM and DISARM the C3 may need to send important start/stop commands, recover a camera that is reconnecting, or bring multiple cameras into the same state. A short high-power boost gives those transitions the best chance of succeeding.</p>
+     <div class="fps-v102-flow"><div class="fps-v102-step"><strong>Idle</strong>Reliable nearby connection while preparing the quad.</div><div class="fps-v102-step"><strong>Arm boost</strong>Brief strong signal for START commands and reconciliation.</div><div class="fps-v102-step"><strong>Armed</strong>Lower power during flight to reduce unnecessary 2.4 GHz RF near the receiver and flight electronics.</div><div class="fps-v102-step"><strong>Disarm boost</strong>Brief strong signal for STOP commands and camera reacquisition.</div></div>
+     <p>After the disarm boost expires, the C3 returns to the configured idle power. Setting either boost duration to <strong>0 ms</strong> skips that boost, giving you a simpler two-level armed/disarmed setup.</p>
+     <p><strong>Only after multiple cameras detected</strong> is useful if you want the normal Low Power setting to remain in charge for ordinary single-camera use. The staged profile takes over only after the C3 has actually seen more than one connected camera, then stays latched until reboot so the RF behaviour does not keep changing as a camera briefly drops in and out.</p>
+    </div>
+   </details>
    <div class="fps-v102-group">BLE power stages</div>
    <label for="fpsIdlePower">Idle / disarmed power</label><select id="fpsIdlePower">${optionHtml()}</select>
    <label for="fpsArmBoostPower">Arm-boost power</label><select id="fpsArmBoostPower">${optionHtml()}</select>
