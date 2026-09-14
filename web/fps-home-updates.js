@@ -1,6 +1,7 @@
 (()=>{
 'use strict';
 function init(){
+ document.querySelectorAll('p,div').forEach(el=>{if(el.children.length===0&&el.textContent.includes('Animated preview based on the FPSteVe V1 default profile'))el.remove()});
  const hero=document.querySelector('.cta-row');
  if(hero&&!document.querySelector('.fps-socials')){
   const s=document.createElement('div');
