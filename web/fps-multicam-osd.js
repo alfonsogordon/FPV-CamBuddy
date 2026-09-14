@@ -82,9 +82,6 @@ function hasPinnedStatus(tpl){return /\{state(?:only)?@\d+[nt]\}/.test(String(tp
 
 function capsFor(c){
  const type=Number(c?.type);
- // Only disable fields when support is definitely known to be absent.
- // Caddx/Orca currently reports battery, recording/mode and storage capacity,
- // but not recording-time-remaining, normalized resolution/FPS or EIS.
  if(type===2)return {rectf:false,res:false,fps:false,eis:false};
  return {};
 }
@@ -193,15 +190,11 @@ function init(){
  document.addEventListener('fps-camera-registry-update',e=>mergeRegistry(e.detail));
  document.addEventListener('fps-demo-camera-connections',e=>{if(Array.isArray(e.detail?.cameras))mergeRegistry(e.detail.cameras)});
  document.addEventListener('change',e=>{if(e.target?.id==='fpsMultiCamSync'||e.target?.id==='fpsExperimentalMaster')setTimeout(refreshAll,0)},true);
- // The main OSD UI and preview build asynchronously. Poll briefly during page
- // startup instead of using a permanent subtree MutationObserver; repopulating
- // Source dropdowns itself changes the DOM and a permanent observer can create
- // an accidental refresh loop.
  let tries=0;const boot=setInterval(()=>{ensureAdvancedPanel();refreshAll();if(($('fpsIntegratedPreview')&&document.querySelector('.fps-builder'))||++tries>25)clearInterval(boot)},150);
  window.fpsMultiCamOsd={advancedOn,multiOn,resolvePreviewToken,aggregate,hasPinnedStatus,cameras,refresh:refreshAll};
 }
 const css=document.createElement('style');css.textContent=`
-.fps-advanced-multiosd{display:none}.fps-multiosd-exp{font-size:9px;color:#b45309}.fps-multiosd-default{padding:11px 13px;border:1px solid rgba(124,58,237,.38);border-radius:8px;background:rgba(124,58,237,.08);font-size:12px;line-height:1.5}.fps-multiosd-ids{display:grid;gap:7px}.fps-multiosd-ids label{display:grid;gap:6px}.fps-multiosd-builder-tools{display:none;grid-template-columns:minmax(0,1fr) auto;gap:7px 10px;align-items:end;margin:8px 0;padding:9px;border:1px solid rgba(124,58,237,.3);border-radius:8px}.fps-multiosd-builder-tools label{display:grid;gap:4px;font-size:10px;color:var(--muted,#aaa)}.fps-multiosd-capacity{font:700 10px monospace;color:#a78bfa;white-space:nowrap}.fps-multiosd-capacity.over{color:#ff4d5e}.fps-multiosd-builder-note{grid-column:1/-1;min-height:0;color:#ff7b86;font-size:10px}.fps-multiosd-simulator{grid-column:1/-1;gap:8px;margin-top:3px;padding-top:10px;border-top:1px solid rgba(124,58,237,.3)}.fps-multiosd-sim-head{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:#c4b5fd}.fps-multiosd-sim-card{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;padding:9px;border:1px solid rgba(124,58,237,.3);border-radius:8px}.fps-multiosd-sim-card>strong{grid-column:1/-1}.fps-multiosd-sim-card label{font-size:10px!important}.fps-multiosd-sim-card input[type=number]{width:58px!important}.fps-multiosd-sim-card select{min-width:70px!important}@media(max-width:640px){.fps-multiosd-builder-tools,.fps-multiosd-sim-card{grid-template-columns:1fr}.fps-multiosd-sim-card>strong{grid-column:auto}}
+.fps-advanced-multiosd{}.fps-multiosd-exp{font-size:9px;color:#b45309}.fps-multiosd-default{padding:11px 13px;border:1px solid rgba(124,58,237,.38);border-radius:8px;background:rgba(124,58,237,.08);font-size:12px;line-height:1.5}.fps-multiosd-ids{display:grid;gap:7px}.fps-multiosd-ids label{display:grid;gap:6px}.fps-multiosd-builder-tools{display:none;grid-template-columns:minmax(0,1fr) auto;gap:7px 10px;align-items:end;margin:8px 0;padding:9px;border:1px solid rgba(124,58,237,.3);border-radius:8px}.fps-multiosd-builder-tools label{display:grid;gap:4px;font-size:10px;color:var(--muted,#aaa)}.fps-multiosd-capacity{font:700 10px monospace;color:#a78bfa;white-space:nowrap}.fps-multiosd-capacity.over{color:#ff4d5e}.fps-multiosd-builder-note{grid-column:1/-1;min-height:0;color:#ff7b86;font-size:10px}.fps-multiosd-simulator{grid-column:1/-1;gap:8px;margin-top:3px;padding-top:10px;border-top:1px solid rgba(124,58,237,.3)}.fps-multiosd-sim-head{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:#c4b5fd}.fps-multiosd-sim-card{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;padding:9px;border:1px solid rgba(124,58,237,.3);border-radius:8px}.fps-multiosd-sim-card>strong{grid-column:1/-1}.fps-multiosd-sim-card label{font-size:10px!important}.fps-multiosd-sim-card input[type=number]{width:58px!important}.fps-multiosd-sim-card select{min-width:70px!important}@media(max-width:640px){.fps-multiosd-builder-tools,.fps-multiosd-sim-card{grid-template-columns:1fr}.fps-multiosd-sim-card>strong{grid-column:auto}}
 `;document.head.appendChild(css);
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(init,360));else setTimeout(init,360);
 })();
