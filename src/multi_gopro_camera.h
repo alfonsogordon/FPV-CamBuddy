@@ -31,6 +31,9 @@ public:
     uint8_t connectedCount() const;
     uint8_t recordingCount() const;
 
+    bool prepareSharedScanSlot();
+    bool acceptSharedAdvertisement(BLEAdvertisedDevice device);
+
 private:
     struct Slot {
         BLEClient *client = nullptr;
@@ -106,3 +109,23 @@ private:
 
     static MultiGoProCamera *_instance;
 };
+
+inline bool MultiGoProCamera::prepareSharedScanSlot() {
+    for (uint8_t i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i) {
+        Slot &s = _slots[i];
+        if (!s.ready && !s.bleConnected && !s.found) {
+            _scanSlot = static_cast<int8_t>(i);
+            return true;
+        }
+    }
+    _scanSlot = -1;
+    return false;
+}
+
+inline bool MultiGoProCamera::acceptSharedAdvertisement(BLEAdvertisedDevice device) {
+    if (_scanSlot < 0 && !prepareSharedScanSlot()) return false;
+    Slot &s = _slots[_scanSlot];
+    const bool had = s.found;
+    onResult(device);
+    return !had && s.found;
+}
