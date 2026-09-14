@@ -40,8 +40,8 @@ function refreshVisibility(){
  const dynWrap=$('fpsDynamicPowerV102Wrap');
  const children=$('fpsPowerChildren');
  if(dynWrap)dynWrap.classList.toggle('fps-v102-hidden',!multi);
- if(children)children.classList.toggle('fps-v102-hidden',!multi);
  const en=multi&&!!$('fpsDynamicPowerV102')?.checked;
+ if(children)children.classList.toggle('fps-v102-hidden',!en);
  ['fpsIdlePower','fpsArmBoostPower','fpsArmBoostMs','fpsArmedPowerV102','fpsDisBoostPower','fpsDisBoostMs','fpsPowerMultiOnly'].forEach(id=>{const e=$(id);if(e)e.disabled=!en});
  refreshLegacyLowPower();
 }
@@ -70,7 +70,7 @@ function build(){if($('fpsV102Experimental'))return;const old=$('fpsDynamicPower
     <p>If a GoPro has never been paired with FreeCLinker before, you may also need to open that camera's <strong>Pair</strong> menu for its initial connection.</p>
    </div>
   </details>
-  <div id="fpsDynamicPowerV102Wrap" class="fps-row fps-toggle-row"><div><strong>Enable Multi Cam BLE power profile</strong><div class="fps-inline-desc">Idle → arm boost → armed → disarm boost → idle. Boost timings of 0 ms preserve the earlier two-state behaviour.</div></div>${makeToggle('fpsDynamicPowerV102')}</div>
+  <div id="fpsDynamicPowerV102Wrap" class="fps-row fps-toggle-row"><div><strong>Advanced power settings</strong><div class="fps-inline-desc">Enable to show and use the staged Multi Cam BLE power controls.</div></div>${makeToggle('fpsDynamicPowerV102')}</div>
   <div class="fps-v102-grid" id="fpsPowerChildren">
    <details class="fps-v102-info">
     <summary>More info — why use several BLE power levels?</summary>
