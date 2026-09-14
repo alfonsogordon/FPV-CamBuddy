@@ -52,9 +52,10 @@ void MultiCameraCoordinator::begin() {
     _caddx.setCameraCallback(cbCaddx);
 
     for (uint8_t i = 0; i < BLE_FAMILY_COUNT; ++i) _ble[i]->setScanEnabled(false);
-    _scanOwner = 0;
+    _scanOwner = GOPRO;
     _ble[_scanOwner]->setScanEnabled(true);
     _scanOwnerSince = millis();
+    _startedMs = _scanOwnerSince;
 
     _gopro.begin();
     _dji.begin();
@@ -63,6 +64,8 @@ void MultiCameraCoordinator::begin() {
     _insta360.begin();
     _caddx.begin();
 
+    DBG_SERIAL.printf("[MULTI] Startup GoPro discovery priority for %lu ms\n",
+                      (unsigned long)INITIAL_GOPRO_PRIORITY_MS);
     DBG_SERIAL.println("[MULTI] Multi-brand coordinator active: GoPro/DJI/Sony/Blackmagic/Insta360/Caddx");
     publishState();
 }
@@ -90,6 +93,22 @@ bool MultiCameraCoordinator::familyWantsScan(uint8_t family) const {
 
 void MultiCameraCoordinator::rotateScanOwner(bool force) {
     const uint32_t now = millis();
+
+    // For the first few seconds after boot, keep GoPro scanning active so two
+    // GoPros can be discovered and handshaken before short camera sleep timers
+    // expire. This is deliberately a bounded startup burst; mixed-brand scan
+    // rotation resumes automatically afterwards.
+    if (now - _startedMs < INITIAL_GOPRO_PRIORITY_MS && familyWantsScan(GOPRO)) {
+        if (_scanOwner != GOPRO) {
+            for (uint8_t i = 0; i < BLE_FAMILY_COUNT; ++i) _ble[i]->setScanEnabled(false);
+            _scanOwner = GOPRO;
+            _ble[GOPRO]->setScanEnabled(true);
+            _scanOwnerSince = now;
+            DBG_SERIAL.println("[MULTI] BLE scan owner -> GoPro (startup priority)");
+        }
+        return;
+    }
+
     if (!force && now - _scanOwnerSince < SCAN_OWNER_WINDOW_MS) return;
 
     for (uint8_t i = 0; i < BLE_FAMILY_COUNT; ++i) _ble[i]->setScanEnabled(false);
