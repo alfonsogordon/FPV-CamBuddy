@@ -1,18 +1,18 @@
 (()=>{
 'use strict';
 if(!location.pathname.includes('/experimental/'))return;
-const STORE='fpsCollapsedMenusV3';
+const STORE='fpsCollapsedMenusV4';
 function load(){try{return JSON.parse(localStorage.getItem(STORE)||'{}')}catch{return{}}}
 function save(v){localStorage.setItem(STORE,JSON.stringify(v))}
 function enabled(root,toggle){root.classList.toggle('fps-menu-enabled',!!toggle?.checked)}
-function addChevron(host,key,getTargets,toggle,root){
+function addChevron(host,key,getTargets,toggle,root,defaultCollapsed=false){
  if(!host||host.querySelector(':scope > .fps-menu-collapse-arrow'))return;
  const btn=document.createElement('button');
  btn.type='button';btn.className='fps-menu-collapse-arrow';btn.setAttribute('aria-label','Collapse section');
- const saved=load();let collapsed=toggle?.checked?!!saved[key]:true;
+ const saved=load();let collapsed=Object.prototype.hasOwnProperty.call(saved,key)?!!saved[key]:(toggle?!toggle.checked:defaultCollapsed);
  function persist(){const s=load();s[key]=collapsed;save(s)}
  function draw(){
-  for(const el of getTargets())el.classList.toggle('fps-menu-collapsed-target',collapsed);
+  for(const el of getTargets())if(el)el.classList.toggle('fps-menu-collapsed-target',collapsed);
   root.classList.toggle('fps-menu-collapsed',collapsed);
   btn.classList.toggle('is-collapsed',collapsed);
   btn.setAttribute('aria-expanded',collapsed?'false':'true');
@@ -28,18 +28,22 @@ function enhanceOsd(){
  const master=document.getElementById('fpsOsdMaster');const top=master?.closest('.fps-top');const card=top?.closest('.config-card');const cardHead=card?.querySelector(':scope > .card-header');
  if(!master||!top||!card||!cardHead||card.dataset.fpsMenuCollapse==='1')return;
  card.dataset.fpsMenuCollapse='1';card.classList.add('fps-menu-collapse-root');
- addChevron(cardHead,'osd-templates',()=>[...card.children].filter(x=>x!==cardHead&&x!==top),master,card);
+ addChevron(cardHead,'osd-templates',()=>[...card.children].filter(x=>x!==cardHead&&x!==top).concat(document.getElementById('fpsIntegratedPreview')).filter(Boolean),master,card);
 }
-function enhanceSection(toggleId,key){
- const toggle=document.getElementById(toggleId);const sec=toggle?.closest('.fps-section');const head=sec?.querySelector(':scope > .fps-section-head');const body=sec?.querySelector(':scope > .fps-section-body');
- if(!toggle||!sec||!head||!body||sec.dataset.fpsMenuCollapse==='1')return;
+function sectionKey(sec,toggle){
+ if(toggle?.id)return 'section-'+toggle.id;
+ const title=sec.querySelector(':scope > .fps-section-head strong')?.textContent||'settings';
+ return 'section-'+title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+}
+function enhanceSection(sec){
+ const head=sec?.querySelector(':scope > .fps-section-head');const body=sec?.querySelector(':scope > .fps-section-body');const toggle=head?.querySelector('input[type="checkbox"]');
+ if(!sec||!head||!body||sec.dataset.fpsMenuCollapse==='1')return;
  sec.dataset.fpsMenuCollapse='1';sec.classList.add('fps-menu-collapse-root');
- addChevron(head,key,()=>[body],toggle,sec);
+ addChevron(head,sectionKey(sec,toggle),()=>[body],toggle,sec,false);
 }
 function scan(){
  enhanceOsd();
- enhanceSection('fpsAuxMaster','aux-camera-controls');
- enhanceSection('fpsAdvancedMultiOsd','advanced-multicam-osd');
+ document.querySelectorAll('.fps-section').forEach(enhanceSection);
 }
 const style=document.createElement('style');style.id='fpsCollapsibleSectionsStyle';style.textContent=`
 .fps-menu-collapse-root{transition:border-color .18s ease,box-shadow .18s ease,background .18s ease}.fps-menu-collapse-root.fps-menu-enabled{border-color:rgba(124,58,237,.78)!important;box-shadow:0 0 0 1px rgba(124,58,237,.2),0 0 16px rgba(124,58,237,.08)}.fps-menu-collapse-root.fps-menu-enabled.fps-menu-collapsed{background:rgba(124,58,237,.045)!important}.fps-menu-collapsed-target{display:none!important}
