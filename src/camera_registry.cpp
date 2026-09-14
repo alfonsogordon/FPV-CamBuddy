@@ -96,6 +96,7 @@ void CameraRegistry::save() {
 }
 
 int CameraRegistry::findByAddr(const char *addr) const {
+    if (!addr) return -1;
     for (int i = 0; i < (int)_count; i++)
         if (strcmp(_entries[i].addr, addr) == 0) return i;
     return -1;
@@ -205,6 +206,38 @@ const char *CameraRegistry::label(uint8_t idx) const {
 
 uint8_t CameraRegistry::cameraNumber(uint8_t idx) const {
     return idx < _count ? _numbers[idx] : 0;
+}
+
+bool CameraRegistry::identityForAddr(const char *addr, uint8_t &number,
+                                     char *labelOut, size_t labelOutLen) const {
+    const int idx = findByAddr(addr);
+    if (idx < 0) return false;
+    number = _numbers[idx];
+    if (labelOut && labelOutLen) strlcpy(labelOut, _labels[idx], labelOutLen);
+    return number != 0;
+}
+
+bool CameraRegistry::identityForType(uint8_t cameraType, uint8_t &number,
+                                     char *labelOut, size_t labelOutLen) const {
+    // The most recently connected camera is the best exact answer for the
+    // single-instance camera families used by the multi-brand coordinator.
+    if (_lastIdx >= 0 && _lastIdx < (int8_t)_count &&
+        _entries[_lastIdx].cameraType == cameraType) {
+        number = _numbers[_lastIdx];
+        if (labelOut && labelOutLen) strlcpy(labelOut, _labels[_lastIdx], labelOutLen);
+        return number != 0;
+    }
+
+    // Fallback for a family whose connection happened before another family.
+    // This remains deterministic for the normal one-camera-per-non-GoPro-family
+    // case; multi-GoPro uses identityForAddr() per slot instead.
+    for (int i = (int)_count - 1; i >= 0; --i) {
+        if (_entries[i].cameraType != cameraType) continue;
+        number = _numbers[i];
+        if (labelOut && labelOutLen) strlcpy(labelOut, _labels[i], labelOutLen);
+        return number != 0;
+    }
+    return false;
 }
 
 void CameraRegistry::selectCamera(uint8_t idx) {
