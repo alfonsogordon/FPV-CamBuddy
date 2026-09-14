@@ -33,11 +33,6 @@ MultiCameraCoordinator::MultiCameraCoordinator(MultiGoProCamera &gopro,
     _all[BLACKMAGIC] = &_blackmagic;
     _all[INSTA360] = &_insta360;
     _all[CADDX] = &_caddx;
-    _ble[0] = &_gopro;
-    _ble[1] = &_dji;
-    _ble[2] = &_sony;
-    _ble[3] = &_blackmagic;
-    _ble[4] = &_insta360;
 }
 
 void MultiCameraCoordinator::begin() {
@@ -51,11 +46,15 @@ void MultiCameraCoordinator::begin() {
     _insta360.setCameraCallback(cbInsta360);
     _caddx.setCameraCallback(cbCaddx);
 
-    for (uint8_t i = 0; i < BLE_FAMILY_COUNT; ++i) _ble[i]->setScanEnabled(false);
-    _scanOwner = GOPRO;
-    _ble[_scanOwner]->setScanEnabled(true);
-    _scanOwnerSince = millis();
-    _startedMs = _scanOwnerSince;
+    // In Multi Cam mode no individual BLE backend owns the scanner. One shared
+    // scan sees every advertisement and dispatches it through all family
+    // matchers. Single-camera mode never instantiates this path and therefore
+    // keeps the original stop-scanning-on-connect behaviour unchanged.
+    _gopro.setScanEnabled(false);
+    _dji.setScanEnabled(false);
+    _sony.setScanEnabled(false);
+    _blackmagic.setScanEnabled(false);
+    _insta360.setScanEnabled(false);
 
     _gopro.begin();
     _dji.begin();
@@ -64,9 +63,9 @@ void MultiCameraCoordinator::begin() {
     _insta360.begin();
     _caddx.begin();
 
-    DBG_SERIAL.printf("[MULTI] Startup GoPro discovery priority for %lu ms\n",
-                      (unsigned long)INITIAL_GOPRO_PRIORITY_MS);
-    DBG_SERIAL.println("[MULTI] Multi-brand coordinator active: GoPro/DJI/Sony/Blackmagic/Insta360/Caddx");
+    DBG_SERIAL.println("[MULTI] Shared BLE discovery active: GoPro/DJI/Sony/Blackmagic/Insta360");
+    DBG_SERIAL.println("[MULTI] BLE discovery remains active while Multi Cam is enabled");
+    startSharedScan();
     publishState();
 }
 
@@ -91,42 +90,61 @@ bool MultiCameraCoordinator::familyWantsScan(uint8_t family) const {
     return !_all[family]->isConnected();
 }
 
-void MultiCameraCoordinator::rotateScanOwner(bool force) {
-    const uint32_t now = millis();
+bool MultiCameraCoordinator::anyBleFamilyWantsScan() const {
+    for (uint8_t i = 0; i < BLE_FAMILY_COUNT; ++i)
+        if (familyWantsScan(i)) return true;
+    return false;
+}
 
-    // For the first few seconds after boot, keep GoPro scanning active so two
-    // GoPros can be discovered and handshaken before short camera sleep timers
-    // expire. This is deliberately a bounded startup burst; mixed-brand scan
-    // rotation resumes automatically afterwards.
-    if (now - _startedMs < INITIAL_GOPRO_PRIORITY_MS && familyWantsScan(GOPRO)) {
-        if (_scanOwner != GOPRO) {
-            for (uint8_t i = 0; i < BLE_FAMILY_COUNT; ++i) _ble[i]->setScanEnabled(false);
-            _scanOwner = GOPRO;
-            _ble[GOPRO]->setScanEnabled(true);
-            _scanOwnerSince = now;
-            DBG_SERIAL.println("[MULTI] BLE scan owner -> GoPro (startup priority)");
-        }
-        return;
+void MultiCameraCoordinator::startSharedScan() {
+    if (_sharedScanning || !anyBleFamilyWantsScan()) return;
+
+    // Pick the next free GoPro slot before advertisements start arriving.
+    // Other camera families each have one connection slot in V1.0.2.
+    if (familyWantsScan(GOPRO)) _gopro.prepareSharedScanSlot();
+
+    BLEScan *scan = BLEDevice::getScan();
+    scan->setAdvertisedDeviceCallbacks(this, true);
+    scan->clearResults();
+    scan->setActiveScan(true);
+    scan->setInterval(0x50);
+    scan->setWindow(0x30);
+    _sharedScanning = true;
+    DBG_SERIAL.println("[MULTI] Shared BLE scan -> all supported BLE camera families");
+    scan->start(BLE_SCAN_DURATION_SECS, sharedScanDoneCallback, false);
+}
+
+void MultiCameraCoordinator::sharedScanDoneCallback(BLEScanResults) {
+    if (!_instance) return;
+    _instance->_sharedScanning = false;
+    _instance->_sharedScanStoppedMs = millis();
+}
+
+void MultiCameraCoordinator::onResult(BLEAdvertisedDevice device) {
+    bool accepted = false;
+    uint8_t family = 0xFF;
+
+    if (familyWantsScan(GOPRO) && _gopro.acceptSharedAdvertisement(device)) {
+        accepted = true; family = GOPRO;
+    } else if (familyWantsScan(DJI) && _dji.acceptSharedAdvertisement(device)) {
+        accepted = true; family = DJI;
+    } else if (familyWantsScan(SONY) && _sony.acceptSharedAdvertisement(device)) {
+        accepted = true; family = SONY;
+    } else if (familyWantsScan(BLACKMAGIC) && _blackmagic.acceptSharedAdvertisement(device)) {
+        accepted = true; family = BLACKMAGIC;
+    } else if (familyWantsScan(INSTA360) && _insta360.acceptSharedAdvertisement(device)) {
+        accepted = true; family = INSTA360;
     }
 
-    if (!force && now - _scanOwnerSince < SCAN_OWNER_WINDOW_MS) return;
+    if (!accepted) return;
 
-    for (uint8_t i = 0; i < BLE_FAMILY_COUNT; ++i) _ble[i]->setScanEnabled(false);
-
-    for (uint8_t step = 1; step <= BLE_FAMILY_COUNT; ++step) {
-        const uint8_t candidate = (_scanOwner + step) % BLE_FAMILY_COUNT;
-        if (familyWantsScan(candidate)) {
-            _scanOwner = candidate;
-            _ble[_scanOwner]->setScanEnabled(true);
-            _scanOwnerSince = now;
-            DBG_SERIAL.printf("[MULTI] BLE scan owner -> family %u\n", _scanOwner);
-            return;
-        }
-    }
-
-    _scanOwner = GOPRO;
-    _ble[_scanOwner]->setScanEnabled(true);
-    _scanOwnerSince = now;
+    // Connecting while an active scan owns the controller is needlessly
+    // fragile on the C3. Stop only long enough for the selected backend to do
+    // its GATT setup; update() restarts the all-family scan ~120 ms later.
+    BLEDevice::getScan()->stop();
+    _sharedScanning = false;
+    _sharedScanStoppedMs = millis();
+    DBG_SERIAL.printf("[MULTI] Shared discovery matched family %u; pausing scan for connection\n", family);
 }
 
 void MultiCameraCoordinator::syncNewConnection(uint8_t family) {
@@ -155,11 +173,9 @@ void MultiCameraCoordinator::update() {
     }
     if (connectionChanged) publishState();
 
-    if (_scanOwner != GOPRO && _all[_scanOwner]->isConnected() &&
-        millis() - _scanOwnerSince > 500) {
-        rotateScanOwner(true);
-    } else {
-        rotateScanOwner(false);
+    if (!_sharedScanning && anyBleFamilyWantsScan() &&
+        millis() - _sharedScanStoppedMs >= SHARED_SCAN_RESTART_MS) {
+        startSharedScan();
     }
 
     if (_camera.recording) {
