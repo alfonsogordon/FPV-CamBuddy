@@ -6,11 +6,14 @@
 
 /* Advanced Multi Cam simulator lives in the narrow preview column: keep every camera card readable. */
 #fpsMultiOsdSimulator{min-width:0!important;overflow:hidden!important}
-#fpsMultiOsdSimulator .fps-multiosd-sim-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:8px!important;min-width:0!important}
-#fpsMultiOsdSimulator .fps-multiosd-cam{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:7px!important;min-width:0!important;overflow:hidden!important}
-#fpsMultiOsdSimulator .fps-multiosd-cam>strong{display:block!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
-#fpsMultiOsdSimulator .fps-multiosd-cam label{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;gap:8px!important;min-width:0!important}
-#fpsMultiOsdSimulator .fps-multiosd-cam input[type=number]{box-sizing:border-box!important;width:72px!important;max-width:100%!important;min-width:0!important}
-#fpsMultiOsdSimulator .fps-multiosd-cam input[type=checkbox]{justify-self:end!important}
+#fpsMultiOsdSimulator .fps-multiosd-sim-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px!important;min-width:0!important}
+#fpsMultiOsdSimulator .fps-multiosd-cam{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:8px!important;min-width:0!important;overflow:hidden!important;padding:10px!important}
+#fpsMultiOsdSimulator .fps-multiosd-cam>strong{display:block!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;margin-bottom:2px!important}
+#fpsMultiOsdSimulator .fps-multiosd-cam label{display:grid!important;grid-template-columns:minmax(0,1fr) 70px!important;align-items:center!important;gap:10px!important;min-width:0!important;font-size:11px!important}
+#fpsMultiOsdSimulator .fps-multiosd-cam label:has(input[type=checkbox]){grid-template-columns:auto minmax(0,1fr)!important;justify-content:start!important}
+#fpsMultiOsdSimulator .fps-multiosd-cam input[type=checkbox]{grid-column:1!important;grid-row:1!important;justify-self:start!important;margin:0!important}
+#fpsMultiOsdSimulator .fps-multiosd-cam label:has(input[type=checkbox])::after{grid-column:2!important;grid-row:1!important}
+#fpsMultiOsdSimulator .fps-multiosd-cam input[type=number]{grid-column:2!important;box-sizing:border-box!important;width:70px!important;max-width:70px!important;min-width:0!important;margin:0!important}
+#fpsMultiOsdSimulator .fps-note{line-height:1.45!important}
 
 @media(max-width:900px){#fpsIntegratedPreview{position:relative!important;top:auto!important;z-index:auto}}
