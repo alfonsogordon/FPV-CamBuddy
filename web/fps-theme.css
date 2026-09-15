@@ -19,16 +19,15 @@
 /* Secondary GoPro connection guidance: intentionally quieter than a setting row. */
 #fpsGoProConnectionNote{padding:6px 26px 12px!important;border:0!important;background:transparent!important;color:#8f849e!important;font-size:11px!important;line-height:1.45!important;font-weight:400!important}
 
-/* Stage 3 integrated OSD preview alignment */
+/* Stage 3 integrated OSD preview alignment.
+   Settings and preview are deliberately normal-flow siblings: one page scroll moves both
+   columns together so lower OSD settings line up with lower preview/simulator controls. */
 #fpsOsdWorkspace{width:100%!important;max-width:460px!important;margin-left:auto!important;margin-right:auto!important;transition:max-width .42s cubic-bezier(.22,.8,.24,1),grid-template-columns .42s cubic-bezier(.22,.8,.24,1),gap .42s ease!important;align-items:start!important;overflow:visible!important}
 #fpsOsdWorkspace>.config-card{width:100%!important;max-width:none!important}
 #fpsOsdWorkspace.fps-preview-open{max-width:1120px!important;grid-template-columns:minmax(0,1fr) minmax(390px,.82fr)!important;gap:18px!important}
 #fpsOsdWorkspace.fps-preview-open>.config-card:first-child{transform:none!important}
-#fpsIntegratedPreview{width:100%!important;max-width:none!important;position:sticky!important;top:12px!important;align-self:start!important;z-index:3!important}
-/* The left OSD settings card can be much taller than the preview. Stretch the grid row
-   to that full height so sticky has a scroll range all the way through the OSD settings. */
-#fpsOsdWorkspace.fps-preview-open>#fpsIntegratedPreview{height:max-content!important;min-height:0!important}
-@media(max-width:1050px){#fpsOsdWorkspace,#fpsOsdWorkspace.fps-preview-open{max-width:460px!important;grid-template-columns:1fr!important}#fpsOsdWorkspace.fps-preview-open{gap:18px!important}#fpsIntegratedPreview{width:100%!important;position:relative!important;top:auto!important;z-index:auto!important}}
+#fpsIntegratedPreview{width:100%!important;max-width:none!important;position:relative!important;top:auto!important;align-self:start!important;z-index:auto!important;height:auto!important;min-height:0!important}
+@media(max-width:1050px){#fpsOsdWorkspace,#fpsOsdWorkspace.fps-preview-open{max-width:460px!important;grid-template-columns:1fr!important}#fpsOsdWorkspace.fps-preview-open{gap:18px!important}#fpsIntegratedPreview{width:100%!important}}
 
 /* Advanced Multi Cam OSD simulator. Explicit rows avoid anonymous label text collisions. */
 #fpsMultiOsdSimulator{min-width:0!important;overflow:hidden!important}
