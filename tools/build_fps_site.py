@@ -22,6 +22,11 @@ for script in legacy_scripts:
 cs = cs.replace("    if (target === 'config'  && port) sendCommand('show');\n", '')
 cs = cs.replace("  // Populate Easy Config fields after a brief settle time\n  setTimeout(() => sendCommand('show'), 300);\n", '')
 
+cleanup_css = '<link rel="stylesheet" href="fps-osd-cleanup.css">'
+if cleanup_css not in cs:
+    if '</head>' not in cs: raise SystemExit('Configurator has no head close')
+    cs = cs.replace('</head>', cleanup_css + '\n</head>', 1)
+
 for script in ['fps-ui-rebuild.js','fps-demo-v1.js','fps-integrated-preview.js','fps-stage3-parity.js','fps-v102-experimental.js','fps-multicam-setup-info.js','fps-camera-labels.js','fps-multicam-ui.js','fps-multicam-osd.js','fps-multicam-osd-visibility-fix.js','fps-collapsible-sections.js','fps-osd-capacity-guard.js','fps-autosync.js','fps-version-check.js','fps-read-completion-guard.js','experimental-banner.js']:
     tag = f'<script src="{script}"></script>'
     if tag not in cs:
@@ -44,7 +49,7 @@ for script in legacy_scripts:
     if f'<script src="{script}"></script>' in final: raise SystemExit(f'Legacy configurator layer still active: {script}')
 if 'href="test.html"' in final or 'osd-preview-tab' in final: raise SystemExit('Standalone OSD Preview navigation has been reintroduced')
 if "setTimeout(() => sendCommand('show'), 300)" in final or "target === 'config'  && port" in final: raise SystemExit('Legacy automatic device read reintroduced')
-for required in ['<script src="fps-ui-rebuild.js"></script>','<script src="fps-demo-v1.js"></script>','<script src="fps-integrated-preview.js"></script>','<script src="fps-stage3-parity.js"></script>','<script src="fps-v102-experimental.js"></script>','<script src="fps-multicam-setup-info.js"></script>','<script src="fps-camera-labels.js"></script>','<script src="fps-multicam-ui.js"></script>','<script src="fps-multicam-osd.js"></script>','<script src="fps-multicam-osd-visibility-fix.js"></script>','<script src="fps-collapsible-sections.js"></script>','<script src="fps-osd-capacity-guard.js"></script>','<script src="fps-autosync.js"></script>','<script src="fps-version-check.js"></script>','<script src="fps-read-completion-guard.js"></script>','<script src="experimental-banner.js"></script>','fps-theme.css']:
+for required in ['<script src="fps-ui-rebuild.js"></script>','<script src="fps-demo-v1.js"></script>','<script src="fps-integrated-preview.js"></script>','<script src="fps-stage3-parity.js"></script>','<script src="fps-v102-experimental.js"></script>','<script src="fps-multicam-setup-info.js"></script>','<script src="fps-camera-labels.js"></script>','<script src="fps-multicam-ui.js"></script>','<script src="fps-multicam-osd.js"></script>','<script src="fps-multicam-osd-visibility-fix.js"></script>','<script src="fps-collapsible-sections.js"></script>','<script src="fps-osd-capacity-guard.js"></script>','<script src="fps-autosync.js"></script>','<script src="fps-version-check.js"></script>','<script src="fps-read-completion-guard.js"></script>','<script src="experimental-banner.js"></script>','fps-theme.css','<link rel="stylesheet" href="fps-osd-cleanup.css">']:
     if required not in final: raise SystemExit(f'Generated configurator missing: {required}')
 
 home_final = read(h)
