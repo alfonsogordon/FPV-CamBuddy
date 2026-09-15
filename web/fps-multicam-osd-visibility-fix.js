@@ -7,6 +7,19 @@ function expOn(){return checkedOrStored('fpsExperimentalMaster','fpsExperimental
 function multiOn(){return expOn()&&!!$('fpsMultiCamSync')?.checked}
 function osdOn(){return !!$('fpsOsdMaster')?.checked}
 function advancedOn(){return multiOn()&&osdOn()&&!!$('fpsAdvancedMultiOsd')?.checked}
+function dedupePreviewIds(){
+ if(!advancedOn())return;
+ document.querySelectorAll('#fpsPreviewRows .fps-preview-line').forEach(line=>{
+  const raw=String(line.textContent||'');
+  const ids=[...raw.matchAll(/-([A-Z0-9][A-Z0-9 _-]{0,6})(?=\s|$)/g)];
+  if(ids.length<2)return;
+  const first=ids[0][1];
+  if(!first)return;
+  let seen=false;
+  const next=raw.replace(new RegExp('-'+first.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?=\\s|$)','g'),m=>{if(!seen){seen=true;return m}return''}).replace(/\s+/g,' ').trim();
+  if(next!==raw)line.textContent=next;
+ });
+}
 function repair(){
  let panel=$('fpsAdvancedMultiOsdPanel');
  const master=$('fpsOsdMaster'),top=master?.closest('.fps-top');
@@ -15,6 +28,7 @@ function repair(){
  if(panel){const visible=multiOn()&&osdOn();panel.classList.add('fps-exp-yellow');panel.classList.toggle('fps-multiosd-visible',visible);panel.style.display=visible?'block':'none'}
  document.querySelectorAll('.fps-multiosd-builder-tools').forEach(x=>x.style.display=advancedOn()?'grid':'none');
  const sim=$('fpsMultiOsdSimulator');if(sim)sim.style.display=advancedOn()?'grid':'none';
+ dedupePreviewIds();
 }
 function addStyle(){if($('fpsAdvancedMultiOsdYellowStyle'))return;const s=document.createElement('style');s.id='fpsAdvancedMultiOsdYellowStyle';s.textContent=`
 #fpsAdvancedMultiOsdPanel.fps-exp-yellow.fps-multiosd-visible{display:block!important}
@@ -28,7 +42,7 @@ function addStyle(){if($('fpsAdvancedMultiOsdYellowStyle'))return;const s=docume
 `;document.head.appendChild(s)}
 let pending=false;function queue(){if(pending)return;pending=true;requestAnimationFrame(()=>{pending=false;repair()})}
 document.addEventListener('change',e=>{if(['fpsMultiCamSync','fpsExperimentalMaster','fpsOsdMaster','fpsAdvancedMultiOsd'].includes(e.target?.id))setTimeout(queue,0)},true);
-new MutationObserver(queue).observe(document.documentElement,{childList:true,subtree:true});
+new MutationObserver(queue).observe(document.documentElement,{childList:true,subtree:true,characterData:true});
 addStyle();
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{setTimeout(repair,500);setTimeout(repair,1000)});else{setTimeout(repair,500);setTimeout(repair,1000)}
 })();
