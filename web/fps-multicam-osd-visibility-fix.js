@@ -11,12 +11,14 @@ function dedupePreviewIds(){
  if(!advancedOn())return;
  document.querySelectorAll('#fpsPreviewRows .fps-preview-line').forEach(line=>{
   const raw=String(line.textContent||'');
-  const ids=[...raw.matchAll(/-([A-Z0-9][A-Z0-9 _-]{0,6})(?=\s|$)/g)];
-  if(ids.length<2)return;
-  const first=ids[0][1];
-  if(!first)return;
+  const matches=[...raw.matchAll(/-([A-Z0-9][A-Z0-9 _-]{0,6})(?=\s|$)/g)];
+  if(matches.length<2)return;
+  const ids=matches.map(m=>m[1]);
+  if(new Set(ids).size!==1)return;
+  const id=ids[0];
   let seen=false;
-  const next=raw.replace(new RegExp('-'+first.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?=\\s|$)','g'),m=>{if(!seen){seen=true;return m}return''}).replace(/\s+/g,' ').trim();
+  const esc=id.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const next=raw.replace(new RegExp('-'+esc+'(?=\\s|$)','g'),m=>{if(!seen){seen=true;return m}return''}).replace(/\s+/g,' ').trim();
   if(next!==raw)line.textContent=next;
  });
 }
