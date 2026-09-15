@@ -27,4 +27,15 @@
 #fpsIntegratedPreview{width:100%!important;max-width:none!important;align-self:start!important}
 @media(max-width:1050px){#fpsOsdWorkspace,#fpsOsdWorkspace.fps-preview-open{max-width:460px!important;grid-template-columns:1fr!important}#fpsOsdWorkspace.fps-preview-open{gap:18px!important}#fpsIntegratedPreview{width:100%!important}}
 
+/* Advanced Multi Cam OSD simulator. Keep controls readable in the preview column. */
+#fpsMultiOsdSimulator{min-width:0!important;overflow:hidden!important}
+#fpsMultiOsdSimulator .fps-multiosd-sim-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px!important;min-width:0!important}
+#fpsMultiOsdSimulator .fps-multiosd-cam{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:8px!important;min-width:0!important;overflow:hidden!important;padding:10px!important}
+#fpsMultiOsdSimulator .fps-multiosd-cam>strong{display:block!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;margin-bottom:2px!important}
+#fpsMultiOsdSimulator .fps-multiosd-cam label{display:grid!important;grid-template-columns:minmax(0,1fr) 70px!important;align-items:center!important;gap:10px!important;min-width:0!important;font-size:11px!important}
+#fpsMultiOsdSimulator .fps-multiosd-cam label:has(input[type=checkbox]){display:flex!important;align-items:center!important;gap:8px!important;justify-content:flex-start!important}
+#fpsMultiOsdSimulator .fps-multiosd-cam input[type=checkbox]{flex:0 0 auto!important;margin:0!important}
+#fpsMultiOsdSimulator .fps-multiosd-cam input[type=number]{grid-column:2!important;box-sizing:border-box!important;width:70px!important;max-width:70px!important;min-width:0!important;margin:0!important}
+#fpsMultiOsdSimulator .fps-note{line-height:1.45!important}
+
 @media(max-width:760px){body{overflow-x:hidden!important}header{gap:8px!important;padding:8px 10px!important;flex-wrap:wrap!important;min-width:0!important;max-width:100vw!important}.brand{flex:1 0 100%!important;margin-right:0!important}.tab-bar{padding:0!important;width:100%!important;max-width:100vw!important;overflow:hidden!important}.tab-bar .tab{flex:1 1 25%!important;width:25%!important;min-width:0!important;padding:8px 2px!important;text-align:center!important;white-space:nowrap!important;font-size:11px!important}.panels,#panel-config{width:100%!important;max-width:100vw!important}.config-card{max-width:100%!important}.cfg-field{min-width:0!important}.cfg-field>div{min-width:0!important}select{max-width:100%!important}#fpsOsdWorkspace,#fpsOsdWorkspace.fps-preview-open{max-width:100%!important}}
