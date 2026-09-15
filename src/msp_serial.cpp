@@ -99,7 +99,7 @@ void formatWarning(const char *base, uint8_t sourceCamera, const char *sourceLab
     if (sourceLabel && sourceLabel[0])
         snprintf(out, outLen, "%s %s", base, sourceLabel);
     else if (sourceCamera > 0)
-        snprintf(out, outLen, "%s CAM%u", base, sourceCamera);
+        snprintf(out, outLen, "%s C%u", base, sourceCamera);
     else
         snprintf(out, outLen, "%s", base);
 }
@@ -141,6 +141,46 @@ TokenSpec parseTokenSpec(const char *tok) {
     return s;
 }
 
+bool templateHasPinnedSource(const char *tpl, uint8_t number) {
+    if (!tpl || number == 0) return false;
+    while (*tpl) {
+        const char *open = strchr(tpl, '{');
+        if (!open) break;
+        const char *end = strchr(open + 1, '}');
+        if (!end) break;
+        char tok[16] = {};
+        const size_t len = static_cast<size_t>(end - (open + 1));
+        if (len < sizeof(tok)) {
+            memcpy(tok, open + 1, len);
+            tok[len] = '\0';
+            const TokenSpec spec = parseTokenSpec(tok);
+            if (spec.advanced && spec.source == number) return true;
+        }
+        tpl = end + 1;
+    }
+    return false;
+}
+
+bool templateHasAnyPinnedSource(const char *tpl) {
+    if (!tpl) return false;
+    while (*tpl) {
+        const char *open = strchr(tpl, '{');
+        if (!open) break;
+        const char *end = strchr(open + 1, '}');
+        if (!end) break;
+        char tok[16] = {};
+        const size_t len = static_cast<size_t>(end - (open + 1));
+        if (len < sizeof(tok)) {
+            memcpy(tok, open + 1, len);
+            tok[len] = '\0';
+            const TokenSpec spec = parseTokenSpec(tok);
+            if (spec.advanced && spec.source > 0) return true;
+        }
+        tpl = end + 1;
+    }
+    return false;
+}
+
 const CameraSourceData *findSource(const CameraData &data, uint8_t number) {
     if (number == 0) return nullptr;
     for (uint8_t i = 0; i < data.source_count && i < CAM_OSD_SOURCE_MAX; ++i)
@@ -173,7 +213,7 @@ void appendIdentifier(char *val, size_t valLen, uint8_t number, const char *labe
 }
 
 void formatSourceToken(const char *tok, const CameraSourceData *src,
-                       uint8_t requestedNumber, char idMode,
+                       uint8_t requestedNumber, char idMode, bool includeIdentifier,
                        char *val, size_t valLen) {
     val[0] = '\0';
     const uint8_t number = src && src->camera_number ? src->camera_number : requestedNumber;
@@ -190,7 +230,7 @@ void formatSourceToken(const char *tok, const CameraSourceData *src,
         else if (strcmp(tok, "rleft") == 0) snprintf(val, valLen, "--");
         else if (strcmp(tok, "fps") == 0) snprintf(val, valLen, "--");
         else snprintf(val, valLen, "---");
-        appendIdentifier(val, valLen, number, label, idMode);
+        if (includeIdentifier) appendIdentifier(val, valLen, number, label, idMode);
         return;
     }
 
@@ -242,7 +282,7 @@ void formatSourceToken(const char *tok, const CameraSourceData *src,
             snprintf(val, valLen, "%luGB", (unsigned long)gb);
         } else snprintf(val, valLen, "%luMB", (unsigned long)src->remain_cap_mb);
     }
-    appendIdentifier(val, valLen, number, label, idMode);
+    if (includeIdentifier) appendIdentifier(val, valLen, number, label, idMode);
 }
 
 void resolveAggregateToken(const char *tok, const CameraData &data, const char *state,
@@ -307,7 +347,7 @@ void resolveAggregateToken(const char *tok, const CameraData &data, const char *
 }
 
 void resolveToken(const char *tok, const CameraData &data, const char *state,
-                  char *val, size_t valLen) {
+                  bool includeIdentifier, char *val, size_t valLen) {
     const TokenSpec spec = parseTokenSpec(tok);
     if (!spec.advanced) {
         resolveAggregateToken(spec.base, data, state, val, valLen);
@@ -316,14 +356,10 @@ void resolveToken(const char *tok, const CameraData &data, const char *state,
 
     if (spec.source > 0) {
         formatSourceToken(spec.base, findSource(data, spec.source), spec.source,
-                          spec.idMode, val, valLen);
+                          spec.idMode, includeIdentifier, val, valLen);
         return;
     }
 
-    // Source 0 means "Auto / lowest where applicable". Battery and remaining
-    // time retain the proven aggregate lowest-value behaviour and simply add
-    // the identity of the camera which supplied that value. Other fields use
-    // the first live source; aggregate Status deliberately stays RDY/REC (N).
     if (strcmp(spec.base, "state") == 0 || strcmp(spec.base, "stateonly") == 0 ||
         strcmp(spec.base, "rec") == 0 || strcmp(spec.base, "fpv") == 0) {
         resolveAggregateToken(spec.base, data, state, val, valLen);
@@ -331,17 +367,17 @@ void resolveToken(const char *tok, const CameraData &data, const char *state,
     }
     if (strcmp(spec.base, "batt") == 0 || strcmp(spec.base, "bat") == 0 || strcmp(spec.base, "batn") == 0) {
         resolveAggregateToken(spec.base, data, state, val, valLen);
-        appendIdentifier(val, valLen, data.battery_source_camera, data.battery_source_label, spec.idMode);
+        if (includeIdentifier) appendIdentifier(val, valLen, data.battery_source_camera, data.battery_source_label, spec.idMode);
         return;
     }
     if (strcmp(spec.base, "rectf") == 0 || strcmp(spec.base, "rect") == 0 || strcmp(spec.base, "rleft") == 0) {
         resolveAggregateToken(spec.base, data, state, val, valLen);
-        appendIdentifier(val, valLen, data.remain_source_camera, data.remain_source_label, spec.idMode);
+        if (includeIdentifier) appendIdentifier(val, valLen, data.remain_source_camera, data.remain_source_label, spec.idMode);
         return;
     }
     const CameraSourceData *src = firstSource(data);
     formatSourceToken(spec.base, src, src ? src->camera_number : 0,
-                      spec.idMode, val, valLen);
+                      spec.idMode, includeIdentifier, val, valLen);
 }
 
 void expandTemplate(const char *tpl, const CameraData &data, const char *state,
@@ -350,6 +386,8 @@ void expandTemplate(const char *tpl, const CameraData &data, const char *state,
     out[0] = '\0';
     if (!tpl) return;
 
+    uint8_t identifiedSources[CAM_OSD_SOURCE_MAX] = {};
+    uint8_t identifiedCount = 0;
     size_t outPos = 0;
     while (*tpl && outPos < outLen - 1) {
         if (*tpl == '{') {
@@ -363,8 +401,20 @@ void expandTemplate(const char *tpl, const CameraData &data, const char *state,
             if (tLen < sizeof(tok)) {
                 memcpy(tok, tpl + 1, tLen);
                 tok[tLen] = '\0';
+                const TokenSpec spec = parseTokenSpec(tok);
+                bool includeIdentifier = true;
+                if (spec.advanced && spec.source > 0) {
+                    for (uint8_t i = 0; i < identifiedCount; ++i) {
+                        if (identifiedSources[i] == spec.source) {
+                            includeIdentifier = false;
+                            break;
+                        }
+                    }
+                    if (includeIdentifier && identifiedCount < CAM_OSD_SOURCE_MAX)
+                        identifiedSources[identifiedCount++] = spec.source;
+                }
                 char val[20] = {};
-                resolveToken(tok, data, state, val, sizeof(val));
+                resolveToken(tok, data, state, includeIdentifier, val, sizeof(val));
                 const size_t vLen = strlen(val);
                 const size_t room = outLen - 1 - outPos;
                 const size_t copy = vLen < room ? vLen : room;
@@ -549,35 +599,63 @@ void MSPSerial::sendCustomOSD(uint8_t textType, const CameraData &data, const ch
     if (cameraError) state = "ERR";
     else if (cameraRecording) state = "REC";
 
-    const unsigned pct = data.percent > 100 ? 100 : data.percent;
-    const bool lowBatt = _fpvLowBatteryEnabled && data.valid && data.has_battery && pct <= _fpvLowBatteryPct;
-    const bool lowRec = _fpvLowRecEnabled && data.valid && data.has_remain_time &&
-                        data.remain_time <= static_cast<uint32_t>(_fpvLowRecMinutes) * 60UL;
-    const bool hot = _fpvHotEnabled && data.valid && data.has_temperature && data.temp_over != 0;
-
-    char warningText[3][TEXT_LIMIT + 1] = {};
-    const char *warnings[3] = {nullptr, nullptr, nullptr};
+    char warningText[CAM_OSD_SOURCE_MAX * 3][TEXT_LIMIT + 1] = {};
+    const char *warnings[CAM_OSD_SOURCE_MAX * 3] = {};
     uint8_t warningCount = 0;
-    if (lowBatt && _fpvLowBatteryText[0]) {
-        formatWarning(_fpvLowBatteryText, data.battery_source_camera, data.battery_source_label,
-                      warningText[warningCount], sizeof(warningText[warningCount]));
-        warnings[warningCount] = warningText[warningCount];
-        ++warningCount;
-    }
-    if (lowRec && _fpvLowRecText[0]) {
-        formatWarning(_fpvLowRecText, data.remain_source_camera, data.remain_source_label,
-                      warningText[warningCount], sizeof(warningText[warningCount]));
-        warnings[warningCount] = warningText[warningCount];
-        ++warningCount;
-    }
-    if (hot && _fpvHotText[0]) {
-        formatWarning(_fpvHotText, data.temp_source_camera, data.temp_source_label,
-                      warningText[warningCount], sizeof(warningText[warningCount]));
-        warnings[warningCount] = warningText[warningCount];
-        ++warningCount;
+    const bool pinnedTemplate = templateHasAnyPinnedSource(tpl);
+
+    if (pinnedTemplate) {
+        for (uint8_t i = 0; i < data.source_count && i < CAM_OSD_SOURCE_MAX; ++i) {
+            const CameraSourceData &src = data.sources[i];
+            if (!src.camera_number || !templateHasPinnedSource(tpl, src.camera_number)) continue;
+            const unsigned srcPct = src.percent > 100 ? 100 : src.percent;
+            const bool srcLowBatt = _fpvLowBatteryEnabled && src.valid && src.has_battery && srcPct <= _fpvLowBatteryPct;
+            const bool srcLowRec = _fpvLowRecEnabled && src.valid && src.has_remain_time &&
+                                   src.remain_time <= static_cast<uint32_t>(_fpvLowRecMinutes) * 60UL;
+            const bool srcHot = _fpvHotEnabled && src.valid && src.temp_over != 0;
+            if (srcLowBatt && _fpvLowBatteryText[0] && warningCount < CAM_OSD_SOURCE_MAX * 3) {
+                formatWarning(_fpvLowBatteryText, src.camera_number, src.camera_label,
+                              warningText[warningCount], sizeof(warningText[warningCount]));
+                warnings[warningCount] = warningText[warningCount];
+                ++warningCount;
+            }
+            if (srcLowRec && _fpvLowRecText[0] && warningCount < CAM_OSD_SOURCE_MAX * 3) {
+                formatWarning(_fpvLowRecText, src.camera_number, src.camera_label,
+                              warningText[warningCount], sizeof(warningText[warningCount]));
+                warnings[warningCount] = warningText[warningCount];
+                ++warningCount;
+            }
+            if (srcHot && _fpvHotText[0] && warningCount < CAM_OSD_SOURCE_MAX * 3) {
+                formatWarning(_fpvHotText, src.camera_number, src.camera_label,
+                              warningText[warningCount], sizeof(warningText[warningCount]));
+                warnings[warningCount] = warningText[warningCount];
+                ++warningCount;
+            }
+        }
+    } else {
+        const unsigned pct = data.percent > 100 ? 100 : data.percent;
+        const bool lowBatt = _fpvLowBatteryEnabled && data.valid && data.has_battery && pct <= _fpvLowBatteryPct;
+        const bool lowRec = _fpvLowRecEnabled && data.valid && data.has_remain_time &&
+                            data.remain_time <= static_cast<uint32_t>(_fpvLowRecMinutes) * 60UL;
+        const bool hot = _fpvHotEnabled && data.valid && data.has_temperature && data.temp_over != 0;
+        if (lowBatt && _fpvLowBatteryText[0]) {
+            formatWarning(_fpvLowBatteryText, data.battery_source_camera, data.battery_source_label,
+                          warningText[warningCount], sizeof(warningText[warningCount]));
+            warnings[warningCount] = warningText[warningCount++];
+        }
+        if (lowRec && _fpvLowRecText[0]) {
+            formatWarning(_fpvLowRecText, data.remain_source_camera, data.remain_source_label,
+                          warningText[warningCount], sizeof(warningText[warningCount]));
+            warnings[warningCount] = warningText[warningCount++];
+        }
+        if (hot && _fpvHotText[0]) {
+            formatWarning(_fpvHotText, data.temp_source_camera, data.temp_source_label,
+                          warningText[warningCount], sizeof(warningText[warningCount]));
+            warnings[warningCount] = warningText[warningCount++];
+        }
     }
 
-    const bool warningHere = warningCount > 0 && destination == _fpvWarningTarget;
+    const bool warningHere = warningCount > 0 && (pinnedTemplate || destination == _fpvWarningTarget);
     const bool warningPhase = ((millis() / 1000UL) & 1U) != 0U;
     if (warningHere && warningPhase) {
         const uint8_t idx = static_cast<uint8_t>((millis() / 2000UL) % warningCount);
