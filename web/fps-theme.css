@@ -29,10 +29,17 @@
 #fpsIntegratedPreview{width:100%!important;max-width:none!important;position:relative!important;top:auto!important;align-self:start!important;z-index:auto!important;height:auto!important;min-height:0!important}
 @media(max-width:1050px){#fpsOsdWorkspace,#fpsOsdWorkspace.fps-preview-open{max-width:460px!important;grid-template-columns:1fr!important}#fpsOsdWorkspace.fps-preview-open{gap:18px!important}#fpsIntegratedPreview{width:100%!important}}
 
+/* Advanced Multi Cam OSD: source belongs to each selected element. */
+.fps-multiosd-builder-tools{display:none!important}
+.fps-chips button:has(.fps-element-source){display:inline-flex!important;align-items:center!important;gap:2px!important;padding-right:9px!important}
+.fps-element-source{display:inline-block!important;width:auto!important;min-width:54px!important;max-width:145px!important;margin:0 2px!important;padding:3px 20px 3px 7px!important;border:1px solid #d6a928!important;border-radius:7px!important;background:#2b2410!important;color:#ffd85a!important;font:inherit!important;font-size:11px!important;font-weight:800!important;line-height:1.2!important;cursor:pointer!important}
+.fps-element-source:hover,.fps-element-source:focus{border-color:#ffe07a!important;background:#372d10!important;outline:none!important}
+.fps-element-remove{pointer-events:none}
+/* Remove only the redundant final internal divider at the bottom of OSD Settings. */
+#fpsOsdWorkspace>.config-card:first-child>.fps-section:last-of-type{border-bottom:0!important}
+
 /* Advanced Multi Cam OSD simulator. Explicit rows avoid anonymous label text collisions. */
 #fpsMultiOsdSimulator{min-width:0!important;overflow:hidden!important}
-/* The preview simulator container is a two-column grid. The Advanced Multi Cam
-   simulator is a panel, not a single control, so it must span both columns. */
 #fpsIntegratedPreview .fps-preview-sim>#fpsMultiOsdSimulator{grid-column:1 / -1!important;width:100%!important;max-width:none!important}
 #fpsMultiOsdSimulator .fps-multiosd-sim-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px!important;min-width:0!important}
 #fpsMultiOsdSimulator .fps-multiosd-cam{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px!important;min-width:0!important;overflow:hidden!important;padding:10px!important}
