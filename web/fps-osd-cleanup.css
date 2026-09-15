@@ -1,8 +1,9 @@
 .token-ref,.token-help,.available-tokens,.fps-advanced{display:none!important}
 
-/* Keep the live preview aligned with the top of the OSD workspace while desktop settings scroll. */
+/* The OSD settings and live preview are normal-flow grid siblings.
+   Their top edges stay aligned and the page scroll moves both columns together. */
 #fpsOsdWorkspace{align-items:start!important;overflow:visible!important}
-#fpsIntegratedPreview{position:sticky!important;top:12px!important;align-self:start!important;z-index:3}
+#fpsIntegratedPreview{position:relative!important;top:auto!important;align-self:start!important;z-index:auto!important;margin-top:0!important}
 
 /* Advanced Multi Cam simulator lives in the narrow preview column: keep every camera card readable. */
 #fpsMultiOsdSimulator{min-width:0!important;overflow:hidden!important}
@@ -16,4 +17,4 @@
 #fpsMultiOsdSimulator .fps-multiosd-cam input[type=number]{grid-column:2!important;box-sizing:border-box!important;width:70px!important;max-width:70px!important;min-width:0!important;margin:0!important}
 #fpsMultiOsdSimulator .fps-note{line-height:1.45!important}
 
-@media(max-width:900px){#fpsIntegratedPreview{position:relative!important;top:auto!important;z-index:auto}}
+@media(max-width:900px){#fpsIntegratedPreview{position:relative!important;top:auto!important;z-index:auto!important}}
