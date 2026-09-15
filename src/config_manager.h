@@ -10,7 +10,7 @@ struct CameraData;
 
 class ConfigManager {
 public:
-    static constexpr uint8_t OSD_TPL_LEN = 32;
+    static constexpr uint8_t OSD_TPL_LEN = 64;
 
     struct Config {
         uint32_t disarmStopDelayMs;
