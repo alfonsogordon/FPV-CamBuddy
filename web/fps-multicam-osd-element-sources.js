@@ -11,10 +11,6 @@ function optionText(c){const tag=String(c?.label||'').trim();return `C${c.number
 function token(base,source){if(!source)return `{${base}}`;const mode=localStorage.getItem('fpsAdvancedMultiCamOsdIdentifier')==='tag'?'t':'n';return `{${base}@${source}${mode}}`}
 function changeSource(input,index,source){const toks=input.value.match(TOKEN_RE)||[];if(!toks[index])return;const p=parse(toks[index]);if(!p)return;const next=token(p.base,source);if(toks.some((t,j)=>j!==index&&t===next))return false;toks[index]=next;input.value=toks.join(' ');input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));return true}
 function redecorateAfterLegacyRefresh(builder){
- /* The original Advanced OSD helper redraws chip text after an input event. That
-    legacy redraw is still useful for the underlying builder, but textContent also
-    removes our inline select. Re-apply the per-element control after each of those
-    queued redraws so the selector remains part of the chip. */
  [0,16,50,150,350].forEach(ms=>setTimeout(()=>decorate(builder),ms));
 }
 function buildSelect(chip,input,index,p){
@@ -36,8 +32,29 @@ function decorate(builder){
  chip.append(name,buildSelect(chip,input,i,p),close)
  })
 }
-function seedPreview(){if(!advanced())return;const api=window.fpsMultiCamOsd,map=api?.cameras;if(!map?.get)return;document.querySelectorAll('#fpsMultiOsdSimulator .fps-multiosd-cam').forEach(card=>{if(card.dataset.fpsPreviewSeeded==='1')return;const n=Number(card.dataset.cam),d=PREVIEW_DEFAULTS[n];if(!d)return;const c=map.get(n);if(!c)return;const batt=card.querySelector('input[data-k="battery"]'),remain=card.querySelector('input[data-k="remain"]');if(Number(batt?.value)===0&&Number(c.battery)===0){c.battery=d.battery;batt.value=String(d.battery)}if(Number(remain?.value)===0&&Number(c.remain)===0){c.remain=d.remain;remain.value=String(d.remain)}if(remain){remain.max='999';remain.title='Time remaining supports up to 999 minutes (3 digits).'}card.dataset.fpsPreviewSeeded='1'});api?.refresh?.()}
-function refresh(){document.querySelectorAll('.fps-builder').forEach(decorate);seedPreview()}
+function syncStatusOptions(){
+ const sec=document.querySelector('.fps-status-shared');if(!sec)return;
+ if(!advanced())return;
+ const legacy=document.getElementById('fpsBfMode')?.value==='legacy';
+ const ids=legacy?['pilotTpl','craftTpl']:['osd1','osd2','osd3','osd4'];
+ const enabled=legacy?[document.getElementById('fpsPilotMaster')?.checked,document.getElementById('fpsCraftMaster')?.checked]:[1,2,3,4].map(n=>document.getElementById('fpsMsg'+n)?.checked);
+ const used=ids.some((id,i)=>enabled[i]&&/\{state(?:only)?(?:@\d+[nt])?\}/i.test(String(document.getElementById(id)?.value||'')));
+ sec.style.display=document.getElementById('fpsOsdMaster')?.checked&&used?'':'none';
+}
+function seedPreview(){
+ if(!advanced())return;const api=window.fpsMultiCamOsd,map=api?.cameras;if(!map?.get)return;let changed=false;
+ document.querySelectorAll('#fpsMultiOsdSimulator .fps-multiosd-cam').forEach(card=>{const n=Number(card.dataset.cam),d=PREVIEW_DEFAULTS[n];if(!d)return;const c=map.get(n);if(!c)return;const connected=card.querySelector('input[data-k="connected"]'),rec=card.querySelector('input[data-k="recording"]'),batt=card.querySelector('input[data-k="battery"]'),remain=card.querySelector('input[data-k="remain"]');
+  if(card.dataset.fpsPreviewSeeded!=='1'){
+   if(!Number.isFinite(Number(c.battery))||Number(c.battery)<=0){c.battery=d.battery;if(batt)batt.value=String(d.battery);changed=true}else if(batt&&Number(batt.value)<=0)batt.value=String(c.battery);
+   if(!Number.isFinite(Number(c.remain))||Number(c.remain)<=0){c.remain=d.remain;if(remain)remain.value=String(d.remain);changed=true}else if(remain&&Number(remain.value)<=0)remain.value=String(c.remain);
+   card.dataset.fpsPreviewSeeded='1';
+  }
+  const isConnected=!!connected?.checked;card.classList.toggle('fps-preview-cam-off',!isConnected);if(rec)rec.disabled=!isConnected;if(batt)batt.disabled=!isConnected;if(remain){remain.disabled=!isConnected;remain.max='999';remain.title='Time remaining supports up to 999 minutes (3 digits).'}
+ });
+ if(changed)requestAnimationFrame(()=>api?.refresh?.());
+}
+function ensureStyle(){if(document.getElementById('fpsElementSourceUiStyle'))return;const s=document.createElement('style');s.id='fpsElementSourceUiStyle';s.textContent='#fpsMultiOsdSimulator .fps-preview-cam-off .fps-multiosd-toggle:not(:first-child),#fpsMultiOsdSimulator .fps-preview-cam-off .fps-multiosd-value-row{opacity:.38}#fpsMultiOsdSimulator .fps-preview-cam-off input:disabled{cursor:not-allowed}';document.head.appendChild(s)}
+function refresh(){ensureStyle();document.querySelectorAll('.fps-builder').forEach(decorate);syncStatusOptions();seedPreview()}
 let queued=false;const queue=()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;refresh()})};
 new MutationObserver(queue).observe(document.documentElement,{childList:true,subtree:true,characterData:true});
 document.addEventListener('input',queue,true);document.addEventListener('change',queue,true);window.addEventListener('fps-camera-registry-update',queue);window.addEventListener('fps-config-read-complete',queue);setInterval(refresh,250);queue();
