@@ -153,7 +153,12 @@ capacity = read('web/fps-osd-capacity-guard.js')
 for marker in ['LIMIT=16','fps-osd-capacity-guard','fpsCapacityBlocked',"Won't fit",'stopImmediatePropagation']:
     if marker not in capacity:
         raise SystemExit(f'OSD capacity guard missing: {marker}')
-autosync = read('web/fps-autosync.js')
+# fps-autosync.js is now a small ordered loader; the actual save/apply commands
+# live in fps-autosync-core.js. Validate both so CI checks the deployed structure.
+autosync_loader = read('web/fps-autosync.js')
+if 'fps-autosync-core.js' not in autosync_loader:
+    raise SystemExit('Autosync loader no longer loads fps-autosync-core.js')
+autosync = read('web/fps-autosync-core.js')
 for command in ['set multi_cam','set arm_boost_dbm','set arm_boost_ms','set dis_boost_dbm','set dis_boost_ms','set power_multi_only']:
     if command not in autosync:
         raise SystemExit(f'V1.0.2 save/apply path missing: {command}')
