@@ -8,19 +8,24 @@ function parse(tok){const raw=String(tok||'').replace(/^\{|\}$/g,'');const m=raw
 function cameraList(){const api=window.fpsMultiCamOsd,list=api?.cameraList?.();if(Array.isArray(list)&&list.length)return list;const map=api?.cameras;if(map?.values)return [...map.values()].sort((a,b)=>(a.number||0)-(b.number||0));return[]}
 function optionText(c){const tag=String(c?.label||'').trim();return `C${c.number}${tag?' · '+tag:''}${c.connected?' · connected':''}`}
 function token(base,source){if(!source)return `{${base}}`;const mode=localStorage.getItem('fpsAdvancedMultiCamOsdIdentifier')==='tag'?'t':'n';return `{${base}@${source}${mode}}`}
-function changeSource(input,index,source){const toks=input.value.match(TOKEN_RE)||[];if(!toks[index])return;const p=parse(toks[index]);if(!p)return;toks[index]=token(p.base,source);input.value=toks.join(' ');input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}))}
+function changeSource(input,index,source){const toks=input.value.match(TOKEN_RE)||[];if(!toks[index])return;const p=parse(toks[index]);if(!p)return;const next=token(p.base,source);if(toks.some((t,j)=>j!==index&&t===next))return false;toks[index]=next;input.value=toks.join(' ');input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));return true}
+function buildSelect(chip,input,index,p){
+ const sel=document.createElement('select');sel.className='fps-element-source';sel.title='Source camera for this OSD element';sel.add(new Option('AUTO','0'));for(const c of cameraList())sel.add(new Option(optionText(c),String(c.number)));sel.value=String(p.source||0);
+ for(const ev of ['pointerdown','mousedown','click'])sel.addEventListener(ev,e=>e.stopPropagation());
+ sel.addEventListener('change',e=>{e.stopPropagation();const previous=p.source||0,next=Number(sel.value)||0;if(!changeSource(input,index,next)){sel.value=String(previous);sel.title='That element/source is already in this OSD line.';return}sel.title='Source camera for this OSD element';requestAnimationFrame(()=>decorate(chip.closest('.fps-builder')))});
+ return sel
+}
 function decorate(builder){
- const tools=builder.querySelector('.fps-multiosd-builder-tools');if(tools)tools.style.display='none';
+ if(!builder)return;const tools=builder.querySelector('.fps-multiosd-builder-tools');if(tools)tools.style.display='none';
  const input=builder.querySelector('input[id],textarea[id]');const chipBox=builder.querySelector('.fps-chips');if(!input||!chipBox)return;
  const toks=input.value.match(TOKEN_RE)||[],chips=[...chipBox.querySelectorAll('button')];
- chips.forEach((chip,i)=>{const p=parse(toks[i]);if(!p)return;if(!advanced()){if(chip.dataset.fpsElementSource==='1'){chip.dataset.fpsElementSource='0';chip.textContent=(FIELD_NAME[p.base]||p.base)+' ×'}return}
- const sig=`${p.base}|${p.source}|${cameraList().map(c=>`${c.number}:${c.label||''}:${c.connected?1:0}`).join(',')}`;if(chip.dataset.fpsSourceSig===sig)return;
+ chips.forEach((chip,i)=>{const p=parse(toks[i]);if(!p)return;if(!advanced()){if(chip.dataset.fpsElementSource==='1'){chip.dataset.fpsElementSource='0';chip.dataset.fpsSourceSig='';chip.textContent=(FIELD_NAME[p.base]||p.base)+' ×'}return}
+ const sig=`${p.base}|${p.source}|${cameraList().map(c=>`${c.number}:${c.label||''}:${c.connected?1:0}`).join(',')}`;
+ const current=chip.querySelector('.fps-element-source');if(chip.dataset.fpsElementSource==='1'&&current){if(current.value!==String(p.source||0))current.value=String(p.source||0);if(chip.dataset.fpsSourceSig===sig)return}
  chip.dataset.fpsElementSource='1';chip.dataset.fpsSourceSig=sig;chip.textContent='';
  const name=document.createElement('span');name.className='fps-element-name';name.textContent=(FIELD_NAME[p.base]||p.base)+' · ';
- const sel=document.createElement('select');sel.className='fps-element-source';sel.title='Source camera for this OSD element';sel.add(new Option('AUTO','0'));for(const c of cameraList())sel.add(new Option(optionText(c),String(c.number)));sel.value=String(p.source||0);
  const close=document.createElement('span');close.className='fps-element-remove';close.textContent=' ×';
- for(const ev of ['pointerdown','mousedown','click'])sel.addEventListener(ev,e=>e.stopPropagation());sel.addEventListener('change',e=>{e.stopPropagation();changeSource(input,i,Number(sel.value)||0)});
- chip.append(name,sel,close)
+ chip.append(name,buildSelect(chip,input,i,p),close)
  })
 }
 function refresh(){document.querySelectorAll('.fps-builder').forEach(decorate)}
