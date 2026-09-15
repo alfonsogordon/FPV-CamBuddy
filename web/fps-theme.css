@@ -29,6 +29,9 @@
 
 /* Advanced Multi Cam OSD simulator. Explicit rows avoid anonymous label text collisions. */
 #fpsMultiOsdSimulator{min-width:0!important;overflow:hidden!important}
+/* The preview simulator container is a two-column grid. The Advanced Multi Cam
+   simulator is a panel, not a single control, so it must span both columns. */
+#fpsIntegratedPreview .fps-preview-sim>#fpsMultiOsdSimulator{grid-column:1 / -1!important;width:100%!important;max-width:none!important}
 #fpsMultiOsdSimulator .fps-multiosd-sim-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px!important;min-width:0!important}
 #fpsMultiOsdSimulator .fps-multiosd-cam{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px!important;min-width:0!important;overflow:hidden!important;padding:10px!important}
 #fpsMultiOsdSimulator .fps-multiosd-cam-title{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important;min-width:0!important}
