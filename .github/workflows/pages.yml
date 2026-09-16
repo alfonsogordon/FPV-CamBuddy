@@ -1,4 +1,4 @@
-# Fresh Pages deployment trigger for V1.0.2 AP-association candidate
+# Fresh Pages deployment trigger for known-good V1.0.2 AP checkpoint
 name: Deploy GitHub Pages
 
 on:
