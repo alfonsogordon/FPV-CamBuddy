@@ -39,6 +39,14 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
     WiFi.mode(WIFI_AP);
     delay(100);
 
+    // The camera low-power option deliberately reduces BLE TX power, but the
+    // configuration AP should remain easy to associate with. Set WiFi TX power
+    // explicitly while AP mode is active instead of relying on the radio's
+    // previous/default state. WIFI_POWER_19_5dBm is the Arduino-ESP32 maximum
+    // WiFi setting supported by the C3 API.
+    WiFi.setTxPower(WIFI_POWER_19_5dBm);
+    if (_dbg) _dbg->printf("[wifi] AP TX power set to %d\n", (int)WiFi.getTxPower());
+
     if (_dbg) _dbg->printf("[wifi] Starting AP '%s' on channel %u — mode=%d\n",
                            WIFI_AP_SSID, WIFI_AP_CHANNEL, (int)WiFi.getMode());
 
@@ -180,7 +188,7 @@ void WebConfigServer::handlePostConfig() {
     if (doc["pilot_tpl"].is<const char *>()) _cfg->setPilotNameTemplate(doc["pilot_tpl"].as<const char *>());
     if (doc["craft_en"].is<bool>())       _cfg->setCraftNameEnabled(doc["craft_en"].as<bool>());
     if (doc["craft_tpl"].is<const char *>()) _cfg->setCraftNameTemplate(doc["craft_tpl"].as<const char *>());
-    if (doc["fpv_state_mode"].is<bool>()) _cfg->setFpvStateMode(doc["fpv_state_mode"].as<bool>());
+    if (doc["fpv_state_mode"].is<int>())   _cfg->setFpvStateMode(doc["fpv_state_mode"].as<uint8_t>());
     if (doc["fpv_error"].is<bool>())       _cfg->setFpvErrorEnabled(doc["fpv_error"].as<bool>());
     if (doc["fpv_err_text"].is<const char *>()) _cfg->setFpvErrorText(doc["fpv_err_text"].as<const char *>());
     if (doc["fpv_ready"].is<bool>())       _cfg->setFpvReadyEnabled(doc["fpv_ready"].as<bool>());
@@ -189,50 +197,49 @@ void WebConfigServer::handlePostConfig() {
     if (doc["fpv_record_text"].is<const char *>()) _cfg->setFpvRecordingText(doc["fpv_record_text"].as<const char *>());
     if (doc["fpv_flash"].is<bool>())       _cfg->setFpvRecFlash(doc["fpv_flash"].as<bool>());
     if (doc["fpv_low_batt"].is<bool>())    _cfg->setFpvLowBatteryEnabled(doc["fpv_low_batt"].as<bool>());
-    if (doc["fpv_low_pct"].is<unsigned int>()) _cfg->setFpvLowBatteryPct((uint8_t)doc["fpv_low_pct"].as<unsigned int>());
+    if (doc["fpv_low_pct"].is<int>())      _cfg->setFpvLowBatteryPct(doc["fpv_low_pct"].as<uint8_t>());
     if (doc["fpv_low_rdyflash"].is<bool>()) _cfg->setFpvLowBatteryReadyFlash(doc["fpv_low_rdyflash"].as<bool>());
     if (doc["fpv_low_rectext"].is<bool>()) _cfg->setFpvLowBatteryRecText(doc["fpv_low_rectext"].as<bool>());
     if (doc["fpv_low_text"].is<const char *>()) _cfg->setFpvLowBatteryText(doc["fpv_low_text"].as<const char *>());
-    if (doc["fpv_rect_warn"].is<bool>()) _cfg->setFpvLowRecTimeEnabled(doc["fpv_rect_warn"].as<bool>());
-    if (doc["fpv_rect_min"].is<unsigned int>()) _cfg->setFpvLowRecTimeMin((uint16_t)doc["fpv_rect_min"].as<unsigned int>());
-    if (doc["fpv_rect_ready"].is<bool>()) _cfg->setFpvLowRecReadyWarning(doc["fpv_rect_ready"].as<bool>());
-    if (doc["fpv_rect_record"].is<bool>()) _cfg->setFpvLowRecRecordingWarning(doc["fpv_rect_record"].as<bool>());
+    if (doc["fpv_rect_warn"].is<bool>())    _cfg->setFpvLowRecTimeEnabled(doc["fpv_rect_warn"].as<bool>());
+    if (doc["fpv_rect_min"].is<int>())      _cfg->setFpvLowRecTimeMin(doc["fpv_rect_min"].as<uint8_t>());
+    if (doc["fpv_rect_ready"].is<bool>())   _cfg->setFpvLowRecReadyWarning(doc["fpv_rect_ready"].as<bool>());
+    if (doc["fpv_rect_record"].is<bool>())  _cfg->setFpvLowRecRecordingWarning(doc["fpv_rect_record"].as<bool>());
     if (doc["fpv_rect_text"].is<const char *>()) _cfg->setFpvLowRecTimeText(doc["fpv_rect_text"].as<const char *>());
-    if (doc["fpv_hot_warn"].is<bool>()) _cfg->setFpvHotWarningEnabled(doc["fpv_hot_warn"].as<bool>());
-    if (doc["fpv_hot_ready"].is<bool>()) _cfg->setFpvHotReadyWarning(doc["fpv_hot_ready"].as<bool>());
-    if (doc["fpv_hot_record"].is<bool>()) _cfg->setFpvHotRecordingWarning(doc["fpv_hot_record"].as<bool>());
+    if (doc["fpv_hot_warn"].is<bool>())     _cfg->setFpvHotWarningEnabled(doc["fpv_hot_warn"].as<bool>());
+    if (doc["fpv_hot_ready"].is<bool>())    _cfg->setFpvHotReadyWarning(doc["fpv_hot_ready"].as<bool>());
+    if (doc["fpv_hot_record"].is<bool>())   _cfg->setFpvHotRecordingWarning(doc["fpv_hot_record"].as<bool>());
     if (doc["fpv_hot_text"].is<const char *>()) _cfg->setFpvHotWarningText(doc["fpv_hot_text"].as<const char *>());
 
-    handleGetConfig();  // return the updated state
+    _server.send(200, "text/plain", "OK");
 }
 
 void WebConfigServer::handleGetCameras() {
-    String json = _reg ? _reg->toJson() : "[]";
+    JsonDocument doc;
+    JsonArray arr = doc.to<JsonArray>();
+    if (_reg) {
+        const auto &entries = _reg->entries();
+        for (const auto &e : entries) {
+            JsonObject o = arr.add<JsonObject>();
+            o["type"] = e.type;
+            o["addr"] = e.addr;
+            o["name"] = e.name;
+            o["last_seen"] = e.lastSeen;
+        }
+    }
+    String json;
+    serializeJson(doc, json);
     _server.send(200, "application/json", json);
 }
 
-// Blocking scan (a few seconds) — acceptable for a manual "Scan" click.
-// WIFI_MODE_APSTA keeps this server's own AP alive across the scan (that's
-// how the browser is even talking to us right now).
 void WebConfigServer::handleWifiScan() {
-    if (WiFi.getMode() != WIFI_MODE_APSTA) {
-        WiFi.mode(WIFI_MODE_APSTA);
-        delay(100);  // let the STA interface come up before scanning, or
-                     // scanNetworks() can return WIFI_SCAN_FAILED
-    }
-    int n = WiFi.scanNetworks();
-    if (n < 0) {  // transient WIFI_SCAN_FAILED/RUNNING — one retry usually clears it
-        delay(200);
-        n = WiFi.scanNetworks();
-    }
-    if (n < 0) n = 0;
     JsonDocument doc;
     JsonArray arr = doc.to<JsonArray>();
+    int n = WiFi.scanNetworks();
     for (int i = 0; i < n; i++) {
         JsonObject o = arr.add<JsonObject>();
         o["ssid"] = WiFi.SSID(i);
         o["rssi"] = WiFi.RSSI(i);
-        o["open"] = (WiFi.encryptionType(i) == WIFI_AUTH_OPEN);
     }
     WiFi.scanDelete();
     String json;
@@ -242,10 +249,16 @@ void WebConfigServer::handleWifiScan() {
 
 void WebConfigServer::handleCli() {
     if (!_server.hasArg("plain")) {
-        _server.send(400, "text/plain", "No body");
+        _server.send(400, "text/plain", "No command");
+        return;
+    }
+    String cmd = _server.arg("plain");
+    cmd.trim();
+    if (!cmd.length()) {
+        _server.send(400, "text/plain", "Empty command");
         return;
     }
     StringStream out;
-    _cfg->processCommand(_server.arg("plain").c_str(), out);
+    _cfg->processCommand(cmd.c_str(), out);
     _server.send(200, "text/plain", out.str());
 }
