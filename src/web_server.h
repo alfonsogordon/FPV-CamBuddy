@@ -1,6 +1,7 @@
 #pragma once
 
 #include <WebServer.h>
+#include <DNSServer.h>
 #include "config_manager.h"
 
 class CameraRegistry;  // forward declaration
@@ -19,12 +20,14 @@ public:
 
 private:
     WebServer       _server{80};
+    DNSServer       _dns;
     ConfigManager  *_cfg     = nullptr;
     CameraRegistry *_reg     = nullptr;
     Stream         *_dbg     = nullptr;
     bool            _running = false;
 
     void handleRoot();
+    void handleCaptivePortal();
     void handleGetConfig();
     void handlePostConfig();
     void handleGetCameras();
