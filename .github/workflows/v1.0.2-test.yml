@@ -1,4 +1,4 @@
-name: Build and Deploy V1.0.2 Test
+name: Build V1.0.2 Test Firmware
 
 on:
   push:
@@ -8,147 +8,45 @@ on:
 
 permissions:
   contents: read
-  actions: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}v1.0.2/
-
     steps:
       - name: Checkout V1.0.2 candidate
         uses: actions/checkout@v4
-        with:
-          ref: v1.0.2
-          path: candidate
-
-      - name: Checkout stable main
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          path: stable
-
-      - name: Checkout experimental
-        uses: actions/checkout@v4
-        with:
-          ref: experimental
-          path: experiment
 
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
-      - uses: actions/configure-pages@v5
-
-      - name: Generate stable site
-        working-directory: stable
-        run: python3 tools/build_fps_site.py
-
-      - name: Download stable release firmware
-        working-directory: stable
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p web/firmware
-          tags=$(gh release list --repo ${{ github.repository }} --limit 15 --json tagName --jq '.[].tagName')
-          for tag in $tags; do
-            mkdir -p "web/firmware/$tag"
-            gh release download "$tag" --repo ${{ github.repository }} --pattern "*.bin" --dir "web/firmware/$tag" --clobber 2>/dev/null || true
-          done
-
-      - name: Generate experimental site
-        working-directory: experiment
-        run: python3 tools/build_fps_site.py
-
-      - name: Stage current experimental site
-        run: |
-          rm -rf stable/web/experimental
-          mkdir -p stable/web/experimental
-          cp -a experiment/web/. stable/web/experimental/
-          python3 - <<'PY'
-          from pathlib import Path
-          root=Path('stable/web/experimental')
-          for p in root.glob('*.html'):
-              s=p.read_text()
-              if 'EXPERIMENTAL TEST ENVIRONMENT' not in s and '</body>' in s:
-                  banner='''<script>(()=>{const s=document.createElement("style");s.textContent=".fps-exp-banner{position:sticky;top:0;z-index:99999;background:#f5ff00;color:#101318;text-align:center;font:800 13px/1.25 system-ui,sans-serif;padding:7px 12px;letter-spacing:.04em;border-bottom:1px solid #a8b000}";document.head.appendChild(s);const b=document.createElement("div");b.className="fps-exp-banner";b.innerHTML="<strong>EXPERIMENTAL TEST ENVIRONMENT</strong> — development firmware and settings";document.body.prepend(b)})();</script>'''
-                  p.write_text(s.replace('</body>',banner+'\n</body>'))
-          PY
-
-      - name: Download latest successful experimental firmware
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          rm -rf /tmp/exp-artifacts
-          mkdir -p /tmp/exp-artifacts stable/web/experimental/firmware/experimental
-          run_id=$(gh run list --repo ${{ github.repository }} --branch experimental --workflow "Validate FPV CamBuddy" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
-          test -n "$run_id" || { echo "No successful experimental validation run found"; exit 1; }
-          gh run download "$run_id" --repo ${{ github.repository }} --dir /tmp/exp-artifacts
-          c3=$(find /tmp/exp-artifacts -type d -name 'fpv-cambuddy-stage3-esp32c3' | head -n1)
-          esp=$(find /tmp/exp-artifacts -type d -name 'fpv-cambuddy-stage3-esp32' | head -n1)
-          test -n "$c3" -a -n "$esp" || { echo "Experimental firmware artifacts missing"; exit 1; }
-          cp "$c3/bootloader.bin" stable/web/experimental/firmware/experimental/bootloader-esp32c3supermini.bin
-          cp "$c3/partitions.bin" stable/web/experimental/firmware/experimental/partitions-esp32c3supermini.bin
-          cp "$c3/firmware.bin" stable/web/experimental/firmware/experimental/firmware-esp32c3supermini.bin
-          cp "$esp/bootloader.bin" stable/web/experimental/firmware/experimental/bootloader-esp32dev.bin
-          cp "$esp/partitions.bin" stable/web/experimental/firmware/experimental/partitions-esp32dev.bin
-          cp "$esp/firmware.bin" stable/web/experimental/firmware/experimental/firmware-esp32dev.bin
-
-      - name: Generate V1.0.2 candidate site
-        working-directory: candidate
+      - name: Generate and validate site
         run: python3 tools/build_fps_site.py
 
       - name: Install PlatformIO
         run: pip install platformio
 
-      - name: Build V1.0.2 candidate firmware
-        working-directory: candidate
+      - name: Build both supported boards
         run: pio run -e esp32c3supermini -e esp32dev
 
-      - name: Stage isolated V1.0.2 test environment
-        run: |
-          rm -rf stable/web/v1.0.2
-          mkdir -p stable/web/v1.0.2/firmware
-          cp -a candidate/web/. stable/web/v1.0.2/
-          cp candidate/web/v1.0.2-flash.html stable/web/v1.0.2/flash.html
-          cp candidate/.pio/build/esp32c3supermini/bootloader.bin stable/web/v1.0.2/firmware/bootloader-esp32c3supermini.bin
-          cp candidate/.pio/build/esp32c3supermini/partitions.bin stable/web/v1.0.2/firmware/partitions-esp32c3supermini.bin
-          cp candidate/.pio/build/esp32c3supermini/firmware.bin stable/web/v1.0.2/firmware/firmware-esp32c3supermini.bin
-          cp candidate/.pio/build/esp32dev/bootloader.bin stable/web/v1.0.2/firmware/bootloader-esp32dev.bin
-          cp candidate/.pio/build/esp32dev/partitions.bin stable/web/v1.0.2/firmware/partitions-esp32dev.bin
-          cp candidate/.pio/build/esp32dev/firmware.bin stable/web/v1.0.2/firmware/firmware-esp32dev.bin
-
-      - name: Upload V1.0.2 C3 test artifact
+      - name: Upload C3 test artifact
         uses: actions/upload-artifact@v4
         with:
           name: fpv-cambuddy-v1.0.2-test-esp32c3
           retention-days: 14
+          if-no-files-found: error
           path: |
-            candidate/.pio/build/esp32c3supermini/firmware.bin
-            candidate/.pio/build/esp32c3supermini/bootloader.bin
-            candidate/.pio/build/esp32c3supermini/partitions.bin
+            .pio/build/esp32c3supermini/firmware.bin
+            .pio/build/esp32c3supermini/bootloader.bin
+            .pio/build/esp32c3supermini/partitions.bin
 
-      - name: Upload V1.0.2 ESP32 test artifact
+      - name: Upload ESP32 test artifact
         uses: actions/upload-artifact@v4
         with:
           name: fpv-cambuddy-v1.0.2-test-esp32
           retention-days: 14
+          if-no-files-found: error
           path: |
-            candidate/.pio/build/esp32dev/firmware.bin
-            candidate/.pio/build/esp32dev/bootloader.bin
-            candidate/.pio/build/esp32dev/partitions.bin
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: stable/web/
-
-      - uses: actions/deploy-pages@v4
-        id: deploy
+            .pio/build/esp32dev/firmware.bin
+            .pio/build/esp32dev/bootloader.bin
+            .pio/build/esp32dev/partitions.bin
