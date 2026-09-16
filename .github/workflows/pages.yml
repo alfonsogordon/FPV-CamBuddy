@@ -1,4 +1,4 @@
-# Fresh Pages deployment trigger for known-good V1.0.2 AP checkpoint
+# Fresh Pages deployment trigger for V1.0.2 AP high-power test
 name: Deploy GitHub Pages
 
 on:
