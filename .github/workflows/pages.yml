@@ -1,3 +1,4 @@
+# Fresh Pages deployment trigger for V1.0.2 candidate
 name: Deploy GitHub Pages
 
 on:
