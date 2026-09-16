@@ -1,4 +1,4 @@
-# FPSteVe Edition — V1 Release Status
+# FPV CamBuddy — V1 Release Status
 
 The core V1 behaviour is feature-complete and the project is in final validation/release preparation.
 

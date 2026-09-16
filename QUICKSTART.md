@@ -1,24 +1,24 @@
-# FreeCLinker — FPSteVe Edition Quick Start
+# FPV CamBuddy · by FPSteVe Quick Start
 
 The simple route from a fresh **ESP32-C3 Super Mini** to automatic GoPro recording and camera status in your Betaflight OSD.
 
-> FPSteVe Edition is based on **[FreeCLinker by sheeprine](https://github.com/sheeprine/freeclinker)**. You can also visit the [original FreeCLinker project site](https://sheeprine.github.io/freeclinker/).
+> FPV CamBuddy is based on **[FreeCLinker by sheeprine](https://github.com/sheeprine/freeclinker)**. You can also visit the [original FreeCLinker project site](https://sheeprine.github.io/freeclinker/).
 
-**No CLI setup is required for the normal FPSteVe Edition setup.** Flash it in the browser, configure it in FPSteVe Easy Config, then set up the flight-controller UART and OSD in Betaflight Configurator.
+**No CLI setup is required for the normal FPV CamBuddy setup.** Flash it in the browser, configure it in FPSteVe Easy Config, then set up the flight-controller UART and OSD in Betaflight Configurator.
 
-## 1. Flash FreeCLinker
+## 1. Flash FPV CamBuddy
 
-Open the **FPSteVe Edition Web Flasher**:
+Open the **FPV CamBuddy Web Flasher**:
 
-https://alfonsogordon.github.io/freeclinker/flash.html
+https://alfonsogordon.github.io/FPV-CamBuddy/flash.html
 
-Connect your ESP32-C3 Super Mini by USB and install the current FPSteVe Edition firmware.
+Connect your ESP32-C3 Super Mini by USB and install the current FPV CamBuddy firmware.
 
 When flashing finishes, **power-cycle the C3 once** — unplug/replug USB or cycle the quad/board power.
 
 Then open **FPSteVe Easy Config**:
 
-https://alfonsogordon.github.io/freeclinker/config.html
+https://alfonsogordon.github.io/FPV-CamBuddy/config.html
 
 ## 2. Configure it in the browser
 
@@ -87,7 +87,7 @@ Pilot Name is enabled by default. In **Betaflight Configurator → OSD**, enable
 
 Craft Name is optional and can be enabled in FPSteVe Easy Config if you want a second camera-information line; if you use it, place the **Craft Name** OSD element too.
 
-This is the path physically tested for FPSteVe Edition V1.
+This is the path physically tested for FPV CamBuddy V1.
 
 ### Betaflight 2026.6+
 
@@ -136,4 +136,4 @@ When asking for help, the most useful details are your **camera model, Betafligh
 
 ---
 
-**FPSteVe Edition V1.0** 🤘
+**FPV CamBuddy V1.0** 🤘

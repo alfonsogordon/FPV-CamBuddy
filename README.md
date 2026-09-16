@@ -1,4 +1,4 @@
-# FreeCLinker — FPSteVe Edition
+# FPV CamBuddy · by FPSteVe
 
 **Automatic action-camera control and Betaflight OSD telemetry from an ESP32-C3 Super Mini.**
 
@@ -6,14 +6,14 @@
 
 FreeCLinker connects a supported action camera to your flight controller without adding another control to your pre-flight routine. Power the quad, let the C3 find the camera, arm and fly. Recording can start automatically on arm and stop after a configurable delay on disarm, while camera status is shown directly in the Betaflight OSD.
 
-FPSteVe Edition builds on that foundation with a simplified configurator, GoPro-focused flight behaviour, richer OSD, warnings, automatic recording and extensive bench/flight testing.
+FPV CamBuddy builds on that foundation with a simplified configurator, GoPro-focused flight behaviour, richer OSD, warnings, automatic recording and extensive bench/flight testing.
 
 ## Start here
 
-- **Configurator:** https://alfonsogordon.github.io/freeclinker/config.html
-- **Web flasher:** https://alfonsogordon.github.io/freeclinker/flash.html
+- **Configurator:** https://alfonsogordon.github.io/FPV-CamBuddy/config.html
+- **Web flasher:** https://alfonsogordon.github.io/FPV-CamBuddy/flash.html
 - **Quick start:** [QUICKSTART.md](QUICKSTART.md)
-- **Project website:** https://alfonsogordon.github.io/freeclinker/
+- **Project website:** https://alfonsogordon.github.io/FPV-CamBuddy/
 
 ## Supported cameras
 
@@ -26,7 +26,7 @@ FreeCLinker includes camera backends/support paths for:
 - **Insta360**
 - **Caddx**
 
-**FPSteVe Edition hardware-tested:** GoPro HERO11 Black Mini and GoPro MAX2.
+**FPV CamBuddy hardware-tested:** GoPro HERO11 Black Mini and GoPro MAX2.
 
 The other camera families are supported by the FreeCLinker firmware foundations/backends but have **not necessarily been physically validated by FPSteVe**. Protocol capabilities and available OSD telemetry can vary by camera family and model.
 
@@ -88,7 +88,7 @@ You can exercise the same behaviour interactively in the **OSD Preview** inside 
 
 ## Default OSD setup
 
-FPSteVe Edition ships with sensible flight defaults. On **BF 4.5**, Pilot Name is enabled by default with:
+FPV CamBuddy ships with sensible flight defaults. On **BF 4.5**, Pilot Name is enabled by default with:
 
 `{stateonly} {batt} {rectf}`
 
@@ -101,11 +101,11 @@ On **BF 2026.6+**, the four Custom Message defaults are:
 | 3 | `{mode} {res} {fps} {eis}` |
 | 4 | `{rectf} {rcap}` |
 
-REC-only, flashing REC, CLEAN LENS and camera warnings are enabled by default on a fresh FPSteVe Edition configuration.
+REC-only, flashing REC, CLEAN LENS and camera warnings are enabled by default on a fresh FPV CamBuddy configuration.
 
 ## Tested for V1 🤘
 
-The following have been physically confirmed on the FPSteVe Edition hardware-test setup using **GoPro HERO11 Black Mini and GoPro MAX2**:
+The following have been physically confirmed on the FPV CamBuddy hardware-test setup using **GoPro HERO11 Black Mini and GoPro MAX2**:
 
 - ESP32-C3 Super Mini + GoPro BLE connection and automatic reconnect
 - GoPro control from a real Betaflight 4.5 flight controller
@@ -153,10 +153,10 @@ Bug reports and useful real-world compatibility results are especially welcome �
 
 ## Credits
 
-FPSteVe Edition is based on **[FreeCLinker by sheeprine](https://github.com/sheeprine/freeclinker)** and retains the work and supported-camera foundations of the upstream project. Thanks to the original FreeCLinker contributors and the camera/protocol projects that make this possible.
+FPV CamBuddy is based on **[FreeCLinker by sheeprine](https://github.com/sheeprine/freeclinker)** and retains the work and supported-camera foundations of the upstream project. Thanks to the original FreeCLinker contributors and the camera/protocol projects that make this possible.
 
 ---
 
 💜 **No donation link here.** If you like the project and feel like giving something back, take whatever you would've donated and spend it on more props 🤘 — or, even better, donate it to a local charity of your choice.
 
-**FPSteVe Edition V1.0** 🤘
+**FPV CamBuddy V1.0** 🤘

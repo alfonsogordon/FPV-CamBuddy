@@ -1,4 +1,4 @@
-name: Validate FPSteVe Edition
+name: Validate FPV CamBuddy
 
 on:
   pull_request:

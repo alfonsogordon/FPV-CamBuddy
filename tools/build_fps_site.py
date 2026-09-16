@@ -13,7 +13,7 @@ def write(path, text):
 # that transformer a second time. Running it twice used to fail at the original
 # page-title marker before validation could even begin.
 source_config = read('web/config.html')
-if '<title>FreeCLinker — FPSteVe Edition Config</title>' not in source_config:
+if '<title>FPV CamBuddy · by FPSteVe Config</title>' not in source_config:
     runpy.run_path('tools/build_fps_pages.py', run_name='__main__')
 
 c = Path('web/config.html')
@@ -23,7 +23,7 @@ legacy_scripts = ['fps-ui-v2.js','fps-osd-method.js','fps-osd-enhancements.js','
 for script in legacy_scripts:
     cs = cs.replace(f'<script src="{script}"></script>', '')
 
-# Device state is explicit in FPSteVe Edition: connecting or changing tabs must
+# Device state is explicit in FPV CamBuddy: connecting or changing tabs must
 # never silently read/overwrite the UI. Only READ SETTINGS is authoritative.
 cs = cs.replace("    if (target === 'config'  && port) sendCommand('show');\n", '')
 cs = cs.replace("  // Populate Easy Config fields after a brief settle time\n  setTimeout(() => sendCommand('show'), 300);\n", '')
