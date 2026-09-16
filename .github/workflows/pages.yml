@@ -1,4 +1,4 @@
-# Fresh Pages deployment trigger for rebuilt V1.0.2 AP + lightweight configurator
+# Fresh Pages deployment trigger for V1.0.2 purple onboard configurator
 name: Deploy GitHub Pages
 
 on:
