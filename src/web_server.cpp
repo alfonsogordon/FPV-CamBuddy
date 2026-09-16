@@ -30,16 +30,45 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
     _reg = reg;
     _dbg = dbg;
 
-    bool ok = WiFi.softAP(WIFI_AP_SSID, strlen(WIFI_AP_PASSWORD) ? WIFI_AP_PASSWORD : nullptr,
-                          WIFI_AP_CHANNEL);
+    if (_running) return;
+
+    // Put the radio into a known state before creating the configuration AP.
+    // This matters because camera backends can also use WiFi and may leave the
+    // radio in STA/APSTA mode.  Do not advertise the web server as running
+    // unless softAP() itself succeeds.
+    if (_dbg) _dbg->printf("[wifi] Preparing AP — current mode=%d\n", (int)WiFi.getMode());
+    WiFi.softAPdisconnect(true);
+    WiFi.disconnect(true, false);
+    WiFi.mode(WIFI_OFF);
+    delay(100);
+    WiFi.mode(WIFI_AP);
+    delay(150);
+
+    if (_dbg) _dbg->printf("[wifi] Starting AP '%s' on channel %u — mode=%d\n",
+                           WIFI_AP_SSID, WIFI_AP_CHANNEL, (int)WiFi.getMode());
+
+    const bool ok = WiFi.softAP(WIFI_AP_SSID,
+                                strlen(WIFI_AP_PASSWORD) ? WIFI_AP_PASSWORD : nullptr,
+                                WIFI_AP_CHANNEL);
+
+    if (!ok) {
+        _running = false;
+        if (_dbg) {
+            _dbg->printf("[wifi] softAP() FAILED — mode=%d  IP=%s  stations=%u\n",
+                         (int)WiFi.getMode(), WiFi.softAPIP().toString().c_str(),
+                         (unsigned)WiFi.softAPgetStationNum());
+        }
+        return;
+    }
+
+    // Give the AP interface a moment to finish coming up before starting HTTP.
+    delay(100);
 
     if (_dbg) {
-        if (ok) {
-            _dbg->printf("[wifi] AP started — SSID: %s  IP: %s\n",
-                         WIFI_AP_SSID, WiFi.softAPIP().toString().c_str());
-        } else {
-            _dbg->printf("[wifi] softAP() FAILED — mode=%d\n", (int)WiFi.getMode());
-        }
+        _dbg->printf("[wifi] AP started — SSID: %s  channel=%u  mode=%d  IP=%s  stations=%u\n",
+                     WIFI_AP_SSID, WIFI_AP_CHANNEL, (int)WiFi.getMode(),
+                     WiFi.softAPIP().toString().c_str(),
+                     (unsigned)WiFi.softAPgetStationNum());
     }
 
     _server.on("/",            HTTP_GET,  [this]() { handleRoot();        });
