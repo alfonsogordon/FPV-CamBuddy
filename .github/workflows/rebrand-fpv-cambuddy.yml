@@ -1,0 +1,69 @@
+name: Rebrand project to FPV CamBuddy
+on:
+  push:
+    branches: [experimental]
+    paths: ['.github/workflows/rebrand-fpv-cambuddy.yml']
+permissions:
+  contents: write
+jobs:
+  rebrand:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experimental
+          fetch-depth: 0
+          token: ${{ secrets.FPV_CAMBUDDY }}
+      - name: Rebrand project text
+        shell: python
+        run: |
+          from pathlib import Path
+          skip={'.git'}
+          binary_ext={'.bin','.png','.jpg','.jpeg','.gif','.ico','.zip','.3mf','.pdf','.woff','.woff2','.ttf','.eot'}
+          replacements=[
+            ('FreeCLinker - FPSteVe Edition','FPV CamBuddy'),
+            ('FreeCLinker — FPSteVe Edition','FPV CamBuddy'),
+            ('FreeCLinker – FPSteVe Edition','FPV CamBuddy'),
+            ('FreeCLinker FPSteVe Edition','FPV CamBuddy'),
+            ('FPSteVe Edition','FPV CamBuddy'),
+            ('FreeCLinker Experimental','FPV CamBuddy Experimental'),
+            ('FreeCLinker Configurator','FPV CamBuddy Configurator'),
+            ('FreeCLinker Flasher','FPV CamBuddy Flasher'),
+            ('FreeCLinker','FPV CamBuddy'),
+            ('freeclinker-stage3-esp32c3','fpv-cambuddy-stage3-esp32c3'),
+            ('freeclinker-stage3-esp32','fpv-cambuddy-stage3-esp32'),
+            ('freeclinker-experimental-','fpv-cambuddy-experimental-'),
+            ('freeclinker-fps-','fpv-cambuddy-'),
+          ]
+          changed=[]
+          for p in Path('.').rglob('*'):
+            if not p.is_file() or any(x in skip for x in p.parts) or p.suffix.lower() in binary_ext or p.as_posix()=='.github/workflows/rebrand-fpv-cambuddy.yml': continue
+            try: s=p.read_text(encoding='utf-8')
+            except UnicodeDecodeError: continue
+            # Preserve explicit upstream attribution/URLs to the original sheeprine project.
+            protected={}
+            import re
+            def hold(m):
+              k=f'__UPSTREAM_{len(protected)}__'; protected[k]=m.group(0); return k
+            s2=re.sub(r'https?://(?:www\.)?(?:github\.com/sheeprine/freeclinker|sheeprine\.github\.io/freeclinker/?)[^\s)\]"\']*',hold,s,flags=re.I)
+            for a,b in replacements: s2=s2.replace(a,b)
+            for k,v in protected.items(): s2=s2.replace(k,v)
+            if s2!=s:
+              p.write_text(s2,encoding='utf-8'); changed.append(str(p))
+          print('Changed',len(changed),'files')
+          print('\n'.join(changed))
+      - name: Update workflow artifact consumers
+        shell: python
+        run: |
+          from pathlib import Path
+          # Artifact producer/consumer names were rebranded together above. Nothing else to do here;
+          # this step documents that the paired names are intentional.
+          print('Artifact producer/consumer names rebranded consistently.')
+      - name: Remove one-shot workflow and commit
+        run: |
+          rm .github/workflows/rebrand-fpv-cambuddy.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Rebrand experimental project to FPV CamBuddy"
+          git push origin experimental
