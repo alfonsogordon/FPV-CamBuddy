@@ -91,8 +91,8 @@ jobs:
           run_id=$(gh run list --repo ${{ github.repository }} --branch experimental --workflow "Validate FPV CamBuddy" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
           test -n "$run_id" || { echo "No successful experimental firmware run found"; exit 1; }
           gh run download "$run_id" --repo ${{ github.repository }} --dir /tmp/exp-artifacts
-          c3=$(find /tmp/exp-artifacts -type d -name 'freeclinker-stage3-esp32c3' | head -n1)
-          esp=$(find /tmp/exp-artifacts -type d -name 'freeclinker-stage3-esp32' | head -n1)
+          c3=$(find /tmp/exp-artifacts -type d -name 'fpv-cambuddy-stage3-esp32c3' | head -n1)
+          esp=$(find /tmp/exp-artifacts -type d -name 'fpv-cambuddy-stage3-esp32' | head -n1)
           test -n "$c3" -a -n "$esp" || { echo "Experimental firmware artifacts missing"; exit 1; }
           cp "$c3/bootloader.bin" stable/web/experimental/firmware/experimental/bootloader-esp32c3supermini.bin
           cp "$c3/partitions.bin" stable/web/experimental/firmware/experimental/partitions-esp32c3supermini.bin
