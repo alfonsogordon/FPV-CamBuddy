@@ -32,17 +32,12 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
 
     if (_running) return;
 
-    // Put the radio into a known state before creating the configuration AP.
-    // This matters because camera backends can also use WiFi and may leave the
-    // radio in STA/APSTA mode.  Do not advertise the web server as running
-    // unless softAP() itself succeeds.
+    // Keep startup close to the original known-working FreeCLinker path.
+    // We retain truthful softAP() success/failure handling, but deliberately
+    // avoid disconnecting/resetting the radio before creating the AP.
     if (_dbg) _dbg->printf("[wifi] Preparing AP — current mode=%d\n", (int)WiFi.getMode());
-    WiFi.softAPdisconnect(true);
-    WiFi.disconnect(true, false);
-    WiFi.mode(WIFI_OFF);
-    delay(100);
     WiFi.mode(WIFI_AP);
-    delay(150);
+    delay(100);
 
     if (_dbg) _dbg->printf("[wifi] Starting AP '%s' on channel %u — mode=%d\n",
                            WIFI_AP_SSID, WIFI_AP_CHANNEL, (int)WiFi.getMode());
@@ -61,7 +56,6 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
         return;
     }
 
-    // Give the AP interface a moment to finish coming up before starting HTTP.
     delay(100);
 
     if (_dbg) {
@@ -144,11 +138,11 @@ void WebConfigServer::handleGetConfig() {
     doc["fpv_rect_min"]    = c.fpvLowRecTimeMin;
     doc["fpv_rect_ready"]  = c.fpvLowRecReadyWarning;
     doc["fpv_rect_record"] = c.fpvLowRecRecordingWarning;
-    doc["fpv_rect_text"]   = c.fpvLowRecTimeText;
-    doc["fpv_hot_warn"]    = c.fpvHotWarningEnabled;
-    doc["fpv_hot_ready"]   = c.fpvHotReadyWarning;
-    doc["fpv_hot_record"]  = c.fpvHotRecordingWarning;
-    doc["fpv_hot_text"]    = c.fpvHotWarningText;
+    doc["fpv_rect_text"]    = c.fpvLowRecTimeText;
+    doc["fpv_hot_warn"]     = c.fpvHotWarningEnabled;
+    doc["fpv_hot_ready"]    = c.fpvHotReadyWarning;
+    doc["fpv_hot_record"]   = c.fpvHotRecordingWarning;
+    doc["fpv_hot_text"]     = c.fpvHotWarningText;
     String json;
     serializeJson(doc, json);
     _server.send(200, "application/json", json);
