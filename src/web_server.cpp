@@ -42,12 +42,25 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
         }
     }
 
+    // Wildcard DNS makes OS connectivity probes resolve to the C3. Combined
+    // with the probe routes below this gives Android/iOS/Windows the normal
+    // captive-portal prompt while keeping http://192.168.4.1/ as a fallback.
+    _dns.start(53, "*", WiFi.softAPIP());
+
     _server.on("/",            HTTP_GET,  [this]() { handleRoot();        });
+    _server.on("/generate_204", HTTP_GET, [this]() { handleCaptivePortal(); });
+    _server.on("/gen_204",      HTTP_GET, [this]() { handleCaptivePortal(); });
+    _server.on("/hotspot-detect.html", HTTP_GET, [this]() { handleCaptivePortal(); });
+    _server.on("/library/test/success.html", HTTP_GET, [this]() { handleCaptivePortal(); });
+    _server.on("/ncsi.txt", HTTP_GET, [this]() { handleCaptivePortal(); });
+    _server.on("/connecttest.txt", HTTP_GET, [this]() { handleCaptivePortal(); });
+    _server.on("/redirect", HTTP_GET, [this]() { handleCaptivePortal(); });
     _server.on("/api/config",  HTTP_GET,  [this]() { handleGetConfig();   });
     _server.on("/api/config",  HTTP_POST, [this]() { handlePostConfig();  });
     _server.on("/api/cameras", HTTP_GET,  [this]() { handleGetCameras();  });
     _server.on("/api/wifi_scan", HTTP_GET, [this]() { handleWifiScan();   });
     _server.on("/api/cli",     HTTP_POST, [this]() { handleCli();         });
+    _server.onNotFound([this]() { handleCaptivePortal(); });
 
     _server.begin();
     _running = true;
@@ -55,6 +68,7 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
 
 void WebConfigServer::stop() {
     if (!_running) return;
+    _dns.stop();
     _server.stop();
     WiFi.softAPdisconnect(true);
     _running = false;
@@ -62,7 +76,10 @@ void WebConfigServer::stop() {
 }
 
 void WebConfigServer::update() {
-    if (_running) _server.handleClient();
+    if (_running) {
+        _dns.processNextRequest();
+        _server.handleClient();
+    }
 }
 
 // ── Route handlers ────────────────────────────────────────────────────────────
@@ -71,12 +88,17 @@ void WebConfigServer::handleRoot() {
     _server.send_P(200, "text/html", WEB_INDEX_HTML);
 }
 
+void WebConfigServer::handleCaptivePortal() {
+    _server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    _server.sendHeader("Pragma", "no-cache");
+    _server.sendHeader("Expires", "-1");
+    _server.send_P(200, "text/html", WEB_INDEX_HTML);
+}
+
 void WebConfigServer::handleGetConfig() {
     const auto &c = _cfg->config();
     JsonDocument doc;
     doc["camera_type"]    = c.cameraType;
-    // caddx_ssid lives in the camera registry, not Config — password
-    // intentionally omitted here too, same as before (write-only).
     CameraEntry caddxEntry;
     doc["caddx_ssid"] = (_reg && _reg->preferredEntry(/*Caddx=*/2, caddxEntry))
                        ? caddxEntry.addr : "";
@@ -180,7 +202,7 @@ void WebConfigServer::handlePostConfig() {
     if (doc["fpv_hot_record"].is<bool>()) _cfg->setFpvHotRecordingWarning(doc["fpv_hot_record"].as<bool>());
     if (doc["fpv_hot_text"].is<const char *>()) _cfg->setFpvHotWarningText(doc["fpv_hot_text"].as<const char *>());
 
-    handleGetConfig();  // return the updated state
+    handleGetConfig();
 }
 
 void WebConfigServer::handleGetCameras() {
@@ -189,16 +211,14 @@ void WebConfigServer::handleGetCameras() {
 }
 
 // Blocking scan (a few seconds) — acceptable for a manual "Scan" click.
-// WIFI_MODE_APSTA keeps this server's own AP alive across the scan (that's
-// how the browser is even talking to us right now).
+// WIFI_MODE_APSTA keeps this server's own AP alive across the scan.
 void WebConfigServer::handleWifiScan() {
     if (WiFi.getMode() != WIFI_MODE_APSTA) {
         WiFi.mode(WIFI_MODE_APSTA);
-        delay(100);  // let the STA interface come up before scanning, or
-                     // scanNetworks() can return WIFI_SCAN_FAILED
+        delay(100);
     }
     int n = WiFi.scanNetworks();
-    if (n < 0) {  // transient WIFI_SCAN_FAILED/RUNNING — one retry usually clears it
+    if (n < 0) {
         delay(200);
         n = WiFi.scanNetworks();
     }
