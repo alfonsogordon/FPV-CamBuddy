@@ -10,10 +10,10 @@ FPSteVe Edition builds on that foundation with a simplified configurator, GoPro-
 
 ## Start here
 
-- **Configurator:** https://alfonsogordon.github.io/freeclinker/config.html
-- **Web flasher:** https://alfonsogordon.github.io/freeclinker/flash.html
+- **Configurator:** https://alfonsogordon.github.io/FPV-CamBuddy/config.html
+- **Web flasher:** https://alfonsogordon.github.io/FPV-CamBuddy/flash.html
 - **Quick start:** [QUICKSTART.md](QUICKSTART.md)
-- **Project website:** https://alfonsogordon.github.io/freeclinker/
+- **Project website:** https://alfonsogordon.github.io/FPV-CamBuddy/
 
 ## Supported cameras
 

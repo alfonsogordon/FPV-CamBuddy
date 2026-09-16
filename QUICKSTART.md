@@ -10,7 +10,7 @@ The simple route from a fresh **ESP32-C3 Super Mini** to automatic GoPro recordi
 
 Open the **FPSteVe Edition Web Flasher**:
 
-https://alfonsogordon.github.io/freeclinker/flash.html
+https://alfonsogordon.github.io/FPV-CamBuddy/flash.html
 
 Connect your ESP32-C3 Super Mini by USB and install the current FPSteVe Edition firmware.
 
@@ -18,7 +18,7 @@ When flashing finishes, **power-cycle the C3 once** — unplug/replug USB or cyc
 
 Then open **FPSteVe Easy Config**:
 
-https://alfonsogordon.github.io/freeclinker/config.html
+https://alfonsogordon.github.io/FPV-CamBuddy/config.html
 
 ## 2. Configure it in the browser
 
