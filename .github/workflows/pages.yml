@@ -41,6 +41,8 @@ jobs:
           ref: experimental
           path: experiment
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Generate stable V1 site
         working-directory: stable
@@ -113,7 +115,7 @@ jobs:
           if marker in s:
               start=s.index(marker)
               end=s.index("function showPostFlash", start)
-              replacement="""releases=[{tag_name:'experimental',published_at:new Date().toISOString(),html_url:'https://github.com/alfonsogordon/freeclinker/tree/experimental'}];versionSelect.innerHTML='<option value=\"experimental\">experimental — latest successful test build</option>';versionSelect.disabled=true;selectRelease(releases[0]);\n"""
+              replacement="""releases=[{tag_name:'experimental',published_at:new Date().toISOString(),html_url:'https://github.com/alfonsogordon/FPV-CamBuddy/tree/experimental'}];versionSelect.innerHTML='<option value=\"experimental\">experimental — latest successful test build</option>';versionSelect.disabled=true;selectRelease(releases[0]);\n"""
               s=s[:start]+replacement+s[end:]
               s=s.replace("<h1>Flash Firmware</h1>","<h1>Flash Experimental Firmware</h1>")
               p.write_text(s)
