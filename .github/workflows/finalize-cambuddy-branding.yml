@@ -1,0 +1,53 @@
+name: Finalize FPV CamBuddy branding
+on:
+  push:
+    branches: [experimental]
+    paths: ['.github/workflows/finalize-cambuddy-branding.yml']
+permissions:
+  contents: write
+jobs:
+  branding:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experimental
+          token: ${{ secrets.FPV_CAMBUDDY }}
+      - name: Apply branding-only corrections
+        shell: python
+        run: |
+          from pathlib import Path
+          replacements = {
+            'https://alfonsogordon.github.io/freeclinker/experimental/':'https://alfonsogordon.github.io/FPV-CamBuddy/experimental/',
+            'https://alfonsogordon.github.io/freeclinker/':'https://alfonsogordon.github.io/FPV-CamBuddy/',
+            'https://github.com/alfonsogordon/freeclinker/tree/experimental':'https://github.com/alfonsogordon/FPV-CamBuddy/tree/experimental',
+            'https://github.com/alfonsogordon/freeclinker/tree/main':'https://github.com/alfonsogordon/FPV-CamBuddy/tree/main',
+            '[FPV CamBuddy by sheeprine](https://github.com/sheeprine/freeclinker)':'[FreeCLinker by sheeprine](https://github.com/sheeprine/freeclinker)',
+            'original FPV CamBuddy project site':'original FreeCLinker project site',
+            'original FPV CamBuddy contributors':'original FreeCLinker contributors',
+            'Connect to the C3 from FPSteVe Easy Config':'Connect to the C3 from FPV CamBuddy',
+          }
+          allowed={'.md','.html','.js','.css','.json','.yml','.yaml','.h','.cpp','.py','.ini','.txt'}
+          changed=[]
+          for p in Path('.').rglob('*'):
+            if not p.is_file() or '.git' in p.parts or p.suffix.lower() not in allowed or p.as_posix()=='.github/workflows/finalize-cambuddy-branding.yml': continue
+            try: s=p.read_text(encoding='utf-8')
+            except UnicodeDecodeError: continue
+            n=s
+            for a,b in replacements.items(): n=n.replace(a,b)
+            if n!=s:
+              p.write_text(n,encoding='utf-8'); changed.append(str(p))
+          print('\n'.join(changed))
+      - name: Verify protected upstream attribution
+        run: |
+          grep -q 'FreeCLinker by sheeprine' README.md
+          grep -q 'github.com/sheeprine/freeclinker' README.md
+          grep -q 'FreeCLinker by sheeprine' QUICKSTART.md
+      - name: Remove one-shot workflow and commit
+        run: |
+          rm .github/workflows/finalize-cambuddy-branding.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Finalize FPV CamBuddy branding and attribution"
+          git push origin experimental
