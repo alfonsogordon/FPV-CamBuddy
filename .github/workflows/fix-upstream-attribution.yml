@@ -1,0 +1,55 @@
+name: Fix upstream FreeCLinker attribution
+on:
+  push:
+    branches: [experimental]
+    paths: ['.github/workflows/fix-upstream-attribution.yml']
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experimental
+          token: ${{ secrets.FPV_CAMBUDDY }}
+      - name: Correct upstream naming only
+        shell: python
+        run: |
+          from pathlib import Path
+          replacements=[
+            ('Original FPV CamBuddy','Original FreeCLinker'),
+            ('original FPV CamBuddy','original FreeCLinker'),
+            ('FPV CamBuddy by sheeprine','FreeCLinker by sheeprine'),
+            ('original FPV CamBuddy project site','original FreeCLinker project site'),
+            ('Original FPV CamBuddy project site','Original FreeCLinker project site'),
+            ('original FPV CamBuddy contributors','original FreeCLinker contributors'),
+            ('Original FPV CamBuddy contributors','Original FreeCLinker contributors'),
+          ]
+          binary={'.bin','.png','.jpg','.jpeg','.gif','.ico','.zip','.3mf','.pdf','.woff','.woff2','.ttf','.eot'}
+          changed=[]
+          for p in Path('.').rglob('*'):
+            if not p.is_file() or '.git' in p.parts or p.suffix.lower() in binary or p.as_posix()=='.github/workflows/fix-upstream-attribution.yml':
+              continue
+            try: s=p.read_text(encoding='utf-8')
+            except UnicodeDecodeError: continue
+            t=s
+            for a,b in replacements: t=t.replace(a,b)
+            if t!=s:
+              p.write_text(t,encoding='utf-8'); changed.append(str(p))
+          print('Changed files:')
+          print('\n'.join(changed))
+      - name: Verify no false upstream CamBuddy attribution remains
+        run: |
+          if grep -RIn --exclude-dir=.git --exclude='fix-upstream-attribution.yml' -E 'Original FPV CamBuddy|original FPV CamBuddy|FPV CamBuddy by sheeprine' .; then
+            echo 'Incorrect upstream attribution still present'
+            exit 1
+          fi
+      - name: Remove one-shot workflow and commit
+        run: |
+          rm .github/workflows/fix-upstream-attribution.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Correct FreeCLinker upstream attribution"
+          git push origin experimental
