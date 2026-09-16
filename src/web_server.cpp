@@ -78,6 +78,7 @@ void WebConfigServer::handleGetConfig() {
     d["aux_mode"]=c.auxMode;
     d["camera_match"]=c.cameraMatchMode;
     d["wake_guard"]=c.cameraWakeGuard;
+    d["debug_ble"]=c.debugBle;
     d["low_power"]=c.lowPowerMode;
     d["wifi_ap_enabled"]=c.wifiApEnabled;
     d["wifi_ap_delay"]=c.wifiApStartDelaySec;
@@ -92,6 +93,10 @@ void WebConfigServer::handleGetConfig() {
     d["fpv_low_batt"]=c.fpvLowBatteryEnabled; d["fpv_low_pct"]=c.fpvLowBatteryPct; d["fpv_low_rdyflash"]=c.fpvLowBatteryReadyFlash; d["fpv_low_rectext"]=c.fpvLowBatteryRecText; d["fpv_low_text"]=c.fpvLowBatteryText;
     d["fpv_rect_warn"]=c.fpvLowRecTimeEnabled; d["fpv_rect_min"]=c.fpvLowRecTimeMin; d["fpv_rect_ready"]=c.fpvLowRecReadyWarning; d["fpv_rect_record"]=c.fpvLowRecRecordingWarning; d["fpv_rect_text"]=c.fpvLowRecTimeText;
     d["fpv_hot_warn"]=c.fpvHotWarningEnabled; d["fpv_hot_ready"]=c.fpvHotReadyWarning; d["fpv_hot_record"]=c.fpvHotRecordingWarning; d["fpv_hot_text"]=c.fpvHotWarningText;
+    d["fpv_prearm"]=c.fpvPreArmReminderEnabled;
+    d["fpv_prearm_text"]=c.fpvPreArmReminderText;
+    d["fpv_prearm_show"]=c.fpvPreArmReminderShowMs;
+    d["fpv_prearm_interval"]=c.fpvPreArmReminderIntervalMs;
     String s; serializeJson(d,s); _server.send(200,"application/json",s);
 }
 
@@ -107,6 +112,7 @@ void WebConfigServer::handlePostConfig() {
     if(d["aux_mode"].is<int>()) _cfg->setAuxMode(d["aux_mode"].as<uint8_t>());
     if(d["camera_match"].is<int>()) _cfg->setCameraMatchMode(d["camera_match"].as<uint8_t>());
     if(d["wake_guard"].is<bool>()) _cfg->setCameraWakeGuard(d["wake_guard"].as<bool>());
+    if(d["debug_ble"].is<bool>()) _cfg->setDebugBle(d["debug_ble"].as<bool>());
     if(d["low_power"].is<bool>()) _cfg->setLowPowerMode(d["low_power"].as<bool>());
     if(d["wifi_ap_enabled"].is<bool>()) _cfg->setWifiApEnabled(d["wifi_ap_enabled"].as<bool>());
     if(d["wifi_ap_delay"].is<int>()) _cfg->setWifiApStartDelay(d["wifi_ap_delay"].as<uint32_t>());
@@ -133,7 +139,7 @@ void WebConfigServer::handlePostConfig() {
     if(d["fpv_low_rectext"].is<bool>()) _cfg->setFpvLowBatteryRecText(d["fpv_low_rectext"].as<bool>());
     if(d["fpv_low_text"].is<const char*>()) _cfg->setFpvLowBatteryText(d["fpv_low_text"].as<const char*>());
     if(d["fpv_rect_warn"].is<bool>()) _cfg->setFpvLowRecTimeEnabled(d["fpv_rect_warn"].as<bool>());
-    if(d["fpv_rect_min"].is<int>()) _cfg->setFpvLowRecTimeMin(d["fpv_rect_min"].as<uint8_t>());
+    if(d["fpv_rect_min"].is<int>()) _cfg->setFpvLowRecTimeMin(d["fpv_rect_min"].as<uint16_t>());
     if(d["fpv_rect_ready"].is<bool>()) _cfg->setFpvLowRecReadyWarning(d["fpv_rect_ready"].as<bool>());
     if(d["fpv_rect_record"].is<bool>()) _cfg->setFpvLowRecRecordingWarning(d["fpv_rect_record"].as<bool>());
     if(d["fpv_rect_text"].is<const char*>()) _cfg->setFpvLowRecTimeText(d["fpv_rect_text"].as<const char*>());
@@ -141,6 +147,10 @@ void WebConfigServer::handlePostConfig() {
     if(d["fpv_hot_ready"].is<bool>()) _cfg->setFpvHotReadyWarning(d["fpv_hot_ready"].as<bool>());
     if(d["fpv_hot_record"].is<bool>()) _cfg->setFpvHotRecordingWarning(d["fpv_hot_record"].as<bool>());
     if(d["fpv_hot_text"].is<const char*>()) _cfg->setFpvHotWarningText(d["fpv_hot_text"].as<const char*>());
+    if(d["fpv_prearm"].is<bool>()) _cfg->setFpvPreArmReminderEnabled(d["fpv_prearm"].as<bool>());
+    if(d["fpv_prearm_text"].is<const char*>()) _cfg->setFpvPreArmReminderText(d["fpv_prearm_text"].as<const char*>());
+    if(d["fpv_prearm_show"].is<int>()) _cfg->setFpvPreArmReminderShowMs(d["fpv_prearm_show"].as<uint16_t>());
+    if(d["fpv_prearm_interval"].is<int>()) _cfg->setFpvPreArmReminderIntervalMs(d["fpv_prearm_interval"].as<uint16_t>());
     _server.send(200,"text/plain","OK");
 }
 
