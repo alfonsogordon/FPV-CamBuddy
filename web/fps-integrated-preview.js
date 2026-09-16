@@ -15,7 +15,7 @@ function effectiveRemain(){const a=aggregateMulti();return a&&Number.isFinite(Nu
 function effectiveHot(){const a=aggregateMulti();return !!(a?a.hot:hot)}
 function effectiveError(){const a=aggregateMulti();return !!(cameraError||(a&&a.error))}
 function baseState(){if(effectiveError()||effectiveCameraCount()===0)return'ERR';if(recording)return'REC';return'RDY'}
-function state(){const s=baseState(),count=effectiveCameraCount();return multiEnabled()&&count>1?s+' ('+count+')':s}
+function state(){const s=baseState(),count=effectiveCameraCount();return multiEnabled()&&count>1?s+'('+count+')':s}
 function elapsed(){if(!recording)return'00:00';const s=Math.max(0,Math.floor((performance.now()-recStarted)/1000)),m=Math.floor(s/60);return String(m).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
 function cleanCameraLabel(v){return String(v||'').replace(/[\[\]\x00-\x1f\x7f]/g,'').trim().replace(/\s+/g,' ').slice(0,7)}
 function warningCameraLabel(number=warningSource){const n=Math.max(1,number|0),input=document.querySelector(`.fps-cam-label-edit input[aria-label="Camera ${n} OSD label"]`),label=cleanCameraLabel(input?.value);if(label)return label;const c=multiApi()?.cameras?.get?.(n),stored=cleanCameraLabel(c?.label);return stored||('C'+n)}
