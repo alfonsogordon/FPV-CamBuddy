@@ -6,7 +6,7 @@
 >
 > **Bench test experimental firmware before flight.** Multi-camera and advanced BLE-power behaviour are implemented and building successfully, but still require real-world hardware validation.
 
-> **Based on the original [FPV CamBuddy by sheeprine](https://github.com/sheeprine/freeclinker).** Visit the [original FPV CamBuddy project site](https://sheeprine.github.io/freeclinker/) for the upstream project, its supported-camera foundations and original documentation.
+> **Based on the original [FreeCLinker by sheeprine](https://github.com/sheeprine/freeclinker).** Visit the [original FreeCLinker project site](https://sheeprine.github.io/freeclinker/) for the upstream project, its supported-camera foundations and original documentation.
 
 FPV CamBuddy connects supported action cameras to your flight controller so camera recording can follow the quad automatically. Power the quad, let the C3 find the camera, arm and fly. Recording can start automatically on ARM and stop after a configurable delay on DISARM, while camera state and telemetry are shown in the Betaflight OSD.
 
@@ -16,16 +16,16 @@ FPV CamBuddy adds a simplified configurator, GoPro-focused flight behaviour, ric
 
 ### Experimental V1.0.2
 
-- **Experimental configurator:** https://alfonsogordon.github.io/freeclinker/experimental/config.html
-- **Experimental flasher:** https://alfonsogordon.github.io/freeclinker/experimental/flash.html
+- **Experimental configurator:** https://alfonsogordon.github.io/FPV-CamBuddy/experimental/config.html
+- **Experimental flasher:** https://alfonsogordon.github.io/FPV-CamBuddy/experimental/flash.html
 - **Full V1.0.2 feature guide:** [EXPERIMENTAL_V1.0.2.md](EXPERIMENTAL_V1.0.2.md)
 - **Quick start:** [QUICKSTART.md](QUICKSTART.md)
 
 ### Stable V1.0.1
 
-- Stable configurator: https://alfonsogordon.github.io/freeclinker/config.html
-- Stable flasher: https://alfonsogordon.github.io/freeclinker/flash.html
-- Stable source: https://github.com/alfonsogordon/freeclinker/tree/main
+- Stable configurator: https://alfonsogordon.github.io/FPV-CamBuddy/config.html
+- Stable flasher: https://alfonsogordon.github.io/FPV-CamBuddy/flash.html
+- Stable source: https://github.com/alfonsogordon/FPV-CamBuddy/tree/main
 
 ## Supported cameras
 
@@ -236,7 +236,7 @@ For experimental test reports, include the camera model(s), number of cameras, C
 
 ## Credits
 
-FPV CamBuddy is based on **[FPV CamBuddy by sheeprine](https://github.com/sheeprine/freeclinker)** and retains the work and supported-camera foundations of the upstream project. Thanks to the original FPV CamBuddy contributors and the camera/protocol projects that make this possible.
+FPV CamBuddy is based on **[FreeCLinker by sheeprine](https://github.com/sheeprine/freeclinker)** and retains the work and supported-camera foundations of the upstream project. Thanks to the original FreeCLinker contributors and the camera/protocol projects that make this possible.
 
 ---
 

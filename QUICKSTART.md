@@ -6,7 +6,7 @@ This guide covers both the proven single-camera setup and the **V1.0.2 experimen
 >
 > Multi Cam and advanced BLE power are development features. **Bench test with props removed before flight.**
 
-> FPV CamBuddy is based on **[FPV CamBuddy by sheeprine](https://github.com/sheeprine/freeclinker)**. You can also visit the [original FPV CamBuddy project site](https://sheeprine.github.io/freeclinker/).
+> FPV CamBuddy is based on **[FreeCLinker by sheeprine](https://github.com/sheeprine/freeclinker)**. You can also visit the [original FreeCLinker project site](https://sheeprine.github.io/freeclinker/).
 
 For a full explanation of every V1.0.2 experimental feature, see [EXPERIMENTAL_V1.0.2.md](EXPERIMENTAL_V1.0.2.md).
 
@@ -14,7 +14,7 @@ For a full explanation of every V1.0.2 experimental feature, see [EXPERIMENTAL_V
 
 For V1.0.2 testing, use the **experimental flasher**:
 
-https://alfonsogordon.github.io/freeclinker/experimental/flash.html
+https://alfonsogordon.github.io/FPV-CamBuddy/experimental/flash.html
 
 Connect the ESP32-C3 Super Mini by USB and install the latest experimental build.
 
@@ -22,13 +22,13 @@ When flashing finishes, **power-cycle the C3 once**.
 
 Then open the **experimental configurator**:
 
-https://alfonsogordon.github.io/freeclinker/experimental/config.html
+https://alfonsogordon.github.io/FPV-CamBuddy/experimental/config.html
 
 Do not use the stable flasher/configurator when you are specifically testing V1.0.2 Multi Cam features.
 
 ## 2. Connect and read settings
 
-Connect to the C3 from FPSteVe Easy Config and use **Read Settings**.
+Connect to the C3 from FPV CamBuddy and use **Read Settings**.
 
 Confirm the connected board reports **V1.0.2** before relying on the V1.0.2-only controls.
 

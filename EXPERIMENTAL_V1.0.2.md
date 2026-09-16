@@ -8,9 +8,9 @@ This document explains the new V1.0.2 experimental features, what they are inten
 
 ## Experimental links
 
-- Experimental configurator: https://alfonsogordon.github.io/freeclinker/experimental/config.html
-- Experimental flasher: https://alfonsogordon.github.io/freeclinker/experimental/flash.html
-- Experimental branch: https://github.com/alfonsogordon/freeclinker/tree/experimental
+- Experimental configurator: https://alfonsogordon.github.io/FPV-CamBuddy/experimental/config.html
+- Experimental flasher: https://alfonsogordon.github.io/FPV-CamBuddy/experimental/flash.html
+- Experimental branch: https://github.com/alfonsogordon/FPV-CamBuddy/tree/experimental
 
 ## What's new in V1.0.2
 
