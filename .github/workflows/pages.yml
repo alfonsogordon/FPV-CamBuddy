@@ -1,4 +1,4 @@
-# Fresh Pages deployment trigger for V1.0.2 AP high-power test
+# Fresh Pages deployment trigger for rebuilt V1.0.2 AP + lightweight configurator
 name: Deploy GitHub Pages
 
 on:
