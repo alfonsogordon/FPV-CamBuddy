@@ -21,7 +21,7 @@
 #define BMD_CHAR_DEVICE_NAME       "ffac0c52-c9fb-41a0-b063-cc76282eb89c"  // ESP32  → camera (Write, plaintext)
 #define BMD_CHAR_PROTOCOL_VERSION  "8f1fd018-b508-456f-8f82-3d392bee2706"  // camera → ESP32  (Read, plaintext)
 
-#define BMD_DEVICE_NAME  "FreeCLinker"  // shown in the camera's Bluetooth Setup Menu
+#define BMD_DEVICE_NAME  "FPV CamBuddy"  // shown in the camera's Bluetooth Setup Menu
 
 // ─── Camera Status characteristic — 8-bit flag byte ─────────────────────────
 #define BMD_STATUS_POWERED_ON         0x01

@@ -10,7 +10,7 @@ Insta360Camera *Insta360Camera::_instance = nullptr;
 
 void Insta360Camera::begin() {
     _instance = this;
-    BLEDevice::init("FreeCLinker");
+    BLEDevice::init("FPV CamBuddy");
     BLEDevice::setPower(_lowPowerMode ? ESP_PWR_LVL_N12 : ESP_PWR_LVL_P9);
 
     startScan();

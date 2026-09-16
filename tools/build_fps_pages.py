@@ -11,8 +11,8 @@ def must_replace(old, new, label):
     s = s.replace(old, new, 1)
 
 
-must_replace('<title>FreeCLinker — Config</title>', '<title>FreeCLinker — FPSteVe Edition Config</title>', 'page title')
-must_replace('<span class="brand">FreeCLinker</span>', '<span class="brand">FreeCLinker — FPSteVe Edition</span>', 'brand')
+must_replace('<title>FPV CamBuddy — Config</title>', '<title>FPV CamBuddy Config</title>', 'page title')
+must_replace('<span class="brand">FPV CamBuddy</span>', '<span class="brand">FPV CamBuddy</span>', 'brand')
 must_replace('</head>', '  <link rel="stylesheet" href="fps-theme.css">\n</head>', 'head close')
 
 start_marker = '      <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">\n        <div class="cfg-field-name">State-aware Craft Name</div>'

@@ -1,4 +1,4 @@
-# FreeCLinker FPSteVe Edition - Agent Instructions
+# FPV CamBuddy - Agent Instructions
 
 These instructions apply to autonomous coding agents working in this repository.
 
@@ -35,7 +35,7 @@ Do not replace or shorten the master TODO when updating it; preserve existing ba
 
 After the final commit for a testable change, resolve the exact current `experimental` HEAD and check GitHub Actions for that exact SHA. Both workflows must be `completed` with `conclusion=success`:
 
-1. `Validate FPSteVe Edition`
+1. `Validate FPV CamBuddy`
 2. `Build Experimental V1.0.2 Firmware`
 
 Do not say "ready to test" while either workflow is queued/in progress, and do not treat an older green run as validation of a newer HEAD.

@@ -1,4 +1,4 @@
-# FreeCLinker — FPSteVe Edition
+# FPV CamBuddy
 
 **Automatic action-camera control and Betaflight OSD telemetry from an ESP32-C3 Super Mini.**
 
@@ -6,11 +6,11 @@
 >
 > **Bench test experimental firmware before flight.** Multi-camera and advanced BLE-power behaviour are implemented and building successfully, but still require real-world hardware validation.
 
-> **Based on the original [FreeCLinker by sheeprine](https://github.com/sheeprine/freeclinker).** Visit the [original FreeCLinker project site](https://sheeprine.github.io/freeclinker/) for the upstream project, its supported-camera foundations and original documentation.
+> **Based on the original [FPV CamBuddy by sheeprine](https://github.com/sheeprine/freeclinker).** Visit the [original FPV CamBuddy project site](https://sheeprine.github.io/freeclinker/) for the upstream project, its supported-camera foundations and original documentation.
 
-FreeCLinker connects supported action cameras to your flight controller so camera recording can follow the quad automatically. Power the quad, let the C3 find the camera, arm and fly. Recording can start automatically on ARM and stop after a configurable delay on DISARM, while camera state and telemetry are shown in the Betaflight OSD.
+FPV CamBuddy connects supported action cameras to your flight controller so camera recording can follow the quad automatically. Power the quad, let the C3 find the camera, arm and fly. Recording can start automatically on ARM and stop after a configurable delay on DISARM, while camera state and telemetry are shown in the Betaflight OSD.
 
-FPSteVe Edition adds a simplified configurator, GoPro-focused flight behaviour, richer OSD, warnings, automatic recording, browser flashing and extensive bench/flight test tooling.
+FPV CamBuddy adds a simplified configurator, GoPro-focused flight behaviour, richer OSD, warnings, automatic recording, browser flashing and extensive bench/flight test tooling.
 
 ## Start here
 
@@ -29,11 +29,11 @@ FPSteVe Edition adds a simplified configurator, GoPro-focused flight behaviour, 
 
 ## Supported cameras
 
-FreeCLinker includes camera backends/support paths for **GoPro, DJI Action, Sony, Blackmagic, Insta360 and Caddx**.
+FPV CamBuddy includes camera backends/support paths for **GoPro, DJI Action, Sony, Blackmagic, Insta360 and Caddx**.
 
-**FPSteVe Edition hardware-tested:** GoPro HERO11 Black Mini and GoPro MAX2.
+**FPV CamBuddy hardware-tested:** GoPro HERO11 Black Mini and GoPro MAX2.
 
-The other camera families are supported by the FreeCLinker firmware foundations/backends but have **not necessarily been physically validated by FPSteVe**. V1.0.2 Multi Cam operation across multiple or mixed camera families remains experimental hardware-test territory.
+The other camera families are supported by the FPV CamBuddy firmware foundations/backends but have **not necessarily been physically validated by FPSteVe**. V1.0.2 Multi Cam operation across multiple or mixed camera families remains experimental hardware-test territory.
 
 ## V1.0.2 experimental highlights
 
@@ -134,7 +134,7 @@ The proven single-GoPro backend remains separate from the experimental coordinat
 
 ## Betaflight OSD
 
-Existing FPSteVe Edition OSD features include:
+Existing FPV CamBuddy OSD features include:
 
 - camera state: **ERR / RDY / REC**
 - camera battery percentage
@@ -170,11 +170,11 @@ On **BF 2026.6+**, the four Custom Message defaults are:
 | 3 | `{mode} {res} {fps} {eis}` |
 | 4 | `{rectf} {rcap}` |
 
-REC-only, flashing REC, CLEAN LENS and camera warnings are enabled by default on a fresh FPSteVe Edition configuration.
+REC-only, flashing REC, CLEAN LENS and camera warnings are enabled by default on a fresh FPV CamBuddy configuration.
 
 ## V1 hardware-confirmed behaviour 🤘
 
-The following stable/single-camera behaviour has been physically confirmed using **GoPro HERO11 Black Mini and GoPro MAX2** on the FPSteVe Edition development setup:
+The following stable/single-camera behaviour has been physically confirmed using **GoPro HERO11 Black Mini and GoPro MAX2** on the FPV CamBuddy development setup:
 
 - ESP32-C3 Super Mini + GoPro BLE connection and automatic reconnect
 - GoPro control from a real Betaflight 4.5 flight controller
@@ -223,7 +223,7 @@ See [QUICKSTART.md](QUICKSTART.md) before powering the installation.
 
 ## GoPro pairing note
 
-When switching to a GoPro that FreeCLinker has not paired with before, you may need to open that camera's **Pair** menu for the first connection. During V1 testing, a HERO11 Black Mini and MAX2 provided examples of this behaviour; those models are examples, not a restriction to those specific cameras.
+When switching to a GoPro that FPV CamBuddy has not paired with before, you may need to open that camera's **Pair** menu for the first connection. During V1 testing, a HERO11 Black Mini and MAX2 provided examples of this behaviour; those models are examples, not a restriction to those specific cameras.
 
 In Multi Cam mode, **learn/save new GoPros one at a time on their first connection**. After each camera has been saved, normal automatic simultaneous reconnect can resume on later boots.
 
@@ -236,10 +236,10 @@ For experimental test reports, include the camera model(s), number of cameras, C
 
 ## Credits
 
-FPSteVe Edition is based on **[FreeCLinker by sheeprine](https://github.com/sheeprine/freeclinker)** and retains the work and supported-camera foundations of the upstream project. Thanks to the original FreeCLinker contributors and the camera/protocol projects that make this possible.
+FPV CamBuddy is based on **[FPV CamBuddy by sheeprine](https://github.com/sheeprine/freeclinker)** and retains the work and supported-camera foundations of the upstream project. Thanks to the original FPV CamBuddy contributors and the camera/protocol projects that make this possible.
 
 ---
 
 💜 **No donation link here.** If you like the project and feel like giving something back, take whatever you would've donated and spend it on more props 🤘 — or, even better, donate it to a local charity of your choice.
 
-**FPSteVe Edition V1.0.2 EXPERIMENTAL** 🤘
+**FPV CamBuddy V1.0.2 EXPERIMENTAL** 🤘

@@ -6,7 +6,7 @@ This file is the short handoff between Steve's ChatGPT C3 Cam Board project and 
 
 ## Goal
 
-Bring **FreeCLinker - FPSteVe Edition Experimental V1.0.2** to a clean, testable release candidate while preserving V1.0.1 behaviour and keeping `main` untouched until Steve explicitly approves a release/merge.
+Bring **FPV CamBuddy Experimental V1.0.2** to a clean, testable release candidate while preserving V1.0.1 behaviour and keeping `main` untouched until Steve explicitly approves a release/merge.
 
 ## Current exact state
 

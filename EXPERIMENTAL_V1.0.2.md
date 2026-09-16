@@ -1,4 +1,4 @@
-# FreeCLinker - FPSteVe Edition V1.0.2 Experimental
+# FPV CamBuddy V1.0.2 Experimental
 
 > **Experimental build. Bench test before flight.**
 >
@@ -29,7 +29,7 @@ The existing single-camera behaviour remains available. Multi Cam is off by defa
 
 ### What it does
 
-When **Enable Multi Cam coordinator** is turned on, FreeCLinker uses the V1.0.2 coordinator rather than the normal single-camera backend.
+When **Enable Multi Cam coordinator** is turned on, FPV CamBuddy uses the V1.0.2 coordinator rather than the normal single-camera backend.
 
 The coordinator currently contains backends for:
 
@@ -50,7 +50,7 @@ For a new camera that is not already known to the C3:
 
 1. Leave **Multi Cam OFF**.
 2. Select the correct **Camera type** for that camera.
-3. Power/connect that camera and allow FreeCLinker to discover it and save it.
+3. Power/connect that camera and allow FPV CamBuddy to discover it and save it.
 4. Power-cycle the C3 before registering another new camera.
 5. Repeat with the correct Camera type for each additional camera.
 6. Once the cameras have been learned/saved, enable **Multi Cam**. The coordinator can then work with those saved cameras without one manual Camera type selecting the active Multi Cam backend.
@@ -59,7 +59,7 @@ For example, for a new **GoPro + Insta360** setup: register the GoPro in Single 
 
 For multiple new GoPros, the same one-at-a-time rule applies: connect/save one new GoPro, power-cycle the C3, then register the next. Once each GoPro has been learned/saved once, they can be powered together and Multi Cam can reconnect to the saved cameras automatically on later boots.
 
-A GoPro that has never been paired with FreeCLinker before may also need its **Pair** menu opened for that initial connection.
+A GoPro that has never been paired with FPV CamBuddy before may also need its **Pair** menu opened for that initial connection.
 
 ### Planned experimental Automatic Camera Detection
 
@@ -86,7 +86,7 @@ A camera that connects or reconnects later is reconciled to the current requeste
 - if the quad currently wants recording, the joining camera is sent START;
 - if the quad currently wants stopped recording, the joining camera is sent STOP.
 
-This is important for a second camera that temporarily moves out of Bluetooth range. The system does not simply forget the camera when it drops out; when it returns, FreeCLinker attempts to bring it back into the state the quad currently expects.
+This is important for a second camera that temporarily moves out of Bluetooth range. The system does not simply forget the camera when it drops out; when it returns, FPV CamBuddy attempts to bring it back into the state the quad currently expects.
 
 ### GoPro connection count
 

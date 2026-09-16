@@ -1,4 +1,4 @@
-# FreeCLinker FPSteVe Edition — Experimental Master TODO
+# FPV CamBuddy — Experimental Master TODO
 
 > **Authoritative living tracker for the `experimental` branch.** Stable V1.0.1 on `main` is the protected baseline and must not be changed by experimental work unless Steve explicitly decides to release/merge later.
 >
@@ -163,7 +163,7 @@
 
 ## CI / build / release / branch cleanup
 
-- [ ] **ONGOING — Exact-HEAD validation:** after each final change set, both `Validate FPSteVe Edition` and `Build Experimental V1.0.2 Firmware` must succeed for that exact experimental HEAD before calling it ready to test.
+- [ ] **ONGOING — Exact-HEAD validation:** after each final change set, both `Validate FPV CamBuddy` and `Build Experimental V1.0.2 Firmware` must succeed for that exact experimental HEAD before calling it ready to test.
 - [ ] **TODO — Verify generated firmware artifact publication/flasher path** after substantive firmware changes.
 - [ ] **TODO — Keep every overnight change rollbackable** as incremental experimental commits from baseline `f5dae81b`.
 - [ ] **DEFERRED — Release/merge decision:** do not merge experimental V1.0.2 into `main` until hardware validation is sufficient and Steve explicitly approves it.

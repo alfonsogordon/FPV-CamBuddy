@@ -1,4 +1,4 @@
-# FPSteVe Edition — V1.0.2 Experimental Status
+# FPV CamBuddy — V1.0.2 Experimental Status
 
 V1.0.2 is the active development build on the `experimental` branch. Stable V1.0.1 remains on `main`.
 

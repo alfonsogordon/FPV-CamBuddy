@@ -37,7 +37,7 @@ def replace_or_add_script(html, name):
     return html.replace('</body>', f'<script src="{src}"></script>\n</body>', 1)
 
 source_config = read('web/config.html')
-if '<title>FreeCLinker — FPSteVe Edition Config</title>' not in source_config:
+if '<title>FPV CamBuddy Config</title>' not in source_config:
     runpy.run_path('tools/build_fps_pages.py', run_name='__main__')
 
 c = Path('web/config.html')

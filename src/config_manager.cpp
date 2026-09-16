@@ -276,7 +276,7 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
     while (*line == ' ') line++;
 
     if (strcmp(line, "version") == 0) {
-        out.printf("[cfg] FreeCLinker firmware v%s\n", FIRMWARE_VERSION);
+        out.printf("[cfg] FPV CamBuddy firmware v%s\n", FIRMWARE_VERSION);
         return;
     }
 
@@ -366,7 +366,7 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
 
     if (strcmp(line, "status") == 0) {
         const uint32_t upSec = millis() / 1000;
-        out.printf("[status] FreeCLinker v%s  uptime=%02u:%02u:%02u  heap=%uB\n",
+        out.printf("[status] FPV CamBuddy v%s  uptime=%02u:%02u:%02u  heap=%uB\n",
                    FIRMWARE_VERSION,
                    upSec / 3600, (upSec / 60) % 60, upSec % 60,
                    (unsigned)ESP.getFreeHeap());

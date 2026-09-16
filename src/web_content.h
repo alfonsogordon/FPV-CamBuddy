@@ -10,7 +10,7 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"HTML(<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FreeCLinker — Config</title>
+  <title>FPV CamBuddy — Config</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -299,7 +299,7 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"HTML(<!DOCTYPE html>
 
 <!-- ── Header ── -->
 <header>
-  <span class="brand">FreeCLinker</span>
+  <span class="brand">FPV CamBuddy</span>
   <a class="nav-link" href="index.html">Home</a>
   <a class="nav-link" href="flash.html">Flash</a>
 

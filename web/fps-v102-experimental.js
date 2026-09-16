@@ -44,7 +44,7 @@ function refreshCameraMatching(){
  match.disabled=multi || (!$('connectBtn')?.disabled && localStorage.getItem('freeclinkerDemoMode')!=='1');
  row?.classList.toggle('fps-match-multicam-disabled',multi);
  let info=$('fpsMultiCamMatchInfo');
- if(!info){info=document.createElement('details');info.id='fpsMultiCamMatchInfo';info.className='fps-v102-info';info.innerHTML='<summary>More info — Camera matching and Multi Cam</summary><div class="fps-v102-info-body"><p><strong>Camera matching is a Single Cam setting.</strong> Fallback, Strict and Strongest Signal decide which one camera FreeCLinker should select during a normal single-camera scan.</p><p>When Multi Cam is enabled, FreeCLinker is intentionally trying to reconnect multiple saved cameras, so this selector is disabled and does not choose C1 versus C2. Saved camera identities remain persistent for Multi Cam and OSD source selection.</p><p>Turn Multi Cam off to use Camera matching again.</p></div>';row?.insertAdjacentElement('afterend',info)}
+ if(!info){info=document.createElement('details');info.id='fpsMultiCamMatchInfo';info.className='fps-v102-info';info.innerHTML='<summary>More info — Camera matching and Multi Cam</summary><div class="fps-v102-info-body"><p><strong>Camera matching is a Single Cam setting.</strong> Fallback, Strict and Strongest Signal decide which one camera FPV CamBuddy should select during a normal single-camera scan.</p><p>When Multi Cam is enabled, FPV CamBuddy is intentionally trying to reconnect multiple saved cameras, so this selector is disabled and does not choose C1 versus C2. Saved camera identities remain persistent for Multi Cam and OSD source selection.</p><p>Turn Multi Cam off to use Camera matching again.</p></div>';row?.insertAdjacentElement('afterend',info)}
  if(info)info.style.display=multi?'':'none';
 }
 function refreshVisibility(){
@@ -82,8 +82,8 @@ function build(){if($('fpsV102Experimental'))return;const old=$('fpsDynamicPower
    <summary>More info — first-time Multi Cam setup</summary>
    <div class="fps-v102-info-body">
     <p><strong>New cameras must be learned one at a time, with a C3 power cycle between each new camera.</strong></p>
-    <ol><li>Power on only the first new camera and let FreeCLinker discover, connect and save it.</li><li>Power-cycle the C3.</li><li>Power on only the next new camera and let FreeCLinker save it.</li><li>Power-cycle the C3 again before adding another new camera.</li></ol>
-    <p>If a GoPro has never been paired with FreeCLinker before, open that camera's <strong>Pair</strong> menu for the initial connection if required.</p>
+    <ol><li>Power on only the first new camera and let FPV CamBuddy discover, connect and save it.</li><li>Power-cycle the C3.</li><li>Power on only the next new camera and let FPV CamBuddy save it.</li><li>Power-cycle the C3 again before adding another new camera.</li></ol>
+    <p>If a GoPro has never been paired with FPV CamBuddy before, open that camera's <strong>Pair</strong> menu for the initial connection if required.</p>
     <p>Once all cameras have been learned, normal use is easy: power them on <strong>all together or one by one</strong>. Multi Cam will reconnect to whichever saved cameras are available.</p>
    </div>
   </details>
