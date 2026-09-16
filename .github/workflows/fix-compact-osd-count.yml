@@ -1,0 +1,40 @@
+name: Fix compact OSD camera count
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/fix-compact-osd-count.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experimental
+      - name: Apply compact camera count formatting
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('web/fps-integrated-preview.js')
+          s = p.read_text()
+          old = "return multiEnabled()&&count>1?s+' ('+count+')':s"
+          new = "return multiEnabled()&&count>1?s+'('+count+')':s"
+          if old not in s:
+              raise SystemExit('Expected RDY (2) formatter not found; refusing unrelated edit')
+          if s.count(old) != 1:
+              raise SystemExit('Formatter matched more than once; refusing ambiguous edit')
+          p.write_text(s.replace(old, new, 1))
+          PY
+      - name: Commit fix and remove one-shot workflow
+        run: |
+          rm .github/workflows/fix-compact-osd-count.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add web/fps-integrated-preview.js .github/workflows/fix-compact-osd-count.yml
+          git commit -m 'Use compact multicam OSD camera count'
+          git push origin HEAD:experimental
