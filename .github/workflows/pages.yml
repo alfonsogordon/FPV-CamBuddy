@@ -41,8 +41,6 @@ jobs:
           ref: experimental
           path: experiment
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Generate stable V1 site
         working-directory: stable
@@ -93,8 +91,8 @@ jobs:
           run_id=$(gh run list --repo ${{ github.repository }} --branch experimental --workflow "Validate FPSteVe Edition" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
           test -n "$run_id" || { echo "No successful experimental firmware run found"; exit 1; }
           gh run download "$run_id" --repo ${{ github.repository }} --dir /tmp/exp-artifacts
-          c3=$(find /tmp/exp-artifacts -type d -name 'fpv-cambuddy-stage3-esp32c3' | head -n1)
-          esp=$(find /tmp/exp-artifacts -type d -name 'fpv-cambuddy-stage3-esp32' | head -n1)
+          c3=$(find /tmp/exp-artifacts -type d -name 'freeclinker-stage3-esp32c3' | head -n1)
+          esp=$(find /tmp/exp-artifacts -type d -name 'freeclinker-stage3-esp32' | head -n1)
           test -n "$c3" -a -n "$esp" || { echo "Experimental firmware artifacts missing"; exit 1; }
           cp "$c3/bootloader.bin" stable/web/experimental/firmware/experimental/bootloader-esp32c3supermini.bin
           cp "$c3/partitions.bin" stable/web/experimental/firmware/experimental/partitions-esp32c3supermini.bin
@@ -115,7 +113,7 @@ jobs:
           if marker in s:
               start=s.index(marker)
               end=s.index("function showPostFlash", start)
-              replacement="""releases=[{tag_name:'experimental',published_at:new Date().toISOString(),html_url:'https://github.com/alfonsogordon/FPV-CamBuddy/tree/experimental'}];versionSelect.innerHTML='<option value=\"experimental\">experimental — latest successful test build</option>';versionSelect.disabled=true;selectRelease(releases[0]);\n"""
+              replacement="""releases=[{tag_name:'experimental',published_at:new Date().toISOString(),html_url:'https://github.com/alfonsogordon/freeclinker/tree/experimental'}];versionSelect.innerHTML='<option value=\"experimental\">experimental — latest successful test build</option>';versionSelect.disabled=true;selectRelease(releases[0]);\n"""
               s=s[:start]+replacement+s[end:]
               s=s.replace("<h1>Flash Firmware</h1>","<h1>Flash Experimental Firmware</h1>")
               p.write_text(s)
