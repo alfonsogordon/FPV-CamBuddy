@@ -62,7 +62,7 @@
 // (see WIFI_FORCE_AP_PIN below) so the config UI always stays reachable.
 //
 #define WIFI_AP_SSID              "FPV CamBuddy"
-#define WIFI_AP_PASSWORD          ""              // empty = open network
+#define WIFI_AP_PASSWORD          "fpvcambuddy"    // WPA2 AP password
 #define WIFI_AP_CHANNEL           1
 
 // ─── BOOT-button force-AP ────────────────────────────────────────────────────
