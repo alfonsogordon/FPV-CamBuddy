@@ -6,8 +6,6 @@
 #include <WiFi.h>
 #include <ArduinoJson.h>
 
-// Accumulates print() output into a String so CLI commands can be
-// processed synchronously and their output returned as HTTP body text.
 class StringStream : public Stream {
 public:
     int    available() override { return 0; }
@@ -23,8 +21,6 @@ private:
     String _buf;
 };
 
-// ── Public interface ──────────────────────────────────────────────────────────
-
 void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg) {
     _cfg = &cfg;
     _reg = reg;
@@ -32,18 +28,10 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
 
     if (_running) return;
 
-    // Keep startup close to the original known-working FreeCLinker path.
-    // We retain truthful softAP() success/failure handling, but deliberately
-    // avoid disconnecting/resetting the radio before creating the AP.
     if (_dbg) _dbg->printf("[wifi] Preparing AP — current mode=%d\n", (int)WiFi.getMode());
     WiFi.mode(WIFI_AP);
     delay(100);
 
-    // The camera low-power option deliberately reduces BLE TX power, but the
-    // configuration AP should remain easy to associate with. Set WiFi TX power
-    // explicitly while AP mode is active instead of relying on the radio's
-    // previous/default state. WIFI_POWER_19_5dBm is the Arduino-ESP32 maximum
-    // WiFi setting supported by the C3 API.
     WiFi.setTxPower(WIFI_POWER_19_5dBm);
     if (_dbg) _dbg->printf("[wifi] AP TX power set to %d\n", (int)WiFi.getTxPower());
 
@@ -73,12 +61,12 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
                      (unsigned)WiFi.softAPgetStationNum());
     }
 
-    _server.on("/",            HTTP_GET,  [this]() { handleRoot();        });
-    _server.on("/api/config",  HTTP_GET,  [this]() { handleGetConfig();   });
-    _server.on("/api/config",  HTTP_POST, [this]() { handlePostConfig();  });
-    _server.on("/api/cameras", HTTP_GET,  [this]() { handleGetCameras();  });
-    _server.on("/api/wifi_scan", HTTP_GET, [this]() { handleWifiScan();   });
-    _server.on("/api/cli",     HTTP_POST, [this]() { handleCli();         });
+    _server.on("/",              HTTP_GET,  [this]() { handleRoot();       });
+    _server.on("/api/config",    HTTP_GET,  [this]() { handleGetConfig();  });
+    _server.on("/api/config",    HTTP_POST, [this]() { handlePostConfig(); });
+    _server.on("/api/cameras",   HTTP_GET,  [this]() { handleGetCameras(); });
+    _server.on("/api/wifi_scan", HTTP_GET,  [this]() { handleWifiScan();   });
+    _server.on("/api/cli",       HTTP_POST, [this]() { handleCli();        });
 
     _server.begin();
     _running = true;
@@ -96,8 +84,6 @@ void WebConfigServer::update() {
     if (_running) _server.handleClient();
 }
 
-// ── Route handlers ────────────────────────────────────────────────────────────
-
 void WebConfigServer::handleRoot() {
     _server.send_P(200, "text/html", WEB_INDEX_HTML);
 }
@@ -106,11 +92,8 @@ void WebConfigServer::handleGetConfig() {
     const auto &c = _cfg->config();
     JsonDocument doc;
     doc["camera_type"]    = c.cameraType;
-    // caddx_ssid lives in the camera registry, not Config — password
-    // intentionally omitted here too, same as before (write-only).
     CameraEntry caddxEntry;
-    doc["caddx_ssid"] = (_reg && _reg->preferredEntry(/*Caddx=*/2, caddxEntry))
-                       ? caddxEntry.addr : "";
+    doc["caddx_ssid"] = (_reg && _reg->preferredEntry(2, caddxEntry)) ? caddxEntry.addr : "";
     doc["disarm_delay"]   = c.disarmStopDelayMs;
     doc["stop_on_disarm"] = c.stopOnDisarm;
     doc["aux_channel"]    = c.auxChannel;
@@ -146,11 +129,11 @@ void WebConfigServer::handleGetConfig() {
     doc["fpv_rect_min"]    = c.fpvLowRecTimeMin;
     doc["fpv_rect_ready"]  = c.fpvLowRecReadyWarning;
     doc["fpv_rect_record"] = c.fpvLowRecRecordingWarning;
-    doc["fpv_rect_text"]    = c.fpvLowRecTimeText;
-    doc["fpv_hot_warn"]     = c.fpvHotWarningEnabled;
-    doc["fpv_hot_ready"]    = c.fpvHotReadyWarning;
-    doc["fpv_hot_record"]   = c.fpvHotRecordingWarning;
-    doc["fpv_hot_text"]     = c.fpvHotWarningText;
+    doc["fpv_rect_text"]   = c.fpvLowRecTimeText;
+    doc["fpv_hot_warn"]    = c.fpvHotWarningEnabled;
+    doc["fpv_hot_ready"]   = c.fpvHotReadyWarning;
+    doc["fpv_hot_record"]  = c.fpvHotRecordingWarning;
+    doc["fpv_hot_text"]    = c.fpvHotWarningText;
     String json;
     serializeJson(doc, json);
     _server.send(200, "application/json", json);
@@ -215,20 +198,7 @@ void WebConfigServer::handlePostConfig() {
 }
 
 void WebConfigServer::handleGetCameras() {
-    JsonDocument doc;
-    JsonArray arr = doc.to<JsonArray>();
-    if (_reg) {
-        const auto &entries = _reg->entries();
-        for (const auto &e : entries) {
-            JsonObject o = arr.add<JsonObject>();
-            o["type"] = e.type;
-            o["addr"] = e.addr;
-            o["name"] = e.name;
-            o["last_seen"] = e.lastSeen;
-        }
-    }
-    String json;
-    serializeJson(doc, json);
+    const String json = _reg ? _reg->toJson() : "[]";
     _server.send(200, "application/json", json);
 }
 
