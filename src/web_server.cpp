@@ -4,6 +4,7 @@
 #include "config.h"
 
 #include <WiFi.h>
+#include <BLEDevice.h>
 #include <ArduinoJson.h>
 
 class StringStream : public Stream {
@@ -24,12 +25,34 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
     _dbg = dbg;
     if (_running) return;
 
-    // Standard ESP32 SoftAP setup. Keep STA enabled only for Caddx, because
-    // that backend is the only one that needs Wi-Fi client mode at runtime.
-    // No radio reset loops, captive portal, DNS interception, mDNS or retries.
-    const bool needsSta = cfg.config().cameraType == 2;
-    WiFi.mode(needsSta ? WIFI_AP_STA : WIFI_AP);
+    // Enter a dedicated configuration mode. Once the AP is requested we no
+    // longer need a live camera connection, and keeping BLE/STA activity alive
+    // was making SoftAP startup and phone association unreliable on ESP32-C3.
+    // A reboot is the intentional way back to normal camera operation.
+    if (_dbg) _dbg->println("[wifi] Entering dedicated configuration mode");
+
+    if (cfg.config().cameraType == 2) {
+        // Caddx is the Wi-Fi camera backend. Drop its STA connection without
+        // erasing saved credentials; ConfigManager/registry retains them.
+        WiFi.setAutoReconnect(false);
+        WiFi.disconnect(false, false);
+    } else {
+        // All other current camera backends use BLE. Stop any active scan and
+        // release the BLE controller before taking the shared 2.4 GHz radio for
+        // the field configurator AP.
+        BLEDevice::getScan()->stop();
+        BLEDevice::deinit(true);
+    }
+
+    // Give the shared radio a clean transition into AP-only mode. Do not keep
+    // STA enabled in configuration mode: the AP should own the radio until
+    // reboot so it is predictable in the field.
+    WiFi.softAPdisconnect(false);
+    WiFi.mode(WIFI_OFF);
+    delay(100);
+    WiFi.mode(WIFI_AP);
     WiFi.setSleep(false);
+    delay(100);
 
     const IPAddress apIp(192, 168, 4, 1);
     const IPAddress apGw(192, 168, 4, 1);
@@ -66,10 +89,9 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
     _running = true;
 
     if (_dbg) {
-        _dbg->printf("[wifi] FPV CamBuddy AP ready: %s  IP=%s  mode=%s  ch=%u  tx=%d\n",
+        _dbg->printf("[wifi] FPV CamBuddy AP ready: %s  IP=%s  mode=AP-only  ch=%u  tx=%d\n",
                      WIFI_AP_SSID,
                      WiFi.softAPIP().toString().c_str(),
-                     needsSta ? "AP+STA" : "AP",
                      WIFI_AP_CHANNEL,
                      (int)WiFi.getTxPower());
     }
@@ -79,19 +101,11 @@ void WebConfigServer::stop() {
     if (!_running) return;
 
     _server.stop();
-
-    // Stop only the AP interface. Do not use softAPdisconnect(true): that
-    // powers the whole Wi-Fi driver down and can also kill Caddx STA mode.
-    WiFi.softAPdisconnect(false);
-
-    if (_cfg && _cfg->config().cameraType == 2) {
-        WiFi.mode(WIFI_STA);
-    } else {
-        WiFi.mode(WIFI_OFF);
-    }
+    WiFi.softAPdisconnect(true);
+    WiFi.mode(WIFI_OFF);
 
     _running = false;
-    if (_dbg) _dbg->println("[wifi] FPV CamBuddy AP stopped");
+    if (_dbg) _dbg->println("[wifi] FPV CamBuddy AP stopped; reboot required for camera mode");
 }
 
 void WebConfigServer::update() {
