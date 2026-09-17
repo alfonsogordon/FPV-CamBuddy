@@ -42,8 +42,9 @@ static uint32_t wifiDelayOriginMs  = 0;
 static bool     cameraWasConnected = false;
 
 // Force-AP: set when BOOT button is held for WIFI_FORCE_AP_HOLD_MS.
-// Once set, the AP stays on until the next reboot even if a camera connects.
+// Once config mode begins, camera/radio activity is suspended until reboot.
 static bool     forceAP        = false;
+static bool     configMode     = false;
 static uint32_t bootBtnPressMs = 0;  // millis() when button first went LOW
 static uint32_t bootBtnLogSec  = 0;  // last second logged during hold
 
@@ -70,6 +71,7 @@ static void updateStatusLed(uint32_t now, bool camConnected, bool apRunning) {
 }
 
 static void onAuxSwitch(bool high) {
+    if (configMode || !activeCamera) return;
     const bool isGoPro = (configManager.config().cameraType == 1);
     if (isGoPro && currentCamera.recording) {
         if (high) {
@@ -88,12 +90,14 @@ static void onAuxSwitch(bool high) {
 
 // Called from the BLE stack task — copy + flag only; MSP output on main task.
 static void onCameraData(const CameraData &data) {
+    if (configMode) return;
     currentCamera = data;
     hasCamera     = true;
 }
 
 // Called from mspSerial.update() whenever the FC arm state changes.
 static void onArmStateChange(bool armed) {
+    if (configMode || !activeCamera) return;
     if (armed) {
         pendingStop = false;
         DBG_SERIAL.println("[main] FC armed — starting recording");
@@ -140,7 +144,7 @@ void benchSimStatus(Stream &out) {
     out.printf("[sim] active=%s armed=%s aux=%s camera_connected=%s recording=%s\n",
                benchSimActive ? "yes" : "no", mspSerial.isArmed() ? "yes" : "no",
                benchSimAuxHigh ? "high" : "low",
-               (activeCamera && activeCamera->isConnected()) ? "yes" : "no",
+               (!configMode && activeCamera && activeCamera->isConnected()) ? "yes" : "no",
                currentCamera.recording ? "yes" : "no");
 }
 
@@ -242,15 +246,20 @@ void setup() {
 void loop() {
     configManager.update();
     mspSerial.setAuxChannel(configManager.config().auxChannel);
-    activeCamera->setDebugBle(configManager.config().debugBle);
-    activeCamera->update();
+
+    // Configuration mode owns the C3 radio until reboot. Do not let any camera
+    // backend scan, reconnect, keep alive, or send commands after the AP starts.
+    if (!configMode) {
+        activeCamera->setDebugBle(configManager.config().debugBle);
+        activeCamera->update();
+    }
     mspSerial.update();
 
     const uint32_t now          = millis();
-    const bool     camConnected = activeCamera->isConnected();
+    const bool     camConnected = !configMode && activeCamera->isConnected();
 
     // ── BOOT button → force AP ─────────────────────────────────────────────────
-    if (!forceAP) {
+    if (!configMode && !forceAP) {
         if (digitalRead(WIFI_FORCE_AP_PIN) == LOW) {
             if (bootBtnPressMs == 0) {
                 bootBtnPressMs = now;
@@ -267,10 +276,13 @@ void loop() {
             }
             if (heldMs >= WIFI_FORCE_AP_HOLD_MS) {
                 forceAP        = true;
+                configMode     = true;
+                pendingStop    = false;
                 bootBtnPressMs = 0;
-                DBG_SERIAL.println("[wifi] Forcing WiFi AP mode until reboot");
-                if (!webServer.isRunning())
-                    webServer.begin(configManager, &cameraRegistry, &DBG_SERIAL);
+                currentCamera  = CameraData{};
+                hasCamera      = false;
+                DBG_SERIAL.println("[wifi] Entering AP configuration mode until reboot");
+                webServer.begin(configManager, &cameraRegistry, &DBG_SERIAL);
             }
         } else {
             bootBtnPressMs = 0;
@@ -278,99 +290,99 @@ void loop() {
     }
 
     // ── WiFi AP lifecycle ──────────────────────────────────────────────────────
-    if (camConnected && !cameraWasConnected) {
-        // Camera just connected — tear down the AP unless forced on.
-        if (webServer.isRunning() && !forceAP) {
-            DBG_SERIAL.println("[wifi] Camera connected — stopping AP");
-            webServer.stop();
+    if (!configMode) {
+        if (!camConnected && cameraWasConnected) {
+            // Camera just disconnected — drop stale telemetry (recording state,
+            // battery %, etc.) so the OSD reports NC instead of last-known values.
+            currentCamera = CameraData{};
+            hasCamera     = true;
+
+            if (configManager.config().wifiApEnabled) {
+                DBG_SERIAL.printf("[wifi] Camera disconnected — AP starts in %u s\n",
+                                  configManager.config().wifiApStartDelaySec);
+                wifiDelayOriginMs = now;
+            }
         }
-    }
 
-    if (!camConnected && cameraWasConnected) {
-        // Camera just disconnected — drop stale telemetry (recording state,
-        // battery %, etc.) so the OSD reports NC instead of the last-known
-        // values, and push that update immediately.
-        currentCamera = CameraData{};
-        hasCamera     = true;
+        cameraWasConnected = camConnected;
 
-        if (!forceAP && configManager.config().wifiApEnabled) {
-            // Camera just disconnected — restart the countdown.
-            DBG_SERIAL.printf("[wifi] Camera disconnected — AP starts in %u s\n",
-                              configManager.config().wifiApStartDelaySec);
-            wifiDelayOriginMs = now;
+        if (!webServer.isRunning() &&
+            !camConnected &&
+            configManager.config().wifiApEnabled &&
+            (now - wifiDelayOriginMs) >= (configManager.config().wifiApStartDelaySec * 1000UL)) {
+            configMode    = true;
+            pendingStop   = false;
+            currentCamera = CameraData{};
+            hasCamera     = false;
+            DBG_SERIAL.println("[wifi] Auto-start entering AP configuration mode until reboot");
+            webServer.begin(configManager, &cameraRegistry, &DBG_SERIAL);
         }
-    }
-
-    cameraWasConnected = camConnected;
-
-    if (!webServer.isRunning() &&
-        !forceAP &&
-        !camConnected &&
-        configManager.config().wifiApEnabled &&
-        (now - wifiDelayOriginMs) >= (configManager.config().wifiApStartDelaySec * 1000UL)) {
-        webServer.begin(configManager, &cameraRegistry, &DBG_SERIAL);
     }
 
     webServer.update();
 
-    // ── Delayed recording stop ─────────────────────────────────────────────────
-    if (pendingStop && (now - disarmMs) >= configManager.config().disarmStopDelayMs) {
-        pendingStop = false;
-        DBG_SERIAL.println("[main] stopping recording (delayed)");
-        activeCamera->stopRecording();
-    }
-
-    // ── Camera telemetry ───────────────────────────────────────────────────────
-    const bool battKeepalive =
-        MSP_BATTERY_KEEPALIVE_MS > 0 &&
-        (now - lastBattMs) >= MSP_BATTERY_KEEPALIVE_MS;
-
-    // State-aware Craft Name uses token-level animation. Force a refresh twice
-    // per second whenever this mode is active so REC and low-battery battery
-    // tokens animate independently of camera telemetry notification cadence.
-    const auto &liveCfg = configManager.config();
-    mspSerial.setFpvDisplayOptions(liveCfg.fpvStateMode,
-                                   liveCfg.fpvErrorEnabled, liveCfg.fpvErrorText,
-                                   liveCfg.fpvReadyEnabled, liveCfg.fpvReadyText,
-                                   liveCfg.fpvRecordingEnabled, liveCfg.fpvRecordingText,
-                                   liveCfg.fpvRecFlash, liveCfg.fpvLowBatteryEnabled,
-                                   liveCfg.fpvLowBatteryPct, liveCfg.fpvLowBatteryReadyFlash,
-                                   liveCfg.fpvLowBatteryRecText, liveCfg.fpvLowBatteryText,
-                                   liveCfg.fpvLowRecTimeEnabled, liveCfg.fpvLowRecTimeMin,
-                                   liveCfg.fpvLowRecReadyWarning, liveCfg.fpvLowRecRecordingWarning,
-                                   liveCfg.fpvLowRecTimeText,
-                                   liveCfg.fpvHotWarningEnabled, liveCfg.fpvHotReadyWarning,
-                                   liveCfg.fpvHotRecordingWarning, liveCfg.fpvHotWarningText,
-                                   liveCfg.fpvPreArmReminderEnabled, liveCfg.fpvPreArmReminderText,
-                                   liveCfg.fpvPreArmReminderShowMs, liveCfg.fpvPreArmReminderIntervalMs);
-    const bool craftFlashRefresh =
-        liveCfg.bf45Compat && liveCfg.craftNameEnabled && liveCfg.fpvStateMode &&
-        (now - lastBattMs) >= 500UL;
-
-    if (hasCamera || battKeepalive || craftFlashRefresh) {
-        hasCamera  = false;
-        const auto &cfg = configManager.config();
-        mspSerial.sendCameraStatus(currentCamera);
-        if (cfg.bf45Compat) {
-            // Betaflight 4.5 has no Custom Message 1-4 OSD fields — sending
-            // them would just be ignored, so use Pilot Name/Craft Name instead.
-            if (cfg.pilotNameEnabled) mspSerial.sendPilotName(currentCamera, cfg.pilotNameTpl);
-            if (cfg.craftNameEnabled) mspSerial.sendCraftName(currentCamera, cfg.craftNameTpl);
-        } else {
-            mspSerial.sendCustomOSD1(currentCamera, cfg.osd1Tpl);
-            mspSerial.sendCustomOSD2(currentCamera, cfg.osd2Tpl);
-            mspSerial.sendCustomOSD3(currentCamera, cfg.osd3Tpl);
-            mspSerial.sendCustomOSD4(currentCamera, cfg.osd4Tpl);
+    // Everything below here is camera/MSP telemetry work and is intentionally
+    // paused while the AP owns the radio. Reboot returns to normal camera mode.
+    if (!configMode) {
+        // ── Delayed recording stop ──────────────────────────────────────────────
+        if (pendingStop && (now - disarmMs) >= configManager.config().disarmStopDelayMs) {
+            pendingStop = false;
+            DBG_SERIAL.println("[main] stopping recording (delayed)");
+            activeCamera->stopRecording();
         }
-        lastBattMs = now;
 
-        DBG_SERIAL.printf("[cam] bat=%u%%  mode=0x%02X  rec=%s  eis=%u  "
-                          "time=%us  sd=%uMB  remain=%us  temp=%u\n",
-                          currentCamera.percent, currentCamera.camera_mode,
-                          currentCamera.recording ? "yes" : "no",
-                          currentCamera.eis_mode, currentCamera.record_time,
-                          currentCamera.remain_cap_mb, currentCamera.remain_time,
-                          currentCamera.temp_over);
+        // ── Camera telemetry ───────────────────────────────────────────────────
+        const bool battKeepalive =
+            MSP_BATTERY_KEEPALIVE_MS > 0 &&
+            (now - lastBattMs) >= MSP_BATTERY_KEEPALIVE_MS;
+
+        // State-aware Craft Name uses token-level animation. Force a refresh twice
+        // per second whenever this mode is active so REC and low-battery battery
+        // tokens animate independently of camera telemetry notification cadence.
+        const auto &liveCfg = configManager.config();
+        mspSerial.setFpvDisplayOptions(liveCfg.fpvStateMode,
+                                       liveCfg.fpvErrorEnabled, liveCfg.fpvErrorText,
+                                       liveCfg.fpvReadyEnabled, liveCfg.fpvReadyText,
+                                       liveCfg.fpvRecordingEnabled, liveCfg.fpvRecordingText,
+                                       liveCfg.fpvRecFlash, liveCfg.fpvLowBatteryEnabled,
+                                       liveCfg.fpvLowBatteryPct, liveCfg.fpvLowBatteryReadyFlash,
+                                       liveCfg.fpvLowBatteryRecText, liveCfg.fpvLowBatteryText,
+                                       liveCfg.fpvLowRecTimeEnabled, liveCfg.fpvLowRecTimeMin,
+                                       liveCfg.fpvLowRecReadyWarning, liveCfg.fpvLowRecRecordingWarning,
+                                       liveCfg.fpvLowRecTimeText,
+                                       liveCfg.fpvHotWarningEnabled, liveCfg.fpvHotReadyWarning,
+                                       liveCfg.fpvHotRecordingWarning, liveCfg.fpvHotWarningText,
+                                       liveCfg.fpvPreArmReminderEnabled, liveCfg.fpvPreArmReminderText,
+                                       liveCfg.fpvPreArmReminderShowMs, liveCfg.fpvPreArmReminderIntervalMs);
+        const bool craftFlashRefresh =
+            liveCfg.bf45Compat && liveCfg.craftNameEnabled && liveCfg.fpvStateMode &&
+            (now - lastBattMs) >= 500UL;
+
+        if (hasCamera || battKeepalive || craftFlashRefresh) {
+            hasCamera  = false;
+            const auto &cfg = configManager.config();
+            mspSerial.sendCameraStatus(currentCamera);
+            if (cfg.bf45Compat) {
+                // Betaflight 4.5 has no Custom Message 1-4 OSD fields — sending
+                // them would just be ignored, so use Pilot Name/Craft Name instead.
+                if (cfg.pilotNameEnabled) mspSerial.sendPilotName(currentCamera, cfg.pilotNameTpl);
+                if (cfg.craftNameEnabled) mspSerial.sendCraftName(currentCamera, cfg.craftNameTpl);
+            } else {
+                mspSerial.sendCustomOSD1(currentCamera, cfg.osd1Tpl);
+                mspSerial.sendCustomOSD2(currentCamera, cfg.osd2Tpl);
+                mspSerial.sendCustomOSD3(currentCamera, cfg.osd3Tpl);
+                mspSerial.sendCustomOSD4(currentCamera, cfg.osd4Tpl);
+            }
+            lastBattMs = now;
+
+            DBG_SERIAL.printf("[cam] bat=%u%%  mode=0x%02X  rec=%s  eis=%u  "
+                              "time=%us  sd=%uMB  remain=%us  temp=%u\n",
+                              currentCamera.percent, currentCamera.camera_mode,
+                              currentCamera.recording ? "yes" : "no",
+                              currentCamera.eis_mode, currentCamera.record_time,
+                              currentCamera.remain_cap_mb, currentCamera.remain_time,
+                              currentCamera.temp_over);
+        }
     }
 
     updateStatusLed(now, camConnected, webServer.isRunning());
