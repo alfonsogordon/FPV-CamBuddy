@@ -6,6 +6,7 @@
 #include <WiFi.h>
 #include <BLEDevice.h>
 #include <ArduinoJson.h>
+#include <cstring>
 
 class StringStream : public Stream {
 public:
@@ -234,7 +235,81 @@ void WebConfigServer::handlePostConfig() {
     if (d["fpv_prearm_show"].is<int>()) _cfg->setFpvPreArmReminderShowMs(d["fpv_prearm_show"].as<uint16_t>());
     if (d["fpv_prearm_interval"].is<int>()) _cfg->setFpvPreArmReminderIntervalMs(d["fpv_prearm_interval"].as<uint16_t>());
 
-    _server.send(200, "text/plain", "OK");
+    // Every ConfigManager setter writes directly to Preferences/NVS. Verify the
+    // applied values against the authoritative ConfigManager state before ever
+    // telling the browser that the save succeeded. This catches truncation,
+    // clamping, unsupported values, or any write path that did not stick.
+    const auto &c = _cfg->config();
+    String mismatch;
+    auto fail = [&](const char *key) {
+        if (mismatch.length()) mismatch += ", ";
+        mismatch += key;
+    };
+    auto checkInt = [&](const char *key, uint32_t actual) {
+        if (d[key].is<int>() && d[key].as<uint32_t>() != actual) fail(key);
+    };
+    auto checkBool = [&](const char *key, bool actual) {
+        if (d[key].is<bool>() && d[key].as<bool>() != actual) fail(key);
+    };
+    auto checkStr = [&](const char *key, const char *actual) {
+        if (d[key].is<const char*>() && strcmp(d[key].as<const char*>(), actual) != 0) fail(key);
+    };
+
+    checkInt("camera_type", c.cameraType);
+    checkInt("disarm_delay", c.disarmStopDelayMs);
+    checkBool("stop_on_disarm", c.stopOnDisarm);
+    checkInt("aux_channel", c.auxChannel);
+    checkInt("aux_mode", c.auxMode);
+    checkInt("camera_match", c.cameraMatchMode);
+    checkBool("wake_guard", c.cameraWakeGuard);
+    checkBool("debug_ble", c.debugBle);
+    checkBool("low_power", c.lowPowerMode);
+    checkBool("wifi_ap_enabled", c.wifiApEnabled);
+    checkInt("wifi_ap_delay", c.wifiApStartDelaySec);
+    checkStr("osd1", c.osd1Tpl);
+    checkStr("osd2", c.osd2Tpl);
+    checkStr("osd3", c.osd3Tpl);
+    checkStr("osd4", c.osd4Tpl);
+    checkBool("bf45_compat", c.bf45Compat);
+    checkBool("pilot_en", c.pilotNameEnabled);
+    checkStr("pilot_tpl", c.pilotNameTpl);
+    checkBool("craft_en", c.craftNameEnabled);
+    checkStr("craft_tpl", c.craftNameTpl);
+    if (d["fpv_state_mode"].is<int>() && (d["fpv_state_mode"].as<uint8_t>() != (uint8_t)c.fpvStateMode)) fail("fpv_state_mode");
+    checkBool("fpv_error", c.fpvErrorEnabled);
+    checkStr("fpv_err_text", c.fpvErrorText);
+    checkBool("fpv_ready", c.fpvReadyEnabled);
+    checkStr("fpv_ready_text", c.fpvReadyText);
+    checkBool("fpv_record", c.fpvRecordingEnabled);
+    checkStr("fpv_record_text", c.fpvRecordingText);
+    checkBool("fpv_flash", c.fpvRecFlash);
+    checkBool("fpv_low_batt", c.fpvLowBatteryEnabled);
+    checkInt("fpv_low_pct", c.fpvLowBatteryPct);
+    checkBool("fpv_low_rdyflash", c.fpvLowBatteryReadyFlash);
+    checkBool("fpv_low_rectext", c.fpvLowBatteryRecText);
+    checkStr("fpv_low_text", c.fpvLowBatteryText);
+    checkBool("fpv_rect_warn", c.fpvLowRecTimeEnabled);
+    checkInt("fpv_rect_min", c.fpvLowRecTimeMin);
+    checkBool("fpv_rect_ready", c.fpvLowRecReadyWarning);
+    checkBool("fpv_rect_record", c.fpvLowRecRecordingWarning);
+    checkStr("fpv_rect_text", c.fpvLowRecTimeText);
+    checkBool("fpv_hot_warn", c.fpvHotWarningEnabled);
+    checkBool("fpv_hot_ready", c.fpvHotReadyWarning);
+    checkBool("fpv_hot_record", c.fpvHotRecordingWarning);
+    checkStr("fpv_hot_text", c.fpvHotWarningText);
+    checkBool("fpv_prearm", c.fpvPreArmReminderEnabled);
+    checkStr("fpv_prearm_text", c.fpvPreArmReminderText);
+    checkInt("fpv_prearm_show", c.fpvPreArmReminderShowMs);
+    checkInt("fpv_prearm_interval", c.fpvPreArmReminderIntervalMs);
+
+    if (mismatch.length()) {
+        if (_dbg) _dbg->printf("[cfg] AP save verification FAILED: %s\n", mismatch.c_str());
+        _server.send(500, "text/plain", String("Save verification failed: ") + mismatch);
+        return;
+    }
+
+    if (_dbg) _dbg->println("[cfg] AP save verified against ConfigManager/NVS-backed state");
+    _server.send(200, "application/json", "{\"ok\":true,\"verified\":true}");
 }
 
 void WebConfigServer::handleGetCameras() {
