@@ -1,4 +1,4 @@
-# Fresh Pages deployment trigger for verified V1.0.2 AP/save candidate 7cbed11d
+# Fresh Pages deployment trigger for verified V1.0.2 AP/NVS candidate 855b335d
 name: Deploy GitHub Pages
 
 on:
