@@ -117,6 +117,10 @@ public:
     void setRegistry(CameraRegistry *reg) { _registry = reg; }
     void setCamera(Camera *cam, const CameraData *data) { _camera = cam; _cameraData = data; }
     const Config &config() const { return _cfg; }
+    // Re-read the authoritative persisted Preferences/NVS values into RAM.
+    // Used by the AP configurator to prove a save survived storage before
+    // reporting success to the browser.
+    void reloadFromStorage() { load(); }
     void processCommand(const char *line, Stream &out);
     void setCameraType(uint8_t v);
     void setDisarmDelay(uint32_t ms);
