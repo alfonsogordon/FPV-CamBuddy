@@ -27,9 +27,9 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
     if (_running) return;
 
     // Enter a dedicated configuration mode. Once the AP is requested we no
-    // longer need a live camera connection, and keeping BLE/STA activity alive
-    // was making SoftAP startup and phone association unreliable on ESP32-C3.
-    // A reboot is the intentional way back to normal camera operation.
+    // longer need a live camera connection. The C3's shared 2.4 GHz radio gets
+    // a deliberate quiet period before SoftAP starts so the first phone
+    // association cannot race BLE/STA shutdown.
     if (_dbg) _dbg->println("[wifi] Entering dedicated configuration mode");
 
     if (cfg.config().cameraType == 2) {
@@ -37,29 +37,32 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
         // erasing saved credentials; ConfigManager/registry retains them.
         WiFi.setAutoReconnect(false);
         WiFi.disconnect(false, false);
+        delay(300);
     } else {
-        // All other current camera backends use BLE. Stop any active scan and
-        // release the BLE controller before taking the shared 2.4 GHz radio for
-        // the field configurator AP.
+        // All other current camera backends use BLE. Stop scanning and release
+        // the BLE controller before handing the shared radio to Wi-Fi.
         BLEDevice::getScan()->stop();
         BLEDevice::deinit(true);
+        delay(500);
     }
 
-    // Give the shared radio a clean transition into AP-only mode. Do not keep
-    // STA enabled in configuration mode: the AP should own the radio until
-    // reboot so it is predictable in the field.
-    WiFi.softAPdisconnect(false);
+    // Start from a genuinely cold Wi-Fi state. The previous 100 ms transition
+    // was short enough for the AP to advertise and then fall over on the first
+    // association on some ESP32-C3 boards.
+    WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_OFF);
-    delay(100);
+    delay(500);
+
     WiFi.mode(WIFI_AP);
     WiFi.setSleep(false);
-    delay(100);
+    delay(500);
 
     const IPAddress apIp(192, 168, 4, 1);
     const IPAddress apGw(192, 168, 4, 1);
     const IPAddress apMask(255, 255, 255, 0);
     if (!WiFi.softAPConfig(apIp, apGw, apMask)) {
         if (_dbg) _dbg->println("[wifi] FPV CamBuddy softAPConfig failed");
+        WiFi.mode(WIFI_OFF);
         return;
     }
 
@@ -70,12 +73,27 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
                                 4);
     if (!ok) {
         if (_dbg) _dbg->println("[wifi] FPV CamBuddy SoftAP start FAILED");
+        WiFi.mode(WIFI_OFF);
         return;
     }
 
     // Apply AP transmit power only after the Wi-Fi driver and AP are active.
     // This setting is intentionally independent from camera low-power mode.
     WiFi.setTxPower(WIFI_POWER_19_5dBm);
+
+    // Do not accept HTTP clients until the AP interface has a valid address and
+    // has had time to settle. This specifically protects the first association.
+    const uint32_t readyStart = millis();
+    while ((WiFi.softAPIP()[0] == 0) && (millis() - readyStart < 2500UL)) {
+        delay(50);
+    }
+    if (WiFi.softAPIP()[0] == 0) {
+        if (_dbg) _dbg->println("[wifi] FPV CamBuddy AP failed to obtain IP");
+        WiFi.softAPdisconnect(true);
+        WiFi.mode(WIFI_OFF);
+        return;
+    }
+    delay(500);
 
     _server.on("/", HTTP_GET, [this](){ handleRoot(); });
     _server.on("/api/config", HTTP_GET, [this](){ handleGetConfig(); });
@@ -235,11 +253,12 @@ void WebConfigServer::handlePostConfig() {
     if (d["fpv_prearm_show"].is<int>()) _cfg->setFpvPreArmReminderShowMs(d["fpv_prearm_show"].as<uint16_t>());
     if (d["fpv_prearm_interval"].is<int>()) _cfg->setFpvPreArmReminderIntervalMs(d["fpv_prearm_interval"].as<uint16_t>());
 
-    // Every ConfigManager setter writes directly to Preferences/NVS. Verify the
-    // applied values against the authoritative ConfigManager state before ever
-    // telling the browser that the save succeeded. This catches truncation,
-    // clamping, unsupported values, or any write path that did not stick.
+    // Setters above write Preferences/NVS. Now throw away the in-RAM copy and
+    // reload from storage before checking anything. A 200 response therefore
+    // proves the values that will actually be loaded after a reboot.
+    _cfg->reloadFromStorage();
     const auto &c = _cfg->config();
+
     String mismatch;
     auto fail = [&](const char *key) {
         if (mismatch.length()) mismatch += ", ";
@@ -302,14 +321,25 @@ void WebConfigServer::handlePostConfig() {
     checkInt("fpv_prearm_show", c.fpvPreArmReminderShowMs);
     checkInt("fpv_prearm_interval", c.fpvPreArmReminderIntervalMs);
 
+    CameraEntry persistedCaddx;
+    const bool haveCaddx = _reg && _reg->preferredEntry(2, persistedCaddx);
+    if (d["caddx_ssid"].is<const char*>()) {
+        const char *wanted = d["caddx_ssid"].as<const char*>();
+        if ((wanted[0] != '\0') && (!haveCaddx || strcmp(wanted, persistedCaddx.addr) != 0)) fail("caddx_ssid");
+    }
+    if (d["caddx_pass"].is<const char*>()) {
+        const char *wanted = d["caddx_pass"].as<const char*>();
+        if ((wanted[0] != '\0') && (!haveCaddx || strcmp(wanted, persistedCaddx.pass) != 0)) fail("caddx_pass");
+    }
+
     if (mismatch.length()) {
-        if (_dbg) _dbg->printf("[cfg] AP save verification FAILED: %s\n", mismatch.c_str());
-        _server.send(500, "text/plain", String("Save verification failed: ") + mismatch);
+        if (_dbg) _dbg->printf("[cfg] AP NVS verification FAILED: %s\n", mismatch.c_str());
+        _server.send(500, "text/plain", String("Save verification failed after NVS reload: ") + mismatch);
         return;
     }
 
-    if (_dbg) _dbg->println("[cfg] AP save verified against ConfigManager/NVS-backed state");
-    _server.send(200, "application/json", "{\"ok\":true,\"verified\":true}");
+    if (_dbg) _dbg->println("[cfg] AP save verified by reloading persisted NVS state");
+    _server.send(200, "application/json", "{\"ok\":true,\"verified\":true,\"source\":\"nvs\"}");
 }
 
 void WebConfigServer::handleGetCameras() {
