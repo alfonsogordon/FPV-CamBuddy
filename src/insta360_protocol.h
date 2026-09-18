@@ -48,20 +48,46 @@
 #define INSTA_MSGTYPE_COMMAND   0x04  // byte [4]; bytes [5:7] are always 0x00,0x00
 #define INSTA_MSGTYPE_KEEPALIVE 0x05  // byte [4] of a bare 7-byte ack packet
 
-#define INSTA_CMD_TAKE_PHOTO   0x0003
-#define INSTA_CMD_START_VIDEO  0x0004  // starts video in whatever mode is currently set on the camera
-#define INSTA_CMD_STOP_VIDEO   0x0005
+#define INSTA_CMD_TAKE_PHOTO          0x0003
+#define INSTA_CMD_START_VIDEO         0x0004  // starts video in whatever mode is currently set on the camera
+#define INSTA_CMD_STOP_VIDEO          0x0005
+#define INSTA_CMD_GET_OPTIONS         0x0008
+#define INSTA_CMD_GET_PHOTO_OPTIONS   0x000A
+#define INSTA_CMD_GET_CAPTURE_STATUS  0x000F
+
+// Asynchronous camera notification codes (same 12-byte response header).
+#define INSTA_NOTIFY_BATTERY_LOW      8196
+#define INSTA_NOTIFY_STORAGE_UPDATE   8198
+#define INSTA_NOTIFY_STORAGE_FULL     8199
+#define INSTA_NOTIFY_CAPTURE_STOPPED  8201
+#define INSTA_NOTIFY_CAPTURE_STATUS   8208
+
+// OptionType enum values from Insta360's protobuf schema.
+#define INSTA_OPT_REMAINING_CAPTURE_TIME  9
+#define INSTA_OPT_BATTERY_STATUS          11
+#define INSTA_OPT_STORAGE_STATE           20
+#define INSTA_OPT_VIDEO_SUB_MODE          41
+#define INSTA_OPT_CAMERA_TYPE             48
+#define INSTA_OPT_TEMP_VALUE              77
 
 #define INSTA_RESP_OK  200
 
 #define INSTA_PACKET_LEN  16
+#define INSTA_MAX_PACKET  96
 #define INSTA_SEQ_START   0x000200  // starting value used in the reference capture; camera doesn't validate it
 
 // Builds a 16-byte Phone Command packet (no protobuf payload) for the given
 // command code and sequence number. Returns the packet length.
-inline uint8_t instaBuildCommand(uint16_t cmd, uint32_t seq, uint8_t out[INSTA_PACKET_LEN]) {
-    memset(out, 0, INSTA_PACKET_LEN);
-    out[0]  = INSTA_PACKET_LEN;  // length LE — top 3 bytes stay 0, packet is always 16 bytes
+inline uint16_t instaBuildPacket(uint16_t cmd, uint32_t seq,
+                                 const uint8_t *payload, uint16_t payloadLen,
+                                 uint8_t *out, uint16_t outSize) {
+    const uint16_t total = (uint16_t)(INSTA_PACKET_LEN + payloadLen);
+    if (!out || total > outSize) return 0;
+    memset(out, 0, total);
+    out[0]  = (uint8_t)(total & 0xFF);
+    out[1]  = (uint8_t)((total >> 8) & 0xFF);
+    out[2]  = (uint8_t)((total >> 16) & 0xFF);
+    out[3]  = (uint8_t)((total >> 24) & 0xFF);
     out[4]  = INSTA_MSGTYPE_COMMAND;
     out[7]  = (uint8_t)(cmd & 0xFF);
     out[8]  = (uint8_t)(cmd >> 8);
@@ -70,5 +96,10 @@ inline uint8_t instaBuildCommand(uint16_t cmd, uint32_t seq, uint8_t out[INSTA_P
     out[11] = (uint8_t)((seq >> 8) & 0xFF);
     out[12] = (uint8_t)((seq >> 16) & 0xFF);
     out[13] = 0x80;
-    return INSTA_PACKET_LEN;
+    if (payloadLen && payload) memcpy(out + INSTA_PACKET_LEN, payload, payloadLen);
+    return total;
+}
+
+inline uint8_t instaBuildCommand(uint16_t cmd, uint32_t seq, uint8_t out[INSTA_PACKET_LEN]) {
+    return (uint8_t)instaBuildPacket(cmd, seq, nullptr, 0, out, INSTA_PACKET_LEN);
 }
