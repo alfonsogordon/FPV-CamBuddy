@@ -20,6 +20,7 @@ static constexpr const char *KEY_PLNAME = "prof_low_name";
 static constexpr const char *KEY_PMNAME = "prof_mid_name";
 static constexpr const char *KEY_PHNAME = "prof_hi_name";
 static constexpr const char *KEY_POSD = "profile_osd";
+static constexpr const char *KEY_POSDT = "prof_osd_dst";
 static constexpr const char *KEY_CAM  = "camera_type";
 static constexpr const char *KEY_OSD1 = "osd1_tpl";
 static constexpr const char *KEY_OSD2 = "osd2_tpl";
@@ -96,6 +97,8 @@ void ConfigManager::load() {
     loadStr(_prefs, KEY_PMNAME, _cfg.profileMidName, sizeof(_cfg.profileMidName), "");
     loadStr(_prefs, KEY_PHNAME, _cfg.profileHighName, sizeof(_cfg.profileHighName), "");
     _cfg.profileOsdEnabled = _prefs.getBool(KEY_POSD, true);
+    _cfg.profileOsdTarget = static_cast<uint8_t>(_prefs.getUInt(KEY_POSDT, DEFAULT_PROFILE_OSD_TARGET));
+    if (_cfg.profileOsdTarget < 1 || _cfg.profileOsdTarget > 4) _cfg.profileOsdTarget = DEFAULT_PROFILE_OSD_TARGET;
     _cfg.cameraType        = static_cast<uint8_t>(_prefs.getUInt(KEY_CAM, DEFAULT_CAMERA_TYPE));
     _cfg.cameraMatchMode   = static_cast<uint8_t>(_prefs.getUInt(KEY_CMM, DEFAULT_CAMERA_MATCH_MODE));
     _cfg.cameraWakeGuard   = _prefs.getBool(KEY_WAKE, DEFAULT_CAMERA_WAKE_GUARD);
@@ -182,6 +185,7 @@ void ConfigManager::save() {
     _prefs.putString(KEY_PMNAME, _cfg.profileMidName);
     _prefs.putString(KEY_PHNAME, _cfg.profileHighName);
     _prefs.putBool(KEY_POSD, _cfg.profileOsdEnabled);
+    _prefs.putUInt(KEY_POSDT, _cfg.profileOsdTarget);
     _prefs.putUInt(KEY_CAM, _cfg.cameraType);
     _prefs.putUInt(KEY_CMM, _cfg.cameraMatchMode);
     _prefs.putBool(KEY_WAKE, _cfg.cameraWakeGuard);
@@ -255,6 +259,7 @@ void ConfigManager::printAll(Stream &out) {
     out.printf("[cfg] profile_ids     = low:%lu mid:%lu high:%lu\n", (unsigned long)_cfg.profileLow, (unsigned long)_cfg.profileMid, (unsigned long)_cfg.profileHigh);
     out.printf("[cfg] profile_names   = low:%s | mid:%s | high:%s\n", _cfg.profileLowName, _cfg.profileMidName, _cfg.profileHighName);
     out.printf("[cfg] profile_osd     = %s\n", _cfg.profileOsdEnabled ? "true" : "false");
+    out.printf("[cfg] profile_osd_dest = %u\n", _cfg.profileOsdTarget);
     out.printf("[cfg] debug_ble       = %s\n", _cfg.debugBle ? "true" : "false");
     out.printf("[cfg] low_power       = %s\n", _cfg.lowPowerMode ? "true" : "false");
     out.printf("[cfg] wifi_ap_enabled = %s\n", _cfg.wifiApEnabled ? "true" : "false");
@@ -345,6 +350,7 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
         out.println("  set profile_mid_name <txt> - OSD label for AUX middle profile");
         out.println("  set profile_high_name <txt>- OSD label for AUX high profile");
         out.println("  set profile_osd <0|1>       - show profile name briefly in OSD");
+        out.println("  set profile_osd_dest <1-4>  - OSD destination for profile name");
         out.println("  set debug_ble <0|1>        - log raw BLE TX/RX packets to the serial console");
         out.println("  set low_power <0|1>        - 1=minimum BLE/Wi-Fi TX power (default) to reduce RC receiver interference, shorter range; 0=maximum TX power (reboot required)");
         out.println("  set wifi_ap_enabled <0|1>  - 0=never auto-start the config-portal AP (BOOT-button force-AP still works)");
@@ -585,6 +591,7 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
         if (strncmp(rest, "profile_mid_name ", 17) == 0) { setProfileName(1, rest+17); out.printf("[cfg] profile_mid_name = %s (saved)\n", _cfg.profileMidName); return; }
         if (strncmp(rest, "profile_high_name ", 18) == 0) { setProfileName(2, rest+18); out.printf("[cfg] profile_high_name = %s (saved)\n", _cfg.profileHighName); return; }
         if (strncmp(rest, "profile_osd ", 12) == 0) { setProfileOsdEnabled(atoi(rest+12) != 0); out.printf("[cfg] profile_osd = %s (saved)\n", _cfg.profileOsdEnabled ? "true" : "false"); return; }
+        if (strncmp(rest, "profile_osd_dest ", 17) == 0) { uint8_t target=static_cast<uint8_t>(atoi(rest+17)); if(target<1||target>4){out.println("[cfg] profile_osd_dest must be 1-4");return;} setProfileOsdTarget(target); out.printf("[cfg] profile_osd_dest = %u (saved)\n", target); return; }
 
         if (strncmp(rest, "debug_ble ", 10) == 0) {
             const char *val = rest + 10;
@@ -1065,3 +1072,4 @@ bool ConfigManager::setCaddxPass(const char *pass) {
 }
 
 void ConfigManager::setProfileOsdEnabled(bool enabled) { _cfg.profileOsdEnabled = enabled; _prefs.putBool(KEY_POSD, enabled); }
+void ConfigManager::setProfileOsdTarget(uint8_t target) { if (target < 1 || target > 4) target = 1; _cfg.profileOsdTarget = target; _prefs.putUInt(KEY_POSDT, target); }
