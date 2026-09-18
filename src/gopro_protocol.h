@@ -80,6 +80,7 @@
 #define GP_STATUS_SD_REMAINING   54   // uint32 big-endian, MB remaining on SD
 #define GP_STATUS_BATTERY_PCT    70   // uint8: 0-100 %
 #define GP_STATUS_PRESET_GROUP   96   // uint8: 0=video, 1=photo, 2=timelapse
+#define GP_STATUS_CURRENT_PRESET 97   // uint32 big-endian runtime preset ID
 
 // ─── Setting IDs (queried via GP-0076, same channel as statuses) ──────────────
 // These are registered separately from the status IDs above (0x52 vs 0x53),
