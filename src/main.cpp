@@ -167,7 +167,7 @@ void setup() {
         case 3:  activeCamera = &sonyCamera;       camTypeName = "Sony Alpha"; break;
         case 4:  activeCamera = &blackmagicCamera; camTypeName = "Blackmagic"; break;
         case 5:  activeCamera = &insta360Camera;   camTypeName = "Insta360";   break;
-        default: activeCamera = &djiCamera;        camTypeName = "DJI Action"; break;
+        default: activeCamera = &djiCamera;        camTypeName = "DJI Action / Osmo Nano"; break;
     }
 
     DBG_SERIAL.printf("[main] Camera type: %s\n", camTypeName);
