@@ -667,7 +667,7 @@ void Insta360Camera::handleCaptureStatusPayload(const uint8_t *data, size_t len,
             _camera.camera_mode = instaCaptureStateToMode((uint32_t)state);
     }
     if (haveTime)
-        _camera.record_time = (uint16_t)min<uint64_t>(captureTime, 65535ULL);
+        _camera.record_time = (uint16_t)(captureTime > 65535ULL ? 65535ULL : captureTime);
 
     _camera.valid = true;
     if (_debugBle)
@@ -695,7 +695,7 @@ void Insta360Camera::handleOptionsPayload(const uint8_t *data, size_t len) {
     PbField f;
     while (pbNext(p, end, f)) {
         if (f.number == 9 && f.wire == 0) { // remaining_capture_time, seconds
-            _camera.remain_time = (uint32_t)min<uint64_t>(f.varint, 0xFFFFFFFFULL);
+            _camera.remain_time = (uint32_t)(f.varint > 0xFFFFFFFFULL ? 0xFFFFFFFFULL : f.varint);
             _camera.has_remain_time = true;
             changed = true;
             if (_debugBle)
@@ -721,8 +721,8 @@ void Insta360Camera::handleOptionsPayload(const uint8_t *data, size_t len) {
                 changed = true;
             }
             if (haveFree) {
-                _camera.remain_cap_mb = (uint32_t)min<uint64_t>(
-                    freeBytes / (1024ULL * 1024ULL), 0xFFFFFFFFULL);
+                const uint64_t freeMb = freeBytes / (1024ULL * 1024ULL);
+                _camera.remain_cap_mb = (uint32_t)(freeMb > 0xFFFFFFFFULL ? 0xFFFFFFFFULL : freeMb);
                 changed = true;
             }
             if (_debugBle)
