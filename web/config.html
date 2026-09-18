@@ -500,6 +500,17 @@
           <label>HIGH</label><select id="profileHigh" disabled><option value="0">Unassigned</option></select>
         </div>
         <div class="cfg-field-desc" style="margin-top:10px;">GoPro uses native saved presets. DJI Action 4 / 5 Pro / 6 safely exposes verified camera modes (Video, Slow Motion, Timelapse, Hyperlapse and Photo) as switchable profiles; arbitrary native DJI saved presets remain disabled until a verified command is available.</div>
+        <details style="width:100%;margin-top:12px;">
+          <summary style="cursor:pointer;font-weight:700;color:#d8b4fe;">More info — how profiles work &amp; camera testing status</summary>
+          <div class="cfg-field-desc" style="margin-top:10px;line-height:1.55;">
+            <b>How it works:</b> Profile switching uses its own independent 3-position AUX channel. LOW is below 1300 µs, MIDDLE is 1300–1700 µs and HIGH is above 1700 µs. Each position stores a camera-specific profile/preset ID. A value of 0 means unassigned.<br><br>
+            <b>Discovery:</b> While a supported camera is connected, use <b>Discover Camera Profiles</b> above to ask the camera for the profiles CamBuddy can currently use. Assign the returned entries to LOW, MIDDLE and HIGH, then save/apply the settings. The Wi-Fi AP configurator cannot perform live discovery because camera BLE is deliberately stopped while AP mode is active, but it can view, edit and save the same persistent profile IDs.<br><br>
+            <b>GoPro:</b> Native saved preset discovery, named preset selection, LOW/MIDDLE/HIGH AUX switching and persistence have been tested on real hardware and are working. GoPro is currently the fully hardware-confirmed implementation.<br><br>
+            <b>DJI Action 4 / 5 Pro / 6:</b> V1.0.2 currently exposes the verified basic shooting modes (Video, Slow Motion, Timelapse, Hyperlapse and Photo) through the profile interface. Genuine DJI saved Custom Modes 1–5 have been identified in camera status, but their safe recall command is still under investigation, so native Custom Mode switching is <b>not yet implemented or hardware-confirmed</b>.<br><br>
+            <b>Osmo Nano:</b> Native BLE DUML pairing/control and telemetry support are under active V1.0.2 testing. Nano profile switching is not yet considered hardware-confirmed.<br><br>
+            <b>Other cameras:</b> Insta360 profile switching and DJI Action 2 profile switching are not currently implemented. Profile IDs are camera/model-specific and should not be copied between different cameras unless explicitly supported.
+          </div>
+        </details>
       </div>
       <div class="card-footer"><span class="saved-msg" id="profileSavedMsg"></span><button id="profileApplyBtn" class="primary" disabled>Apply</button></div>
     </div>
