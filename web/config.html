@@ -1092,10 +1092,17 @@ profileApplyBtn.addEventListener('click', async () => {
   const low  = parseInt(profileLowInput.value) || 0;
   const mid  = parseInt(profileMidInput.value) || 0;
   const high = parseInt(profileHighInput.value) || 0;
+  const label = sel => (sel.selectedOptions[0]?.textContent || '').trim().slice(0, 15);
+  const lowName = low ? label(profileLowInput) : '';
+  const midName = mid ? label(profileMidInput) : '';
+  const highName = high ? label(profileHighInput) : '';
   await sendCommand(`set profile_aux ${aux}`);
   await sendCommand(`set profile_low ${low}`);
   await sendCommand(`set profile_mid ${mid}`);
   await sendCommand(`set profile_high ${high}`);
+  if (low) await sendCommand(`set profile_low_name ${lowName}`);
+  if (mid) await sendCommand(`set profile_mid_name ${midName}`);
+  if (high) await sendCommand(`set profile_high_name ${highName}`);
   // Read the board back after saving so the UI reflects persisted values.
   await sendCommand('show');
   flashSaved(profileSavedMsg);
