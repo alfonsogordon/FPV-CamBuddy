@@ -168,3 +168,5 @@ jobs:
         id: deploy
 
 # V1.0.2 deploy trigger 7f1971c 2026-09-18
+
+# staging refresh: profile AUX candidate 211c0004
