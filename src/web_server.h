@@ -25,6 +25,10 @@ private:
     bool            _running = false;
     int             _lastStations = -1;
     bool            _apLostLogged = false;
+    uint32_t        _lastHealthMs = 0;
+    uint32_t        _lastProbeLogMs = 0;
+    uint32_t        _lastProbeCountLogged = 0;
+    bool            _firstHttpLogged = false;
 
     void handleRoot();
     void handleGetConfig();
