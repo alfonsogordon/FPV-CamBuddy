@@ -104,9 +104,8 @@ static void onProfileSwitch(uint8_t position) {
         return;
     }
 
-    // Reuse the existing Temporary Message destination + duration so profile
-    // notifications require no extra OSD slot/config. The saved dropdown label
-    // is preferred; manual/AP ID edits safely fall back to LOW/MID/HIGH.
+    // Use the dedicated profile OSD destination. The saved dropdown label is
+    // preferred; manual/AP ID edits safely fall back to LOW/MID/HIGH.
     if (!cfg.profileOsdEnabled) return;
 
     const char *profileName = position == 0 ? cfg.profileLowName :
@@ -116,7 +115,7 @@ static void onProfileSwitch(uint8_t position) {
     snprintf(msg, sizeof(msg), "%s", profileName);
     mspSerial.showTransientMessage(cfg.profileOsdTarget, msg, 2500);
     DBG_SERIAL.printf("[main] Profile OSD -> %s (%u ms, target %u)\n",
-                      msg, 2500U, target);
+                      msg, 2500U, cfg.profileOsdTarget);
 }
 
 // Called from the BLE stack task — copy + flag only; MSP output on main task.
