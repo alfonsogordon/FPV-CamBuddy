@@ -4,6 +4,124 @@
 #include "ble_debug.h"
 #include <cctype>
 
+namespace {
+
+struct PbField {
+    uint32_t number = 0;
+    uint8_t wire = 0;
+    uint64_t varint = 0;
+    const uint8_t *bytes = nullptr;
+    size_t len = 0;
+};
+
+static bool pbReadVarint(const uint8_t *&p, const uint8_t *end, uint64_t &v) {
+    v = 0;
+    uint8_t shift = 0;
+    while (p < end && shift < 64) {
+        const uint8_t b = *p++;
+        v |= (uint64_t)(b & 0x7F) << shift;
+        if ((b & 0x80) == 0) return true;
+        shift += 7;
+    }
+    return false;
+}
+
+static bool pbNext(const uint8_t *&p, const uint8_t *end, PbField &f) {
+    if (p >= end) return false;
+    uint64_t key = 0;
+    if (!pbReadVarint(p, end, key) || key == 0) return false;
+    f = PbField{};
+    f.number = (uint32_t)(key >> 3);
+    f.wire = (uint8_t)(key & 0x07);
+
+    if (f.wire == 0) {
+        return pbReadVarint(p, end, f.varint);
+    }
+    if (f.wire == 1) {
+        if ((size_t)(end - p) < 8) return false;
+        f.bytes = p; f.len = 8; p += 8; return true;
+    }
+    if (f.wire == 2) {
+        uint64_t n = 0;
+        if (!pbReadVarint(p, end, n) || n > (uint64_t)(end - p)) return false;
+        f.bytes = p; f.len = (size_t)n; p += n; return true;
+    }
+    if (f.wire == 5) {
+        if ((size_t)(end - p) < 4) return false;
+        f.bytes = p; f.len = 4; p += 4; return true;
+    }
+    return false;
+}
+
+static bool pbFindVarint(const uint8_t *data, size_t len, uint32_t number, uint64_t &value) {
+    const uint8_t *p = data, *end = data + len;
+    PbField f;
+    while (pbNext(p, end, f)) {
+        if (f.number == number && f.wire == 0) { value = f.varint; return true; }
+    }
+    return false;
+}
+
+static bool pbFindBytes(const uint8_t *data, size_t len, uint32_t number,
+                        const uint8_t *&value, size_t &valueLen) {
+    const uint8_t *p = data, *end = data + len;
+    PbField f;
+    while (pbNext(p, end, f)) {
+        if (f.number == number && f.wire == 2) {
+            value = f.bytes; valueLen = f.len; return true;
+        }
+    }
+    return false;
+}
+
+static uint8_t pbAppendVarintField(uint8_t *out, uint8_t pos, uint8_t max,
+                                   uint32_t field, uint32_t value) {
+    uint32_t key = field << 3;
+    auto put = [&](uint32_t v) {
+        while (v >= 0x80 && pos < max) { out[pos++] = (uint8_t)(v | 0x80); v >>= 7; }
+        if (pos < max) out[pos++] = (uint8_t)v;
+    };
+    put(key); put(value);
+    return pos;
+}
+
+static bool instaCaptureStateIsVideo(uint32_t s) {
+    switch (s) {
+        case 1:  // NORMAL_CAPTURE
+        case 2:  // TIMELAPSE_CAPTURE
+        case 7:  // BULLET_TIME_CAPTURE
+        case 9:  // HDR_CAPTURE
+        case 12: // INTERVAL_VIDEO_CAPTURE
+        case 13: // TIMESHIFT_CAPTURE
+        case 17: // SUPER_NORMAL_CAPTURE
+        case 18: // LOOP_RECORDING_CAPTURE
+        case 20: // FPV_RECORDING_CAPTURE
+        case 21: // MOVIE_RECORDING_CAPTURE
+        case 22: // SLOW_MOTION_CAPTURE
+        case 23: // SELFIE_RECORDING_CAPTURE
+        case 24: // PURE_RECORDING_CAPTURE
+            return true;
+        default:
+            return false;
+    }
+}
+
+static uint8_t instaCaptureStateToMode(uint32_t s) {
+    switch (s) {
+        case 2:
+        case 12:
+        case 13:
+            return 0x02; // timelapse-style
+        case 7:
+        case 22:
+            return 0x00; // slow motion
+        default:
+            return 0x01; // video/other supported recording modes
+    }
+}
+
+} // namespace
+
 Insta360Camera *Insta360Camera::_instance = nullptr;
 
 // ─── Public ──────────────────────────────────────────────────────────────────
@@ -17,7 +135,23 @@ void Insta360Camera::begin() {
 }
 
 void Insta360Camera::update() {
-    if (_instaConnected || _bleConnected || _scanning) return;
+    const uint32_t now = millis();
+
+    if (_instaConnected) {
+        // Keep capture state fresh enough for OSD/CLI without flooding the BLE link.
+        if (_pendingCaptureStatusSeq == 0 && (now - _lastCapturePollMs) >= 1000UL) {
+            requestCaptureStatus();
+            _lastCapturePollMs = now;
+        }
+        // Battery/storage/remaining-time change far less often.
+        if (_pendingOptionsSeq == 0 && (now - _lastOptionsPollMs) >= 5000UL) {
+            requestTelemetryOptions();
+            _lastOptionsPollMs = now;
+        }
+        return;
+    }
+
+    if (_bleConnected || _scanning) return;
 
     if (_targetFound) {
         connectAndSetup();
@@ -228,6 +362,10 @@ bool Insta360Camera::connectAndSetup() {
     discoverBatteryService();
 
     _instaConnected = true;
+    _lastCapturePollMs = millis() - 1000UL;
+    _lastOptionsPollMs = millis() - 5000UL;
+    _pendingCaptureStatusSeq = 0;
+    _pendingOptionsSeq = 0;
 
     if (_registry)
         _registry->onConnected(_targetName.c_str(), _targetAddr.c_str(),
@@ -277,17 +415,62 @@ void Insta360Camera::onDisconnect(BLEClient * /*c*/) {
     _candidateAddr       = "";
     _candidateName       = "";
     _awaitingRecordAck   = false;
+    _pendingRecordSeq    = 0;
+    _pendingCaptureStatusSeq = 0;
+    _pendingOptionsSeq   = 0;
     _lastAttemptMs       = millis();
 }
 
 // ─── Commands ─────────────────────────────────────────────────────────────────
 
-bool Insta360Camera::sendCommand(uint16_t cmd) {
+bool Insta360Camera::sendCommand(uint16_t cmd, const uint8_t *payload,
+                                 uint16_t payloadLen, uint32_t *seqOut) {
     if (!_writeChar) return false;
-    uint8_t pkt[INSTA_PACKET_LEN];
-    instaBuildCommand(cmd, _seq++, pkt);
-    if (_debugBle) bleDebugDump(DBG_SERIAL, "TX", "0xBE81", pkt, sizeof(pkt));
-    _writeChar->writeValue(pkt, sizeof(pkt), true);
+    uint8_t pkt[INSTA_MAX_PACKET];
+    const uint32_t seq = _seq++ & 0x00FFFFFFUL;
+    const uint16_t n = instaBuildPacket(cmd, seq, payload, payloadLen, pkt, sizeof(pkt));
+    if (!n) return false;
+    if (seqOut) *seqOut = seq;
+    if (_debugBle) {
+        DBG_SERIAL.printf("[Insta360][DBG] TX cmd=%u seq=%lu payload=%uB total=%uB\n",
+                          (unsigned)cmd, (unsigned long)seq,
+                          (unsigned)payloadLen, (unsigned)n);
+        bleDebugDump(DBG_SERIAL, "TX", "0xBE81", pkt, n);
+    }
+    _writeChar->writeValue(pkt, n, true);
+    return true;
+}
+
+bool Insta360Camera::requestCaptureStatus() {
+    uint32_t seq = 0;
+    if (!sendCommand(INSTA_CMD_GET_CAPTURE_STATUS, nullptr, 0, &seq)) return false;
+    _pendingCaptureStatusSeq = seq;
+    if (_debugBle)
+        DBG_SERIAL.printf("[Insta360][DBG] Capture-status query seq=%lu\n", (unsigned long)seq);
+    return true;
+}
+
+bool Insta360Camera::requestTelemetryOptions() {
+    // GetOptions.option_types (field 1, repeated enum):
+    // remaining capture time, battery, storage, video sub-mode, camera type, temperature.
+    const uint32_t opts[] = {
+        INSTA_OPT_REMAINING_CAPTURE_TIME,
+        INSTA_OPT_BATTERY_STATUS,
+        INSTA_OPT_STORAGE_STATE,
+        INSTA_OPT_VIDEO_SUB_MODE,
+        INSTA_OPT_CAMERA_TYPE,
+        INSTA_OPT_TEMP_VALUE
+    };
+    uint8_t pb[32];
+    uint8_t n = 0;
+    for (uint32_t v : opts) n = pbAppendVarintField(pb, n, sizeof(pb), 1, v);
+
+    uint32_t seq = 0;
+    if (!sendCommand(INSTA_CMD_GET_OPTIONS, pb, n, &seq)) return false;
+    _pendingOptionsSeq = seq;
+    if (_debugBle)
+        DBG_SERIAL.printf("[Insta360][DBG] Telemetry-options query seq=%lu fields=%u\n",
+                          (unsigned long)seq, (unsigned)(sizeof(opts) / sizeof(opts[0])));
     return true;
 }
 
@@ -298,9 +481,11 @@ bool Insta360Camera::sendCommand(uint16_t cmd) {
 bool Insta360Camera::startRecording() {
     if (!_writeChar) return false;
     if (_camera.valid && _camera.recording) return true;
-    if (!sendCommand(INSTA_CMD_START_VIDEO)) return false;
+    uint32_t seq = 0;
+    if (!sendCommand(INSTA_CMD_START_VIDEO, nullptr, 0, &seq)) return false;
     _awaitingRecordAck   = true;
     _pendingRecordTarget = true;
+    _pendingRecordSeq    = seq;
     DBG_SERIAL.println("[Insta360] Start video sent");
     return true;
 }
@@ -308,9 +493,11 @@ bool Insta360Camera::startRecording() {
 bool Insta360Camera::stopRecording() {
     if (!_writeChar) return false;
     if (_camera.valid && !_camera.recording) return true;
-    if (!sendCommand(INSTA_CMD_STOP_VIDEO)) return false;
+    uint32_t seq = 0;
+    if (!sendCommand(INSTA_CMD_STOP_VIDEO, nullptr, 0, &seq)) return false;
     _awaitingRecordAck   = true;
     _pendingRecordTarget = false;
+    _pendingRecordSeq    = seq;
     DBG_SERIAL.println("[Insta360] Stop video sent");
     return true;
 }
