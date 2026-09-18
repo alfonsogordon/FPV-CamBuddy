@@ -17,6 +17,10 @@ public:
         bool stopOnDisarm;
         uint8_t auxChannel;
         uint8_t auxMode;
+        uint8_t profileAuxChannel;
+        uint32_t profileLow;
+        uint32_t profileMid;
+        uint32_t profileHigh;
         uint8_t cameraType;
         uint8_t cameraMatchMode;
         bool cameraWakeGuard;
@@ -65,6 +69,8 @@ public:
     static constexpr bool DEFAULT_STOP_ON_DISARM = true;
     static constexpr uint8_t DEFAULT_AUX_CHANNEL = 0;
     static constexpr uint8_t DEFAULT_AUX_MODE = 0x00;
+    static constexpr uint8_t DEFAULT_PROFILE_AUX_CHANNEL = 0;
+    static constexpr uint32_t DEFAULT_PROFILE_ID = 0;
     static constexpr uint8_t DEFAULT_CAMERA_TYPE = 1;
     static constexpr uint8_t DEFAULT_CAMERA_MATCH_MODE = 0;
     static constexpr bool DEFAULT_CAMERA_WAKE_GUARD = true;
@@ -127,6 +133,8 @@ public:
     void setStopOnDisarm(bool v);
     void setAuxChannel(uint8_t ch);
     void setAuxMode(uint8_t mode);
+    void setProfileAuxChannel(uint8_t ch);
+    void setProfileId(uint8_t position, uint32_t id);
     void setCameraMatchMode(uint8_t v);
     void setCameraWakeGuard(bool v);
     void setDebugBle(bool v);
