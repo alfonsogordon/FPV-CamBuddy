@@ -96,6 +96,8 @@ private:
     uint32_t                  _nanoPairStartMs = 0;
     uint32_t                  _nanoLastPairTxMs = 0;
     uint32_t                  _nanoLastKeepaliveMs = 0;
+    uint32_t                  _nanoLastStatusMs = 0;
+    uint32_t                  _nanoLastStatusPollMs = 0;
     bool                      _pendingNanoPairComplete = false;
     uint8_t                   _pendingNanoResp[160]{};
     uint16_t                  _pendingNanoRespLen = 0;
