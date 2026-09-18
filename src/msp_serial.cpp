@@ -196,7 +196,7 @@ void MSPSerial::update() {
     if (millis() - _lastPollMs >= 100) {
         _lastPollMs = millis();
         sendRequest(MSP_STATUS);
-        if (_auxChannel > 0) sendRequest(MSP_RC);
+        if (_auxChannel > 0 || _profileAuxChannel > 0) sendRequest(MSP_RC);
     }
     while (_serial->available()) feedByte(static_cast<uint8_t>(_serial->read()));
 }
@@ -265,15 +265,29 @@ void MSPSerial::handleStatusResponse() {
 }
 
 void MSPSerial::handleRcResponse() {
-    if (_auxChannel == 0) return;
-    const uint8_t rcIdx = 3 + _auxChannel;
-    if (_rxSize < static_cast<uint16_t>(rcIdx + 1) * 2) return;
-    uint16_t value = 0;
-    memcpy(&value, _rxBuf + rcIdx * 2, sizeof(value));
-    const bool high = value > 1500;
-    if (high != _auxHigh) {
-        _auxHigh = high;
-        if (_auxSwitchCb) _auxSwitchCb(high);
+    if (_auxChannel > 0) {
+        const uint8_t rcIdx = 3 + _auxChannel;
+        if (_rxSize >= static_cast<uint16_t>(rcIdx + 1) * 2) {
+            uint16_t value = 0;
+            memcpy(&value, _rxBuf + rcIdx * 2, sizeof(value));
+            const bool high = value > 1500;
+            if (high != _auxHigh) {
+                _auxHigh = high;
+                if (_auxSwitchCb) _auxSwitchCb(high);
+            }
+        }
+    }
+    if (_profileAuxChannel > 0) {
+        const uint8_t rcIdx = 3 + _profileAuxChannel;
+        if (_rxSize >= static_cast<uint16_t>(rcIdx + 1) * 2) {
+            uint16_t value = 0;
+            memcpy(&value, _rxBuf + rcIdx * 2, sizeof(value));
+            const uint8_t pos = value < 1300 ? 0 : (value > 1700 ? 2 : 1);
+            if (pos != _profilePosition) {
+                _profilePosition = pos;
+                if (_profileSwitchCb) _profileSwitchCb(pos);
+            }
+        }
     }
 }
 
@@ -281,6 +295,13 @@ void MSPSerial::setAuxChannel(uint8_t channel) {
     if (channel != _auxChannel) {
         _auxChannel = channel;
         _auxHigh = false;
+    }
+}
+
+void MSPSerial::setProfileAuxChannel(uint8_t channel) {
+    if (channel != _profileAuxChannel) {
+        _profileAuxChannel = channel;
+        _profilePosition = 0xFF;
     }
 }
 
