@@ -586,10 +586,10 @@ void GoProCamera::sendPresetStatusQuery() {
     if (!_queryChar) return;
     // Open GoPro protobuf RequestGetPresetStatus:
     // Feature QUERY=0xF5, Action GET_PRESET_STATUS=0x72.
-    // Request fields: use_constant_setting_ids=true (field 3), include_hidden=false (field 4)
-    // protobuf bytes: 18 01 20 00. The GoPro BLE framing header carries the
-    // six-byte protobuf message [F5 72 18 01 20 00].
-    const uint8_t payload[] = {0xF5, 0x72, 0x18, 0x01, 0x20, 0x00};
+    // Official Open GoPro SDK registers PRESET status (field 1, enum value 1)
+    // when requesting the available preset set. Keep constant setting IDs on
+    // and hidden presets off. Protobuf: 08 01 18 01 20 00.
+    const uint8_t payload[] = {0xF5, 0x72, 0x08, 0x01, 0x18, 0x01, 0x20, 0x00};
     uint8_t buf[1 + sizeof(payload)];
     buf[0] = sizeof(payload);
     memcpy(buf + 1, payload, sizeof(payload));
