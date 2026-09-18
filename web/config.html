@@ -493,13 +493,13 @@
       <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">
         <div class="cfg-field-name">Camera presets</div>
         <div class="cfg-field-desc">GoPro: discover the presets currently available on the connected camera, then assign one to each switch position. CamBuddy stores the camera's native IDs internally.</div>
-        <div style="width:100%;margin-top:10px;"><button id="profileDiscoverBtn" type="button" disabled>Discover GoPro Presets</button> <span class="cfg-field-desc" id="profileDiscoverStatus">Connect the camera first.</span></div>
+        <div style="width:100%;margin-top:10px;"><button id="profileDiscoverBtn" type="button" disabled>Discover Camera Profiles</button> <span class="cfg-field-desc" id="profileDiscoverStatus">Connect the camera first.</span></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;width:100%;margin-top:10px;align-items:center;">
           <label>LOW</label><select id="profileLow" disabled><option value="0">Unassigned</option></select>
           <label>MIDDLE</label><select id="profileMid" disabled><option value="0">Unassigned</option></select>
           <label>HIGH</label><select id="profileHigh" disabled><option value="0">Unassigned</option></select>
         </div>
-        <div class="cfg-field-desc" style="margin-top:10px;">GoPro preset names are read from the camera. DJI uses the same generic profile interface, but native DJI profile switching remains disabled until model-specific DUML commands are hardware verified.</div>
+        <div class="cfg-field-desc" style="margin-top:10px;">GoPro uses native saved presets. DJI Action 4 / 5 Pro / 6 safely exposes verified camera modes (Video, Slow Motion, Timelapse, Hyperlapse and Photo) as switchable profiles; arbitrary native DJI saved presets remain disabled until a verified command is available.</div>
       </div>
       <div class="card-footer"><span class="saved-msg" id="profileSavedMsg"></span><button id="profileApplyBtn" class="primary" disabled>Apply</button></div>
     </div>
@@ -1193,7 +1193,7 @@ function startProfileCapture() {
 
 function collectProfileLine(line) {
   if (!collectingProfiles) return;
-  const m = line.match(/^\[GP-PRESET\]\s+id=(\d+)\s+name=(.*?)\s+title=(\d+)\s+number=(-?\d+)/);
+  const m = line.match(/^\[(?:GP|DJI)-PRESET\]\s+id=(\d+)\s+name=(.*?)\s+title=(\d+)\s+number=(-?\d+)/);
   if (m) {
     discoveredProfiles.push({ id: m[1], name: m[2].trim() || ('Preset ' + m[1]) });
     clearTimeout(profileTimer);
@@ -1206,7 +1206,7 @@ function finalizeProfileCapture() {
   collectingProfiles = false;
   clearTimeout(profileTimer);
   if (!discoveredProfiles.length) {
-    profileDiscoverStatus.textContent = 'No presets returned. Make sure a supported GoPro is connected.';
+    profileDiscoverStatus.textContent = 'No profiles returned. Make sure a supported GoPro or DJI Action camera is connected.';
     profileDiscoverBtn.disabled = !port;
     return;
   }
