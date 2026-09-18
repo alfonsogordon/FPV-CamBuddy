@@ -59,3 +59,11 @@ Before this log was created, the current V1.0.2 AP implementation had been revie
 - Recorded the AP-first priority, Osmo Nano research/support, Action 2 research/support, and AUX camera-profile work.
 - Recorded that Steve owns a DJI Action 2 for later hardware validation.
 - Next run: inspect exact V1.0.2 HEAD + latest CI, validate the AP lifecycle commit, then continue the AP/configurator correction before camera-protocol work.
+
+
+## 2026-09-18 — DJI Action profile support
+- GoPro AUX profile switching is hardware-confirmed working, including persistence.
+- Added conservative DJI Action 4 / 5 Pro / 6 profile support through the already-supported R-SDK camera mode command only: Video, Slow Motion, Timelapse, Hyperlapse, Photo.
+- No guessed native DJI preset/DUML writes were added. Arbitrary saved DJI presets remain unsupported until a verified command exists.
+- DJI profile discovery now feeds the same LOW/MIDDLE/HIGH configurator dropdown path as GoPro.
+- OSD profile-change notification is the next requested feature after this build is validated.
