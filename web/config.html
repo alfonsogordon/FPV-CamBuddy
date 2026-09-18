@@ -327,7 +327,7 @@
     <div class="config-card">
       <div class="card-header">
         <h2>Recording Control</h2>
-        <button id="readBtn" disabled>Read from device</button>
+        <div style="display:flex;gap:6px"><button id="diagBtn" disabled>AP Diagnostic Log</button><button id="readBtn" disabled>Read from device</button></div>
       </div>
 
       <!-- Camera type -->
@@ -981,6 +981,10 @@ cmdInput.addEventListener('keydown', e => {
 
 // ── Easy Config actions ───────────────────────────────────────────────────────
 readBtn.addEventListener('click', () => sendCommand('show'));
+diagBtn.addEventListener('click', async () => {
+  document.querySelector('.tab[data-tab="cli"]')?.click();
+  await sendCommand('diag');
+});
 
 applyBtn.addEventListener('click', async () => {
   const delay      = parseInt(delayInput.value) || 0;
@@ -1336,6 +1340,7 @@ function setConnected(connected) {
   cmdInput.disabled      = !connected;
   sendBtn.disabled       = !connected;
   readBtn.disabled       = !connected;
+  diagBtn.disabled       = !connected;
   applyBtn.disabled      = !connected;
   cameraTypeSel.disabled = !connected;
   caddxSsidInput.disabled = !connected;
