@@ -356,13 +356,22 @@ bool BLECamera::sendConnectionRequest() {
     req.mac_addr_len = 6;
     memcpy(req.mac_addr, mac, 6);
     req.fw_version  = 0x00;   // 0 = "no version" per DJI reference; non-zero triggers OTA update prompt
-    req.verify_mode = 0;      // 0 = reconnect (camera auto-approves); 1 = new pairing
-    req.verify_data = 0;
+    req.verify_mode = 0;
+    // Nano follows DJI's current R-SDK approval flow. A non-zero verification
+    // value gives the camera a concrete first-use approval request; already
+    // approved controllers still reconnect without user interaction.
+    req.verify_data = _isOsmoNano ? (uint16_t)(esp_random() % 10000U) : 0;
 
-    bool ok = sendFrame(DJI_CMDSET_GENERAL, DJI_CMD_CONNECT, DJI_CMD,
+    const uint8_t connectType = _isOsmoNano ? 0x02 : DJI_CMD;
+    bool ok = sendFrame(DJI_CMDSET_GENERAL, DJI_CMD_CONNECT, connectType,
                         reinterpret_cast<const uint8_t *>(&req), sizeof(req),
                         /*with_rsp=*/true);
-    if (ok) DBG_SERIAL.println("[DJI] Connection request sent");
+    if (ok) {
+        if (_isOsmoNano)
+            DBG_SERIAL.printf("[DJI] Osmo Nano R-SDK connection request sent (approval code=%u)\n", req.verify_data);
+        else
+            DBG_SERIAL.println("[DJI] Connection request sent");
+    }
     return ok;
 }
 
@@ -518,11 +527,29 @@ void BLECamera::handleConnectCommand(uint16_t camSeq, const uint8_t *payload,
     if (len >= 4) {
         uint32_t camDeviceId = (uint32_t)payload[0] | ((uint32_t)payload[1] << 8) |
                                ((uint32_t)payload[2] << 16) | ((uint32_t)payload[3] << 24);
-        DBG_SERIAL.printf("[DJI] Camera hello (seq=0x%04X) device_id=0x%08X — queuing ACK\n",
+        DBG_SERIAL.printf("[DJI] Camera hello (seq=0x%04X) device_id=0x%08X\n",
                           camSeq, camDeviceId);
     } else {
-        DBG_SERIAL.printf("[DJI] Camera hello (seq=0x%04X) — queuing ACK\n", camSeq);
+        DBG_SERIAL.printf("[DJI] Camera hello (seq=0x%04X)\n", camSeq);
     }
+
+    // Current R-SDK cameras, including Osmo Nano, put approval result in
+    // verify_mode @26 + verify_data @27 (u16 LE). verify_mode=2 / data=0 means
+    // approved. A non-zero data value is rejection; don't ACK it as connected.
+    if (len >= 29) {
+        const uint8_t verifyMode = payload[26];
+        const uint16_t verifyData = (uint16_t)payload[27] | ((uint16_t)payload[28] << 8);
+        DBG_SERIAL.printf("[DJI] Camera verify mode=%u data=%u\n", verifyMode, verifyData);
+        if (verifyMode == 2 && verifyData != 0) {
+            DBG_SERIAL.println("[DJI] Camera rejected controller approval");
+            if (_client) _client->disconnect();
+            return;
+        }
+        if (_isOsmoNano && verifyMode == 2 && verifyData == 0)
+            DBG_SERIAL.println("[DJI] Osmo Nano controller approved");
+    }
+
+    DBG_SERIAL.printf("[DJI] Queuing connection ACK seq=0x%04X\n", camSeq);
     _pendingAckSeq     = camSeq;
     _pendingConnectAck = true;
 }
