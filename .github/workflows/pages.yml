@@ -167,14 +167,4 @@ jobs:
       - uses: actions/deploy-pages@v4
         id: deploy
 
-# V1.0.2 deploy trigger 7f1971c 2026-09-18
-
-# staging refresh: profile AUX candidate 211c0004
-
-# staging refresh: GoPro preset framing fix c2e3286d
-
-# V1.0.2 staging refresh: global profile save fix test
-
-# V1.0.2 staging refresh: Osmo Nano native DUML candidate a5141763
-
-# V1.0.2 staging refresh: profile OSD + filming demo profiles dfd3ccac 2026-09-18
+# V1.0.2 staging refresh: exact candidate dafd798c 2026-09-19
