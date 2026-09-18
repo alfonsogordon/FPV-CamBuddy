@@ -36,6 +36,9 @@ public:
     bool startRecording() override;
     bool stopRecording() override;
     bool switchCameraMode(uint8_t mode) override;  // DJI_MODE_* constants
+    bool loadProfile(uint32_t profileId) override;
+    uint32_t activeProfileId() const override { return _activeProfile; }
+    bool queryProfiles() override;
 
 private:
     // BLE stack callbacks
@@ -128,6 +131,8 @@ private:
     uint16_t                  _pendingAckSeq     = 0;
 
     uint32_t        _deviceId  = 0;      // device_id used in connect request
+    uint32_t        _cameraDeviceId = 0; // model id reported by camera hello
+    uint32_t        _activeProfile = 0;
     CameraData      _camera{};
 
     static BLECamera *_instance;
