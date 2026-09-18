@@ -2,6 +2,7 @@
 #include "camera_registry.h"
 #include "web_content.h"
 #include "config.h"
+#include "diag_log.h"
 
 #include <WiFi.h>
 #include <BLEDevice.h>
@@ -31,18 +32,21 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
     // a deliberate quiet period before SoftAP starts so the first phone
     // association cannot race BLE/STA shutdown.
     if (_dbg) _dbg->println("[wifi] Entering dedicated configuration mode");
+    diagLog("AP begin camera_type=%u heap=%u", (unsigned)cfg.config().cameraType, (unsigned)ESP.getFreeHeap());
 
     if (cfg.config().cameraType == 2) {
         // Caddx is the Wi-Fi camera backend. Drop its STA connection without
         // erasing saved credentials; ConfigManager/registry retains them.
         WiFi.setAutoReconnect(false);
         WiFi.disconnect(false, false);
+        diagLog("AP radio: Caddx STA disconnect requested mode=%d", (int)WiFi.getMode());
         delay(300);
     } else {
         // All other current camera backends use BLE. Stop scanning and release
         // the BLE controller before handing the shared radio to Wi-Fi.
         BLEDevice::getScan()->stop();
         BLEDevice::deinit(true);
+        diagLog("AP radio: BLE scan stopped + deinit complete");
         delay(500);
     }
 
@@ -51,10 +55,12 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
     // association on some ESP32-C3 boards.
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_OFF);
+    diagLog("AP radio: WiFi OFF mode=%d", (int)WiFi.getMode());
     delay(500);
 
     WiFi.mode(WIFI_AP);
     WiFi.setSleep(false);
+    diagLog("AP radio: WIFI_AP mode requested mode=%d", (int)WiFi.getMode());
     delay(500);
 
     const IPAddress apIp(192, 168, 4, 1);
@@ -62,6 +68,7 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
     const IPAddress apMask(255, 255, 255, 0);
     if (!WiFi.softAPConfig(apIp, apGw, apMask)) {
         if (_dbg) _dbg->println("[wifi] FPV CamBuddy softAPConfig failed");
+        diagLog("AP FAIL softAPConfig mode=%d heap=%u", (int)WiFi.getMode(), (unsigned)ESP.getFreeHeap());
         WiFi.mode(WIFI_OFF);
         return;
     }
@@ -73,12 +80,14 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
                                 4);
     if (!ok) {
         if (_dbg) _dbg->println("[wifi] FPV CamBuddy SoftAP start FAILED");
+        diagLog("AP FAIL softAP() mode=%d heap=%u", (int)WiFi.getMode(), (unsigned)ESP.getFreeHeap());
         WiFi.mode(WIFI_OFF);
         return;
     }
 
     // Apply AP transmit power only after the Wi-Fi driver and AP are active.
     // This setting is intentionally independent from camera low-power mode.\n    // V1.0.2 AP reliability test: use 8.5 dBm instead of maximum C3 TX power.\n    WiFi.setTxPower(WIFI_POWER_8_5dBm);
+    diagLog("AP softAP started tx=8.5dBm mode=%d", (int)WiFi.getMode());
 
     // Do not accept HTTP clients until the AP interface has a valid address and
     // has had time to settle. This specifically protects the first association.
@@ -88,6 +97,7 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
     }
     if (WiFi.softAPIP()[0] == 0) {
         if (_dbg) _dbg->println("[wifi] FPV CamBuddy AP failed to obtain IP");
+        diagLog("AP FAIL no IP mode=%d stations=%u", (int)WiFi.getMode(), (unsigned)WiFi.softAPgetStationNum());
         WiFi.softAPdisconnect(true);
         WiFi.mode(WIFI_OFF);
         return;
@@ -99,12 +109,16 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
     _server.on("/api/config", HTTP_POST, [this](){ handlePostConfig(); });
     _server.on("/api/cameras", HTTP_GET, [this](){ handleGetCameras(); });
     _server.on("/api/cli", HTTP_POST, [this](){ handleCli(); });
+    _server.on("/api/diag", HTTP_GET, [this](){ handleDiag(); });
     _server.onNotFound([this](){
         _server.sendHeader("Location", "/", true);
         _server.send(302, "text/plain", "");
     });
     _server.begin();
     _running = true;
+    _lastStations = (int)WiFi.softAPgetStationNum();
+    _apLostLogged = false;
+    diagLog("AP READY ip=%s stations=%d heap=%u", WiFi.softAPIP().toString().c_str(), _lastStations, (unsigned)ESP.getFreeHeap());
 
     if (_dbg) {
         _dbg->printf("[wifi] FPV CamBuddy AP ready: %s  IP=%s  mode=AP-only  ch=%u  tx=%d\n",
@@ -127,7 +141,31 @@ void WebConfigServer::stop() {
 }
 
 void WebConfigServer::update() {
-    if (_running) _server.handleClient();
+    if (!_running) return;
+    _server.handleClient();
+
+    const wifi_mode_t mode = WiFi.getMode();
+    const bool apUp = (mode & WIFI_MODE_AP) != 0;
+    if (!apUp) {
+        if (!_apLostLogged) {
+            _apLostLogged = true;
+            diagLog("AP LOST while server running mode=%d heap=%u", (int)mode, (unsigned)ESP.getFreeHeap());
+        }
+        return;
+    }
+    _apLostLogged = false;
+    const int stations = (int)WiFi.softAPgetStationNum();
+    if (stations != _lastStations) {
+        diagLog("AP stations %d -> %d ip=%s heap=%u", _lastStations, stations,
+                WiFi.softAPIP().toString().c_str(), (unsigned)ESP.getFreeHeap());
+        _lastStations = stations;
+    }
+}
+
+void WebConfigServer::handleDiag() {
+    String s = diagRead();
+    if (!s.length()) s = "(diagnostic log empty)\n";
+    _server.send(200, "text/plain", s);
 }
 
 void WebConfigServer::handleRoot() {
