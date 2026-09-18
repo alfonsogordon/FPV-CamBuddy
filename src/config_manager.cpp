@@ -1,7 +1,6 @@
 #include "config_manager.h"
 #include "camera_registry.h"
 #include "camera.h"
-#include "gopro_camera.h"
 #include "config.h"
 #include "diag_log.h"
 #include <WiFi.h>
@@ -446,9 +445,7 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
 
     if (strcmp(line, "profile query") == 0) {
         if (!_camera || !_camera->isConnected()) { out.println("[profile] camera not connected"); return; }
-        GoProCamera *gp = dynamic_cast<GoProCamera *>(_camera);
-        if (!gp) { out.println("[profile] native preset query not supported by this camera yet"); return; }
-        out.println(gp->queryProfiles() ? "[profile] preset query sent" : "[profile] preset query unavailable");
+        out.println(_camera->queryProfiles() ? "[profile] preset query sent" : "[profile] native preset query not supported by this camera yet");
         return;
     }
     if (strcmp(line, "profile current") == 0) {
