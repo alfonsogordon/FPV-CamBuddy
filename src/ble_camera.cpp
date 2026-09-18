@@ -99,14 +99,17 @@ void BLECamera::update() {
         return;
     }
 
-    // Some newer DJI bodies answer a status subscription once rather than
-    // maintaining a periodic feed. Poll a quiet Nano by re-subscribing.
+    // Nano control/status stays on the hardware-proven BLE DUML path.
+    // 0x02/0x80 normally pushes at ~10 Hz; if it goes quiet, poke the camera
+    // with the documented 0x02/0x61 status poll and 0x02/0xA0 state query.
     if (_isOsmoNano && _djiConnected &&
         (now - _nanoLastStatusPollMs) >= 1500UL &&
         (_nanoLastStatusMs == 0 || (now - _nanoLastStatusMs) >= 2000UL)) {
         _nanoLastStatusPollMs = now;
-        DBG_SERIAL.println("[Nano] Status feed quiet — re-subscribing");
-        sendStatusSubscription();
+        DBG_SERIAL.println("[Nano] Status feed quiet — polling DUML camera status");
+        sendNanoDuml(0x0102, 0x8061, 0x00, 0x02, 0x61, nullptr, 0);
+        delay(15);
+        sendNanoDuml(0x0102, 0x80A0, 0x00, 0x02, 0xA0, nullptr, 0);
     }
 
     if (_djiConnected || _bleConnected || _scanning) return;
@@ -562,9 +565,19 @@ void BLECamera::beginNanoRsdk() {
     sendNanoKeepalive();
     _nanoLastKeepaliveMs = millis();
 
-    DBG_SERIAL.println("[Nano] DUML session paired — probing DJI R-SDK control/status channel");
-    if (!sendConnectionRequest())
-        DBG_SERIAL.println("[Nano] R-SDK connection request could not be sent");
+    // Nano's proven control plane is BLE DUML, not the 0xAA Action R-SDK
+    // handshake. Mark it connected once app-level pairing succeeds so MSP
+    // arm/disarm can drive the camera immediately.
+    _djiConnected = true;
+    _nanoLastStatusMs = 0;
+    _nanoLastStatusPollMs = 0;
+    DBG_SERIAL.println("[Nano] BLE DUML control ready — ARM/disarm record control enabled");
+
+    // Kick status/state once; regular pushes should follow.
+    delay(15);
+    sendNanoDuml(0x0102, 0x8061, 0x00, 0x02, 0x61, nullptr, 0);
+    delay(15);
+    sendNanoDuml(0x0102, 0x80A0, 0x00, 0x02, 0xA0, nullptr, 0);
 }
 
 // ─── DJI frame send ───────────────────────────────────────────────────────────
@@ -620,6 +633,13 @@ bool BLECamera::sendConnectionRequest() {
 }
 
 bool BLECamera::startRecording() {
+    if (_isOsmoNano) {
+        if (!_bleConnected || !_nanoPaired) return false;
+        const uint8_t start = 0x01;
+        const bool ok = sendNanoDuml(0x0102, 0x8202, 0x40, 0x02, 0x02, &start, 1);
+        if (ok) DBG_SERIAL.println("[Nano] Record START sent via DUML 02/02");
+        return ok;
+    }
     DJIRecordControl ctrl{};
     ctrl.device_id = _deviceId;
     ctrl.action    = DJI_RECORD_START;
@@ -631,6 +651,13 @@ bool BLECamera::startRecording() {
 }
 
 bool BLECamera::stopRecording() {
+    if (_isOsmoNano) {
+        if (!_bleConnected || !_nanoPaired) return false;
+        const uint8_t stop = 0x00;
+        const bool ok = sendNanoDuml(0x0102, 0x8202, 0x40, 0x02, 0x02, &stop, 1);
+        if (ok) DBG_SERIAL.println("[Nano] Record STOP sent via DUML 02/02");
+        return ok;
+    }
     DJIRecordControl ctrl{};
     ctrl.device_id = _deviceId;
     ctrl.action    = DJI_RECORD_STOP;
@@ -642,6 +669,24 @@ bool BLECamera::stopRecording() {
 }
 
 bool BLECamera::switchCameraMode(uint8_t mode) {
+    if (_isOsmoNano) {
+        if (!_bleConnected || !_nanoPaired) return false;
+        // Sparse, hardware-captured Nano shooting-mode enum. Never sweep it.
+        switch (mode) {
+            case DJI_MODE_SLOW_MOTION:
+            case DJI_MODE_VIDEO:
+            case DJI_MODE_TIMELAPSE:
+            case DJI_MODE_PHOTO:
+            case DJI_MODE_HYPERLAPSE:
+                break;
+            default:
+                DBG_SERIAL.printf("[Nano] Unsupported shooting mode 0x%02X\n", mode);
+                return false;
+        }
+        const bool ok = sendNanoDuml(0x0102, 0x82E1, 0x40, 0x02, 0xE1, &mode, 1);
+        if (ok) DBG_SERIAL.printf("[Nano] Shooting mode 0x%02X sent via DUML 02/E1\n", mode);
+        return ok;
+    }
     DJICameraModeSwitch cmd{};
     cmd.device_id = _deviceId;
     cmd.mode      = mode;
