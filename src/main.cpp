@@ -99,8 +99,27 @@ static void onProfileSwitch(uint8_t position) {
         return;
     }
     DBG_SERIAL.printf("[main] Profile AUX %s -> profile %lu\n", name, (unsigned long)id);
-    if (!activeCamera->loadProfile(id))
+    if (!activeCamera->loadProfile(id)) {
         DBG_SERIAL.println("[main] Profile switch unsupported/not ready for selected camera");
+        return;
+    }
+
+    // Reuse the existing Temporary Message destination + duration so profile
+    // notifications require no extra OSD slot/config. The saved dropdown label
+    // is preferred; manual/AP ID edits safely fall back to LOW/MID/HIGH.
+    const char *profileName = position == 0 ? cfg.profileLowName :
+                              (position == 1 ? cfg.profileMidName : cfg.profileHighName);
+    if (!profileName || !profileName[0]) profileName = name;
+    char msg[32];
+    snprintf(msg, sizeof(msg), "PROFILE: %s", profileName);
+    uint8_t target = 1;
+    if (cfg.fpvPreArmReminderText[0] == '@' &&
+        cfg.fpvPreArmReminderText[1] >= '1' && cfg.fpvPreArmReminderText[1] <= '4' &&
+        cfg.fpvPreArmReminderText[2] == ':')
+        target = static_cast<uint8_t>(cfg.fpvPreArmReminderText[1] - '0');
+    mspSerial.showTransientMessage(target, msg, cfg.fpvPreArmReminderShowMs);
+    DBG_SERIAL.printf("[main] Profile OSD -> %s (%u ms, target %u)\n",
+                      msg, cfg.fpvPreArmReminderShowMs, target);
 }
 
 // Called from the BLE stack task — copy + flag only; MSP output on main task.
