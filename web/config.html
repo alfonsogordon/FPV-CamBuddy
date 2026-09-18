@@ -499,6 +499,7 @@
           <label>MIDDLE</label><select id="profileMid" disabled><option value="0">Unassigned</option></select>
           <label>HIGH</label><select id="profileHigh" disabled><option value="0">Unassigned</option></select>
         </div>
+        <div class="cfg-field"><div><div class="cfg-field-name">Show profile name in OSD</div><div class="cfg-field-desc">Show the selected profile name for about 2.5 seconds when the AUX profile changes.</div></div><label class="toggle"><input type="checkbox" id="profileOsd" checked><span class="slider"></span></label></div>
         <div class="cfg-field-desc" style="margin-top:10px;">GoPro uses native saved presets. DJI Action 4 / 5 Pro / 6 safely exposes verified camera modes (Video, Slow Motion, Timelapse, Hyperlapse and Photo) as switchable profiles; arbitrary native DJI saved presets remain disabled until a verified command is available.</div>
         <details style="width:100%;margin-top:12px;">
           <summary style="cursor:pointer;font-weight:700;color:#d8b4fe;">More info — how profiles work &amp; camera testing status</summary>
@@ -731,6 +732,7 @@ const profileApplyBtn = document.getElementById('profileApplyBtn');
 const profileSavedMsg = document.getElementById('profileSavedMsg');
 const profileDiscoverBtn = document.getElementById('profileDiscoverBtn');
 const profileDiscoverStatus = document.getElementById('profileDiscoverStatus');
+const profileOsdToggle = document.getElementById('profileOsd');
 const osd1Input      = document.getElementById('osd1');
 const osd2Input      = document.getElementById('osd2');
 const osd3Input      = document.getElementById('osd3');
@@ -860,6 +862,7 @@ function parseConfigLine(line) {
     auxModeSel.value = parseInt(val).toString();
   } else if (key === 'profile_aux') {
     if (val === 'disabled') profileAuxSel.value='0'; else { const ch=val.match(/AUX(\d+)/); if(ch) profileAuxSel.value=ch[1]; }
+  } else if (key === 'profile_osd') { profileOsdToggle.checked=(val === 'true');
   } else if (key === 'profile_ids') {
     const m=val.match(/low:(\d+)\s+mid:(\d+)\s+high:(\d+)/); if(m){profileLowInput.value=m[1];profileMidInput.value=m[2];profileHighInput.value=m[3];}
   } else if (key === 'profile_low') { profileLowInput.value=parseInt(val)||0;
@@ -1101,6 +1104,7 @@ profileApplyBtn.addEventListener('click', async () => {
   await sendCommand(`set profile_low ${low}`);
   await sendCommand(`set profile_mid ${mid}`);
   await sendCommand(`set profile_high ${high}`);
+  await sendCommand(`set profile_osd ${profileOsdToggle.checked ? 1 : 0}`);
   if (low) await sendCommand(`set profile_low_name ${lowName}`);
   if (mid) await sendCommand(`set profile_mid_name ${midName}`);
   if (high) await sendCommand(`set profile_high_name ${highName}`);
