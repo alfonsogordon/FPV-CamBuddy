@@ -114,12 +114,7 @@ static void onProfileSwitch(uint8_t position) {
     if (!profileName || !profileName[0]) profileName = name;
     char msg[32];
     snprintf(msg, sizeof(msg), "%s", profileName);
-    uint8_t target = 1;
-    if (cfg.fpvPreArmReminderText[0] == '@' &&
-        cfg.fpvPreArmReminderText[1] >= '1' && cfg.fpvPreArmReminderText[1] <= '4' &&
-        cfg.fpvPreArmReminderText[2] == ':')
-        target = static_cast<uint8_t>(cfg.fpvPreArmReminderText[1] - '0');
-    mspSerial.showTransientMessage(target, msg, 2500);
+    mspSerial.showTransientMessage(cfg.profileOsdTarget, msg, 2500);
     DBG_SERIAL.printf("[main] Profile OSD -> %s (%u ms, target %u)\n",
                       msg, 2500U, target);
 }
