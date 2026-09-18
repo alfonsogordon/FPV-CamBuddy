@@ -616,19 +616,43 @@ static bool gpPbSkip(const uint8_t *d, size_t n, size_t &p, uint8_t wt) {
     return false;
 }
 static const char *gpPresetTitle(uint32_t t) {
+    // EnumPresetTitle values from GoPro's official preset_status.proto.
     switch(t) {
         case 0:return "Activity"; case 1:return "Standard"; case 2:return "Cinematic";
-        case 10:return "Video"; case 11:return "Slo-Mo"; case 18:return "Custom";
-        case 35:return "Action"; case 43:return "Custom Cinematic"; case 44:return "Vlog";
-        case 45:return "FPV"; case 46:return "HDR"; case 48:return "Log";
-        case 49:return "Custom Slo-Mo"; case 58:return "Basic"; case 59:return "Ultra Slo-Mo";
-        case 73:return "Highest Quality"; case 74:return "Extended Battery";
-        case 75:return "Longest Battery"; case 93:return "Highest Quality Video";
-        case 94:return "Custom"; case 99:return "Easy Standard"; case 100:return "Easy HDR";
-        case 106:return "Burst Slo-Mo"; case 125:return "4:3 Video"; case 126:return "16:9 Video";
-        case 127:return "16:9 Slo-Mo"; case 131:return "Time Lapse Video";
-        case 132:return "Time Lapse Photo"; case 133:return "Night Lapse Video";
-        case 134:return "Night Lapse Photo"; default:return nullptr;
+        case 3:return "Photo"; case 4:return "Live Burst"; case 5:return "Burst";
+        case 6:return "Night"; case 7:return "Time Warp"; case 8:return "Time Lapse";
+        case 9:return "Night Lapse"; case 10:return "Video"; case 11:return "Slo-Mo";
+        case 13:return "Photo"; case 14:return "Panorama"; case 16:return "Time Warp";
+        case 18:return "Custom"; case 19:return "Air"; case 20:return "Bike";
+        case 21:return "Epic"; case 22:return "Indoor"; case 23:return "Motor";
+        case 24:return "Mounted"; case 25:return "Outdoor"; case 26:return "POV";
+        case 27:return "Selfie"; case 28:return "Skate"; case 29:return "Snow";
+        case 30:return "Trail"; case 31:return "Travel"; case 32:return "Water";
+        case 33:return "Looping"; case 34:return "Stars"; case 35:return "Action";
+        case 36:return "Follow Cam"; case 37:return "Surf"; case 38:return "City";
+        case 39:return "Shaky"; case 40:return "Chesty"; case 41:return "Helmet";
+        case 42:return "Bite"; case 43:return "Custom Cinematic"; case 44:return "Vlog";
+        case 45:return "FPV"; case 46:return "HDR"; case 47:return "Landscape";
+        case 48:return "Log"; case 49:return "Custom Slo-Mo"; case 50:return "Tripod";
+        case 58:return "Basic"; case 59:return "Ultra Slo-Mo";
+        case 60:return "Standard Endurance"; case 61:return "Activity Endurance";
+        case 62:return "Cinematic Endurance"; case 63:return "Slo-Mo Endurance";
+        case 64:return "Stationary 1"; case 65:return "Stationary 2";
+        case 66:return "Stationary 3"; case 67:return "Stationary 4";
+        case 68:return "Simple Video"; case 69:return "Simple Time Warp";
+        case 70:return "Simple Super Photo"; case 71:return "Simple Night Photo";
+        case 72:return "Simple Video Endurance"; case 73:return "Highest Quality";
+        case 74:return "Extended Battery"; case 75:return "Longest Battery";
+        case 76:return "Star Trail"; case 77:return "Light Painting";
+        case 78:return "Light Trail"; case 79:return "Full Frame";
+        case 82:return "Standard Quality Video"; case 83:return "Basic Quality Video";
+        case 93:return "Highest Quality Video"; case 94:return "Custom";
+        case 99:return "Easy Standard"; case 100:return "Easy HDR";
+        case 106:return "Burst Slo-Mo"; case 125:return "4:3 Video";
+        case 126:return "16:9 Video"; case 127:return "16:9 Slo-Mo";
+        case 131:return "Time Lapse Video"; case 132:return "Time Lapse Photo";
+        case 133:return "Night Lapse Video"; case 134:return "Night Lapse Photo";
+        default:return nullptr;
     }
 }
 static void gpParsePreset(const uint8_t *d, size_t n) {
