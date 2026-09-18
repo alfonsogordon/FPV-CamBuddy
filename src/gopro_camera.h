@@ -50,6 +50,7 @@ public:
     bool stopRecording() override;
     // mode is a DJI_MODE_* constant; GoProCamera maps it to a GoPro preset group.
     bool switchCameraMode(uint8_t mode) override;
+    bool loadProfile(uint32_t profileId) override;
     bool triggerBurstSloMo() override;
     bool exitBurstSloMo() override;
 
