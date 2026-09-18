@@ -527,28 +527,253 @@ void Insta360Camera::batteryNotifyCallback(BLERemoteCharacteristic * /*ch*/,
 // decoded — no available schema.
 void Insta360Camera::handleNotification(uint8_t *data, size_t len) {
     if (_debugBle) bleDebugDump(DBG_SERIAL, "RX", "0xBE82", data, len);
+    if (!data || len < 7) return;
 
-    bool isKeepAlive = len >= 7  && data[4] == INSTA_MSGTYPE_KEEPALIVE && data[5] == 0 && data[6] == 0;
-    bool isCommand   = len >= 9  && data[4] == INSTA_MSGTYPE_COMMAND   && data[5] == 0 && data[6] == 0;
+    const bool isKeepAlive = len >= 7 && data[4] == INSTA_MSGTYPE_KEEPALIVE &&
+                             data[5] == 0 && data[6] == 0;
+    const bool isCommand = len >= 16 && data[4] == INSTA_MSGTYPE_COMMAND &&
+                           data[5] == 0 && data[6] == 0;
 
-    if (!isKeepAlive && !isCommand) return;
-
-    if (!_awaitingRecordAck) return;  // not something we're waiting on
-
-    if (isKeepAlive) return;  // bare ack, no response code to check yet — wait for the real one
-
-    uint16_t code = (uint16_t)data[7] | ((uint16_t)data[8] << 8);
-    _awaitingRecordAck = false;
-
-    if (code != INSTA_RESP_OK) {
-        DBG_SERIAL.printf("[Insta360] Recording command failed (response=%u)\n", code);
+    if (isKeepAlive) {
+        if (_debugBle) DBG_SERIAL.println("[Insta360][DBG] RX keepalive/short ack");
+        return;
+    }
+    if (!isCommand) {
+        if (_debugBle)
+            DBG_SERIAL.printf("[Insta360][DBG] RX unknown envelope type=0x%02X len=%u\n",
+                              data[4], (unsigned)len);
         return;
     }
 
-    _camera.recording = _pendingRecordTarget;
-    _camera.has_recording = true;
-    _camera.valid      = true;
-    DBG_SERIAL.printf("[Insta360] Recording %s\n", _camera.recording ? "started" : "stopped");
+    const uint16_t code = (uint16_t)data[7] | ((uint16_t)data[8] << 8);
+    const uint32_t seq = (uint32_t)data[10] |
+                         ((uint32_t)data[11] << 8) |
+                         ((uint32_t)data[12] << 16);
+    const uint8_t *body = data + 16;
+    const size_t bodyLen = len - 16;
+
+    if (_debugBle) {
+        DBG_SERIAL.printf("[Insta360][DBG] RX code=%u seq=%lu payload=%uB%s\n",
+                          (unsigned)code, (unsigned long)seq, (unsigned)bodyLen,
+                          code == INSTA_RESP_OK ? " OK" : "");
+    }
+
+    // Async notifications are identified by response code, not by our request seq.
+    if (code == INSTA_NOTIFY_CAPTURE_STATUS) {
+        handleCaptureStatusPayload(body, bodyLen, false);
+        return;
+    }
+    if (code == INSTA_NOTIFY_STORAGE_UPDATE) {
+        handleStorageUpdatePayload(body, bodyLen);
+        return;
+    }
+    if (code == INSTA_NOTIFY_STORAGE_FULL) {
+        _camera.has_media_ready = true;
+        _camera.media_ready = false;
+        _camera.has_remain_time = true;
+        _camera.remain_time = 0;
+        _camera.valid = true;
+        DBG_SERIAL.println("[Insta360] Storage full");
+        if (_cameraCb) _cameraCb(_camera);
+        return;
+    }
+    if (code == INSTA_NOTIFY_CAPTURE_STOPPED) {
+        _camera.recording = false;
+        _camera.has_recording = true;
+        _camera.record_time = 0;
+        _camera.valid = true;
+        DBG_SERIAL.println("[Insta360] Capture stopped notification");
+        if (_cameraCb) _cameraCb(_camera);
+        return;
+    }
+    if (code == INSTA_NOTIFY_BATTERY_LOW) {
+        // The low-battery notification does not carry a trustworthy percentage.
+        // Keep percent unknown unless BatteryStatus/0x2A19 supplies it.
+        if (_debugBle) DBG_SERIAL.println("[Insta360][DBG] Battery-low notification");
+        return;
+    }
+
+    if (code != INSTA_RESP_OK) {
+        if (_awaitingRecordAck && seq == _pendingRecordSeq) {
+            _awaitingRecordAck = false;
+            _pendingRecordSeq = 0;
+            DBG_SERIAL.printf("[Insta360] Recording command failed (response=%u seq=%lu)\n",
+                              (unsigned)code, (unsigned long)seq);
+        } else if (_debugBle) {
+            DBG_SERIAL.printf("[Insta360][DBG] Non-OK response code=%u seq=%lu\n",
+                              (unsigned)code, (unsigned long)seq);
+        }
+        if (seq == _pendingCaptureStatusSeq) _pendingCaptureStatusSeq = 0;
+        if (seq == _pendingOptionsSeq) _pendingOptionsSeq = 0;
+        return;
+    }
+
+    // Sequence-correlated 200 responses. This avoids a telemetry response
+    // accidentally satisfying a record command that is also in flight.
+    if (_awaitingRecordAck && seq == _pendingRecordSeq) {
+        _awaitingRecordAck = false;
+        _pendingRecordSeq = 0;
+        _camera.recording = _pendingRecordTarget;
+        _camera.has_recording = true;
+        _camera.valid = true;
+        DBG_SERIAL.printf("[Insta360] Recording %s\n",
+                          _camera.recording ? "started" : "stopped");
+        if (_cameraCb) _cameraCb(_camera);
+        return;
+    }
+
+    if (seq == _pendingCaptureStatusSeq) {
+        _pendingCaptureStatusSeq = 0;
+        handleCaptureStatusPayload(body, bodyLen, true);
+        return;
+    }
+
+    if (seq == _pendingOptionsSeq) {
+        _pendingOptionsSeq = 0;
+        handleOptionsPayload(body, bodyLen);
+        return;
+    }
+
+    if (_debugBle)
+        DBG_SERIAL.printf("[Insta360][DBG] Unmatched OK response seq=%lu payload=%uB\n",
+                          (unsigned long)seq, (unsigned)bodyLen);
+}
+
+void Insta360Camera::handleCaptureStatusPayload(const uint8_t *data, size_t len, bool wrapped) {
+    if (!data || !len) return;
+
+    const uint8_t *msg = data;
+    size_t msgLen = len;
+
+    if (wrapped) {
+        // GetCurrentCaptureStatusResp.status = field 1, length-delimited.
+        if (!pbFindBytes(data, len, 1, msg, msgLen)) {
+            if (_debugBle)
+                DBG_SERIAL.printf("[Insta360][DBG] Capture status response had no field-1 status (%uB)\n",
+                                  (unsigned)len);
+            return;
+        }
+    }
+
+    uint64_t state = 0, captureTime = 0;
+    const bool haveState = pbFindVarint(msg, msgLen, 1, state);
+    const bool haveTime = pbFindVarint(msg, msgLen, 2, captureTime);
+    if (!haveState && !haveTime) return;
+
+    if (haveState) {
+        _camera.recording = instaCaptureStateIsVideo((uint32_t)state);
+        _camera.has_recording = true;
+        if (state != 0)
+            _camera.camera_mode = instaCaptureStateToMode((uint32_t)state);
+    }
+    if (haveTime)
+        _camera.record_time = (uint16_t)min<uint64_t>(captureTime, 65535ULL);
+
+    _camera.valid = true;
+    if (_debugBle)
+        DBG_SERIAL.printf("[Insta360][DBG] Capture status state=%lu recording=%d time=%lus\n",
+                          (unsigned long)state, _camera.recording ? 1 : 0,
+                          (unsigned long)captureTime);
+    if (_cameraCb) _cameraCb(_camera);
+}
+
+void Insta360Camera::handleOptionsPayload(const uint8_t *data, size_t len) {
+    if (!data || !len) return;
+
+    // GetOptionsResp.value = field 2, length-delimited Options.
+    const uint8_t *opts = nullptr;
+    size_t optsLen = 0;
+    if (!pbFindBytes(data, len, 2, opts, optsLen)) {
+        if (_debugBle)
+            DBG_SERIAL.printf("[Insta360][DBG] GetOptions response had no value message (%uB)\n",
+                              (unsigned)len);
+        return;
+    }
+
+    bool changed = false;
+    const uint8_t *p = opts, *end = opts + optsLen;
+    PbField f;
+    while (pbNext(p, end, f)) {
+        if (f.number == 9 && f.wire == 0) { // remaining_capture_time, seconds
+            _camera.remain_time = (uint32_t)min<uint64_t>(f.varint, 0xFFFFFFFFULL);
+            _camera.has_remain_time = true;
+            changed = true;
+            if (_debugBle)
+                DBG_SERIAL.printf("[Insta360][DBG] remaining_capture_time=%lus\n",
+                                  (unsigned long)_camera.remain_time);
+        } else if (f.number == 11 && f.wire == 2) { // BatteryStatus
+            uint64_t level = 0;
+            if (pbFindVarint(f.bytes, f.len, 2, level) && level <= 100) {
+                _camera.percent = (uint8_t)level;
+                _camera.has_battery = true;
+                changed = true;
+                if (_debugBle)
+                    DBG_SERIAL.printf("[Insta360][DBG] battery_level=%u%%\n",
+                                      (unsigned)_camera.percent);
+            }
+        } else if (f.number == 20 && f.wire == 2) { // StorageState
+            uint64_t state = 0, freeBytes = 0;
+            const bool haveState = pbFindVarint(f.bytes, f.len, 1, state);
+            const bool haveFree = pbFindVarint(f.bytes, f.len, 2, freeBytes);
+            if (haveState) {
+                _camera.has_media_ready = true;
+                _camera.media_ready = (state == 0); // STOR_CS_PASS
+                changed = true;
+            }
+            if (haveFree) {
+                _camera.remain_cap_mb = (uint32_t)min<uint64_t>(
+                    freeBytes / (1024ULL * 1024ULL), 0xFFFFFFFFULL);
+                changed = true;
+            }
+            if (_debugBle)
+                DBG_SERIAL.printf("[Insta360][DBG] storage state=%lu free=%lluB (%luMB)\n",
+                                  (unsigned long)state,
+                                  (unsigned long long)freeBytes,
+                                  (unsigned long)_camera.remain_cap_mb);
+        } else if (f.number == 41 && f.wire == 0) { // video_sub_mode
+            if (_debugBle)
+                DBG_SERIAL.printf("[Insta360][DBG] video_sub_mode=%lu\n",
+                                  (unsigned long)f.varint);
+        } else if (f.number == 48 && f.wire == 2) { // camera_type string
+            if (_debugBle) {
+                String s;
+                for (size_t i = 0; i < f.len && i < 48; ++i) {
+                    const char ch = (char)f.bytes[i];
+                    s += (ch >= 32 && ch <= 126) ? ch : '.';
+                }
+                DBG_SERIAL.printf("[Insta360][DBG] camera_type='%s'\n", s.c_str());
+            }
+        } else if (f.number == 77 && f.wire == 0) { // temp_value, int32
+            // Keep temperature unavailable in CameraData: it only has an
+            // over-temperature severity field, and no verified threshold maps
+            // this raw value to WARN/HOT/SHUTDOWN across Insta360 models.
+            if (_debugBle)
+                DBG_SERIAL.printf("[Insta360][DBG] temp_value(raw)=%ld (not mapped to overheat state)\n",
+                                  (long)(int32_t)(uint32_t)f.varint);
+        } else if (_debugBle) {
+            DBG_SERIAL.printf("[Insta360][DBG] Options unknown/unused field=%lu wire=%u len=%u\n",
+                              (unsigned long)f.number, (unsigned)f.wire,
+                              (unsigned)f.len);
+        }
+    }
+
+    if (changed) {
+        _camera.valid = true;
+        if (_cameraCb) _cameraCb(_camera);
+    }
+}
+
+void Insta360Camera::handleStorageUpdatePayload(const uint8_t *data, size_t len) {
+    if (!data || !len) return;
+    uint64_t state = 0;
+    if (!pbFindVarint(data, len, 1, state)) return;
+
+    _camera.has_media_ready = true;
+    _camera.media_ready = (state == 0); // STOR_CS_PASS
+    _camera.valid = true;
+    DBG_SERIAL.printf("[Insta360] Storage state: %s (code=%lu)\n",
+                      _camera.media_ready ? "ready" : "not ready",
+                      (unsigned long)state);
     if (_cameraCb) _cameraCb(_camera);
 }
 
