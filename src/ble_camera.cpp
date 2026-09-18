@@ -17,8 +17,63 @@ void BLECamera::begin() {
 }
 
 void BLECamera::update() {
-    // Deferred connect ACK: send from the main loop, not from the BLE callback,
-    // to avoid calling writeValue() inside a BLE stack context (causes crash).
+    const uint32_t now = millis();
+
+    // Nano DUML request ACKs are queued by the BLE callback and written here;
+    // writing from inside the callback can re-enter the BLE stack and crash.
+    if (_pendingNanoRespLen && _bleConnected && _writeChar) {
+        const uint16_t n = _pendingNanoRespLen;
+        _pendingNanoRespLen = 0;
+        if (_debugBle) bleDebugDump(DBG_SERIAL, "TX", "Nano DUML ACK", _pendingNanoResp, n);
+        _writeChar->writeValue(_pendingNanoResp, n, false);
+        DBG_SERIAL.printf("[Nano] DUML response sent (%uB)\n", n);
+        return;
+    }
+
+    if (_pendingNanoPairComplete && _bleConnected) {
+        _pendingNanoPairComplete = false;
+        _nanoPaired = true;
+        _nanoPairApprovalNeeded = false;
+        DBG_SERIAL.println("[Nano] Pairing complete — starting persistent session");
+
+        // The camera remembers this identity after first approval, so only mark
+        // it preferred once the Nano has actually accepted our app-level pair.
+        if (_registry)
+            _registry->onConnected(_targetName.c_str(), _targetAddr.c_str(),
+                                   (uint8_t)_targetType, /*DJI=*/0);
+
+        beginNanoRsdk();
+        return;
+    }
+
+    // Hardware-verified Nano BLE sessions need this Mimo-style DUML keepalive
+    // or the camera tears the link down after roughly 5–6 seconds.
+    if (_isOsmoNano && _bleConnected && _nanoPaired &&
+        (now - _nanoLastKeepaliveMs) >= 1000UL) {
+        sendNanoKeepalive();
+        _nanoLastKeepaliveMs = now;
+    }
+
+    // If the first SetPairingPIN write was lost, retry with the same identity.
+    // Stop once the camera has answered with either ALREADY PAIRED or
+    // APPROVAL REQUIRED; the latter waits for the tester to approve on-camera.
+    if (_isOsmoNano && _bleConnected && !_nanoPaired && !_nanoPairApprovalNeeded) {
+        const uint32_t age = now - _nanoPairStartMs;
+        if ((age >= 2500UL && _nanoLastPairTxMs < _nanoPairStartMs + 2000UL) ||
+            (age >= 5000UL && _nanoLastPairTxMs < _nanoPairStartMs + 4500UL)) {
+            DBG_SERIAL.println("[Nano] No pairing reply yet — retrying SetPairingPIN");
+            uint8_t payload[96];
+            uint16_t o = 0;
+            o += nano_pack_string(payload + o, sizeof(payload) - o,
+                                  "284ae5b8d76b3375a04a6417ad71bea3");
+            o += nano_pack_string(payload + o, sizeof(payload) - o, "cambuddy");
+            sendNanoDuml(0x0702, 0x8092, 0x40, 0x07, 0x45, payload, o);
+            _nanoLastPairTxMs = now;
+        }
+    }
+
+    // Deferred R-SDK connect ACK: send from the main loop, not from the BLE
+    // callback, to avoid calling writeValue() inside a BLE stack context.
     if (_pendingConnectAck && _bleConnected && !_djiConnected) {
         _pendingConnectAck = false;
 
@@ -32,10 +87,26 @@ void BLECamera::update() {
             DBG_SERIAL.println("[DJI] Failed to send connect ACK");
         } else {
             DBG_SERIAL.println("[DJI] Connection established — subscribing to status");
-            if (sendStatusSubscription())
+            if (sendStatusSubscription()) {
                 _djiConnected = true;
+                if (_isOsmoNano) {
+                    _nanoLastStatusMs = 0;
+                    _nanoLastStatusPollMs = now;
+                    DBG_SERIAL.println("[Nano] R-SDK ready — ARM/disarm record control enabled");
+                }
+            }
         }
         return;
+    }
+
+    // Some newer DJI bodies answer a status subscription once rather than
+    // maintaining a periodic feed. Poll a quiet Nano by re-subscribing.
+    if (_isOsmoNano && _djiConnected &&
+        (now - _nanoLastStatusPollMs) >= 1500UL &&
+        (_nanoLastStatusMs == 0 || (now - _nanoLastStatusMs) >= 2000UL)) {
+        _nanoLastStatusPollMs = now;
+        DBG_SERIAL.println("[Nano] Status feed quiet — re-subscribing");
+        sendStatusSubscription();
     }
 
     if (_djiConnected || _bleConnected || _scanning) return;
@@ -252,7 +323,10 @@ bool BLECamera::connectAndSetup() {
         return false;
     }
     notifyCh->registerForNotify(notifyCallback);
-    DBG_SERIAL.println("[BLE] Subscribed to 0xFFF4 notify");
+    _notifyChar = notifyCh;
+    DBG_SERIAL.printf("[BLE] Subscribed to 0xFFF4 notify (write=%d writeNR=%d)\n",
+                      notifyCh->canWrite() ? 1 : 0,
+                      notifyCh->canWriteNoResponse() ? 1 : 0);
 
     // Write characteristic — ESP32 → camera.
     // Osmo Nano exposes 0xFFF5 as Write-Without-Response, while some Action
@@ -270,19 +344,30 @@ bool BLECamera::connectAndSetup() {
         return false;
     }
     _writeNoResponseOnly = !_writeChar->canWrite() && _writeChar->canWriteNoResponse();
-    DBG_SERIAL.printf("[BLE] Write char 0x%04X ready (%s)\n",
+    DBG_SERIAL.printf("[BLE] Write char 0x%04X ready (%s notify=%d)\n",
                       _writeChar->getUUID().getNative()->uuid.uuid16,
-                      _writeNoResponseOnly ? "write-no-response" : "write");
+                      _writeNoResponseOnly ? "write-no-response" : "write",
+                      _writeChar->canNotify() ? 1 : 0);
+
+    // Nano can send DUML/R-SDK notifications on both FFF4 and FFF5.
+    if (_isOsmoNano && _writeChar->canNotify() && _writeChar != _notifyChar) {
+        _writeChar->registerForNotify(notifyCallback);
+        DBG_SERIAL.println("[Nano] Subscribed to 0xFFF5 notify too");
+    }
 
     _bleConnected = true;
 
-    // Record this camera in the registry so it is preferred on next boot
-    if (_registry)
-        _registry->onConnected(_targetName.c_str(), _targetAddr.c_str(),
-                               (uint8_t)_targetType, /*DJI=*/0);
-
-    // Kick off the DJI handshake; response arrives via notify callback
-    sendConnectionRequest();
+    // Existing Action cameras keep their proven R-SDK flow. Nano first needs
+    // DJI's app-level DUML pairing/session sequence; only after that do we probe
+    // the R-SDK status/record-control channel.
+    if (_isOsmoNano) {
+        startNanoPairing();
+    } else {
+        if (_registry)
+            _registry->onConnected(_targetName.c_str(), _targetAddr.c_str(),
+                                   (uint8_t)_targetType, /*DJI=*/0);
+        sendConnectionRequest();
+    }
     return true;
 }
 
@@ -295,8 +380,19 @@ void BLECamera::onDisconnect(BLEClient * /*c*/) {
     _djiConnected  = false;
     _bleConnected  = false;
     _writeChar     = nullptr;
+    _notifyChar    = nullptr;
     _writeNoResponseOnly = false;
     _isOsmoNano = false;
+    _nanoPaired = false;
+    _nanoPairApprovalNeeded = false;
+    _nanoRsdkStarted = false;
+    _nanoPairStartMs = 0;
+    _nanoLastPairTxMs = 0;
+    _nanoLastKeepaliveMs = 0;
+    _nanoLastStatusMs = 0;
+    _nanoLastStatusPollMs = 0;
+    _pendingNanoPairComplete = false;
+    _pendingNanoRespLen = 0;
     _targetFound   = false;
     _targetAddr    = "";
     _targetName    = "";
@@ -321,6 +417,154 @@ void BLECamera::printServices() {
                               ch->canNotify(), ch->canRead(), ch->canWrite());
     }
     DBG_SERIAL.println("[BLE] ──────────────────────────────────────────");
+}
+
+// ─── Osmo Nano DUML pairing/session ─────────────────────────────────────────
+
+bool BLECamera::sendNanoDuml(uint16_t target, uint16_t id, uint8_t flags,
+                             uint8_t cmdSet, uint8_t cmdId,
+                             const uint8_t *payload, uint16_t payloadLen) {
+    if (!_writeChar) return false;
+    uint8_t frame[180];
+    const uint16_t n = nano_duml_build(frame, sizeof(frame), target, id,
+                                       flags, cmdSet, cmdId, payload, payloadLen);
+    if (!n) return false;
+    if (_debugBle) bleDebugDump(DBG_SERIAL, "TX", "Nano DUML", frame, n);
+    _writeChar->writeValue(frame, n, false);
+    DBG_SERIAL.printf("[Nano] DUML TX %02X/%02X flags=0x%02X id=0x%04X len=%u\n",
+                      cmdSet, cmdId, flags, id, n);
+    return true;
+}
+
+bool BLECamera::startNanoPairing() {
+    if (!_notifyChar || !_writeChar) return false;
+
+    _nanoPaired = false;
+    _nanoPairApprovalNeeded = false;
+    _nanoRsdkStarted = false;
+    _pendingNanoPairComplete = false;
+    _pendingNanoRespLen = 0;
+
+    // Hardware-verified Mimo/Osmosis sequence:
+    //   FFF4 <- [01 00]                    arm app-level pairing
+    //   DUML 00/2B [04 00] -> target F0   wake/session preamble
+    //   DUML 07/45 identifier + token     pair this app identity
+    const uint8_t arm[2] = {0x01, 0x00};
+    const bool armWithRsp = _notifyChar->canWrite();
+    if (!_notifyChar->canWrite() && !_notifyChar->canWriteNoResponse()) {
+        DBG_SERIAL.println("[Nano] FFF4 is not writable — cannot arm pairing");
+        return false;
+    }
+    _notifyChar->writeValue((uint8_t *)arm, sizeof(arm),
+                            armWithRsp ? true : false);
+    DBG_SERIAL.printf("[Nano] Pairing arm [01 00] -> FFF4 (%s)\n",
+                      armWithRsp ? "write-response" : "write-no-response");
+    delay(80);
+
+    const uint8_t wake[2] = {0x04, 0x00};
+    sendNanoDuml(0xF002, 0x802B, 0x40, 0x00, 0x2B, wake, sizeof(wake));
+    delay(120);
+
+    uint8_t payload[96];
+    uint16_t o = 0;
+    o += nano_pack_string(payload + o, sizeof(payload) - o,
+                          "284ae5b8d76b3375a04a6417ad71bea3");
+    o += nano_pack_string(payload + o, sizeof(payload) - o, "cambuddy");
+    const bool ok = sendNanoDuml(0x0702, 0x8092, 0x40, 0x07, 0x45, payload, o);
+    _nanoPairStartMs = millis();
+    _nanoLastPairTxMs = _nanoPairStartMs;
+    DBG_SERIAL.println("[Nano] SetPairingPIN sent (token='cambuddy'); first use may require approval on camera");
+    return ok;
+}
+
+void BLECamera::queueNanoResponse(const NanoDumlFrame &f) {
+    uint8_t payload[96];
+    const uint8_t *p = f.payload;
+    uint16_t plen = f.payloadLen;
+
+    // Mimo supplies an APP identity blob when the camera asks 00/81.
+    if (f.cmdSet == 0x00 && f.cmdId == 0x81) {
+        memset(payload, 0, sizeof(payload));
+        uint16_t o = 0;
+        payload[o++] = 0x00;
+        payload[o++] = 'A'; payload[o++] = 'P'; payload[o++] = 'P';
+        o += 37;
+        payload[o++] = 0x02;
+        o += 8;
+        payload[o++] = 0x02; payload[o++] = 0x08;
+        o += 10;
+        p = payload;
+        plen = o;
+    }
+
+    // Inbound target is receiver/sender; swap the two address bytes for reply.
+    const uint16_t replyTarget = (uint16_t)((f.target << 8) | (f.target >> 8));
+    const uint16_t n = nano_duml_build(_pendingNanoResp, sizeof(_pendingNanoResp),
+                                       replyTarget, f.id, 0xC0,
+                                       f.cmdSet, f.cmdId, p, plen);
+    if (!n) {
+        DBG_SERIAL.printf("[Nano] Could not build response for %02X/%02X\n",
+                          f.cmdSet, f.cmdId);
+        return;
+    }
+    _pendingNanoRespLen = n;
+    DBG_SERIAL.printf("[Nano] Queued response to inbound request %02X/%02X id=0x%04X\n",
+                      f.cmdSet, f.cmdId, f.id);
+}
+
+void BLECamera::handleNanoDuml(const NanoDumlFrame &f) {
+    DBG_SERIAL.printf("[Nano] DUML RX %02X/%02X flags=0x%02X id=0x%04X payload=%uB\n",
+                      f.cmdSet, f.cmdId, f.flags, f.id, f.payloadLen);
+
+    // Camera-originated requests must be ACKed or the Nano drops the BLE link.
+    if (f.flags == 0x40) {
+        queueNanoResponse(f);
+        if (f.cmdSet == 0x07 && f.cmdId == 0x46) {
+            DBG_SERIAL.println("[Nano] Pairing APPROVED by camera (07/46 request)");
+            _pendingNanoPairComplete = true;
+        }
+        return;
+    }
+
+    if (f.cmdSet == 0x07 && f.cmdId == 0x45) {
+        const int status = (f.payloadLen >= 2) ? f.payload[1] : -1;
+        if (status == 0x01) {
+            DBG_SERIAL.println("[Nano] Pairing status: ALREADY PAIRED");
+            _pendingNanoPairComplete = true;
+        } else if (status == 0x02) {
+            _nanoPairApprovalNeeded = true;
+            DBG_SERIAL.println("[Nano] Pairing status: APPROVAL REQUIRED — approve FPV CamBuddy on the Nano screen");
+        } else {
+            DBG_SERIAL.printf("[Nano] Pairing status unknown: 0x%02X\n",
+                              status < 0 ? 0xFF : status);
+        }
+    } else if (f.cmdSet == 0x07 && f.cmdId == 0x46) {
+        DBG_SERIAL.println("[Nano] Pairing APPROVED (07/46)");
+        _pendingNanoPairComplete = true;
+    }
+}
+
+void BLECamera::sendNanoKeepalive() {
+    const uint8_t keepalive[2] = {0x01, 0x01};
+    sendNanoDuml(0xF002, 0x802B, 0x40, 0x00, 0x2B,
+                 keepalive, sizeof(keepalive));
+}
+
+void BLECamera::beginNanoRsdk() {
+    if (_nanoRsdkStarted) return;
+    _nanoRsdkStarted = true;
+
+    // Mimo wakes the post-pair session with 53/10 addressed to type 0x1C.
+    const uint8_t wake5310[4] = {0, 0, 0, 0};
+    sendNanoDuml(0x1C02, 0x8053, 0x40, 0x53, 0x10,
+                 wake5310, sizeof(wake5310));
+    delay(120);
+    sendNanoKeepalive();
+    _nanoLastKeepaliveMs = millis();
+
+    DBG_SERIAL.println("[Nano] DUML session paired — probing DJI R-SDK control/status channel");
+    if (!sendConnectionRequest())
+        DBG_SERIAL.println("[Nano] R-SDK connection request could not be sent");
 }
 
 // ─── DJI frame send ───────────────────────────────────────────────────────────
@@ -436,9 +680,19 @@ void BLECamera::notifyCallback(BLERemoteCharacteristic * /*ch*/,
 void BLECamera::handleNotification(uint8_t *data, size_t length) {
     if (length == 0) return;
 
-    if (_debugBle) bleDebugDump(DBG_SERIAL, "RX", "0xFFF4", data, length);
+    if (_debugBle) bleDebugDump(DBG_SERIAL, "RX", "DJI BLE", data, length);
 
-    // 0x55-prefixed telemetry stream and anything else that isn't a DJI frame — ignore.
+    if (_isOsmoNano && data[0] == 0x55) {
+        NanoDumlFrame f;
+        if (nano_duml_parse(data, (uint16_t)length, f)) {
+            handleNanoDuml(f);
+        } else {
+            DBG_SERIAL.printf("[Nano] Unparsed DUML notification (%uB)\n", (unsigned)length);
+        }
+        return;
+    }
+
+    // R-SDK frames use the existing 0xAA transport.
     if (data[0] != DJI_SOF) return;
     if (length < 14) return;   // need at least SOF…CmdID
 
@@ -571,6 +825,7 @@ void BLECamera::handleModeSwitchAck(const uint8_t *payload, uint16_t len) {
 }
 
 void BLECamera::handleCameraStatus(const uint8_t *payload, uint16_t len) {
+    if (_isOsmoNano) _nanoLastStatusMs = millis();
     // Current DJI R-SDK bodies share the first seven bytes (mode/status/res/fps/
     // EIS/record-time). Nano support keeps that useful subset even if a future
     // firmware returns a shorter status struct than the 38-byte Action layout.
