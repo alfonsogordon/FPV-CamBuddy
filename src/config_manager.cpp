@@ -2,6 +2,7 @@
 #include "camera_registry.h"
 #include "camera.h"
 #include "config.h"
+#include "diag_log.h"
 #include <WiFi.h>
 #include <cstring>
 #include <cstdlib>
@@ -275,6 +276,20 @@ void ConfigManager::printAll(Stream &out) {
 void ConfigManager::handleLine(const char *line, Stream &out) {
     while (*line == ' ') line++;
 
+    if (strcmp(line, "diag") == 0) {
+        out.println("[diag] persistent AP log:");
+        String s = diagRead();
+        if (s.length()) out.print(s);
+        else out.println("(empty)");
+        return;
+    }
+
+    if (strcmp(line, "diag clear") == 0) {
+        diagClear();
+        out.println("[diag] cleared");
+        return;
+    }
+
     if (strcmp(line, "version") == 0) {
         out.printf("[cfg] FreeCLinker firmware v%s\n", FIRMWARE_VERSION);
         return;
@@ -283,6 +298,8 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
     if (strcmp(line, "help") == 0) {
         out.println("Commands:");
         out.println("  version                    - print firmware version");
+        out.println("  diag                       - print persistent AP diagnostic log");
+        out.println("  diag clear                 - clear persistent AP diagnostic log");
         out.println("  show                       - print all settings");
         out.println("  set camera_type <0-5>      - 0=DJI, 1=GoPro, 2=Caddx Orca, 3=Sony Alpha, 4=Blackmagic, 5=Insta360 (reboot required)");
         out.println("  set camera_match <0-2>     - 0=fallback (preferred, else any found), 1=strict (preferred only), 2=best_signal (strongest RSSI, ignores preferred)");
