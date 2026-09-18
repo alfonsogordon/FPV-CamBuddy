@@ -78,3 +78,14 @@ Before this log was created, the current V1.0.2 AP implementation had been revie
 - Updated homepage, README and Quick Start to distinguish hardware-confirmed, active-test and pending camera support, including current GoPro, Osmo Nano, Insta360, DJI Action 4/5 Pro/6 and Action 2 status.
 - Intended test order: Demo Mode first; then connected C3/configurator save/readback; then installed board/quad OSD and AUX switching.
 - Do not call this candidate hardware-confirmed until those tests are complete.
+
+
+### 2026-09-18 — AUX menu / profile OSD UX follow-up
+- Demo Mode profile OSD preview was hardware-independent and Steve confirmed the preview worked perfectly.
+- Replaced the profile OSD native checkbox appearance with the same slider switch styling used elsewhere.
+- Combined Camera Mode Switch and Camera Profile Switch under one AUX Switches card/menu in both the main USB configurator and AP configurator while keeping their channels/settings independent.
+- Corrected the AP Camera Mode selector to the same actual shooting-mode values used by the main configurator: Slow Motion, Video, Timelapse, Photo and Hyperlapse.
+- Added a persistent profile OSD Display in destination (1–4), exposed in firmware CLI/NVS, main configurator, global save/readback, AP API and AP configurator.
+- Integrated the profile OSD destination with the active OSD destination list and Demo Mode preview, rather than borrowing the Temporary Message destination.
+- Fixed main-configurator readback so stored profile IDs and saved profile names are reconstructed into the profile dropdowns after reboot/read, avoiding blank/unassigned browser state for a valid saved profile.
+- Requires CI + fresh staging verification before the next online test.
