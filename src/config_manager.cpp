@@ -16,6 +16,9 @@ static constexpr const char *KEY_PACH = "profile_aux";
 static constexpr const char *KEY_PLOW = "profile_low";
 static constexpr const char *KEY_PMID = "profile_mid";
 static constexpr const char *KEY_PHIGH = "profile_high";
+static constexpr const char *KEY_PLNAME = "prof_low_name";
+static constexpr const char *KEY_PMNAME = "prof_mid_name";
+static constexpr const char *KEY_PHNAME = "prof_hi_name";
 static constexpr const char *KEY_CAM  = "camera_type";
 static constexpr const char *KEY_OSD1 = "osd1_tpl";
 static constexpr const char *KEY_OSD2 = "osd2_tpl";
@@ -88,6 +91,9 @@ void ConfigManager::load() {
     _cfg.profileLow = _prefs.getUInt(KEY_PLOW, DEFAULT_PROFILE_ID);
     _cfg.profileMid = _prefs.getUInt(KEY_PMID, DEFAULT_PROFILE_ID);
     _cfg.profileHigh = _prefs.getUInt(KEY_PHIGH, DEFAULT_PROFILE_ID);
+    loadStr(_prefs, KEY_PLNAME, _cfg.profileLowName, sizeof(_cfg.profileLowName), "");
+    loadStr(_prefs, KEY_PMNAME, _cfg.profileMidName, sizeof(_cfg.profileMidName), "");
+    loadStr(_prefs, KEY_PHNAME, _cfg.profileHighName, sizeof(_cfg.profileHighName), "");
     _cfg.cameraType        = static_cast<uint8_t>(_prefs.getUInt(KEY_CAM, DEFAULT_CAMERA_TYPE));
     _cfg.cameraMatchMode   = static_cast<uint8_t>(_prefs.getUInt(KEY_CMM, DEFAULT_CAMERA_MATCH_MODE));
     _cfg.cameraWakeGuard   = _prefs.getBool(KEY_WAKE, DEFAULT_CAMERA_WAKE_GUARD);
@@ -170,6 +176,9 @@ void ConfigManager::save() {
     _prefs.putUInt(KEY_PLOW, _cfg.profileLow);
     _prefs.putUInt(KEY_PMID, _cfg.profileMid);
     _prefs.putUInt(KEY_PHIGH, _cfg.profileHigh);
+    _prefs.putString(KEY_PLNAME, _cfg.profileLowName);
+    _prefs.putString(KEY_PMNAME, _cfg.profileMidName);
+    _prefs.putString(KEY_PHNAME, _cfg.profileHighName);
     _prefs.putUInt(KEY_CAM, _cfg.cameraType);
     _prefs.putUInt(KEY_CMM, _cfg.cameraMatchMode);
     _prefs.putBool(KEY_WAKE, _cfg.cameraWakeGuard);
@@ -241,6 +250,7 @@ void ConfigManager::printAll(Stream &out) {
     if (_cfg.profileAuxChannel) out.printf("[cfg] profile_aux     = AUX%u\n", _cfg.profileAuxChannel);
     else out.println("[cfg] profile_aux     = disabled");
     out.printf("[cfg] profile_ids     = low:%lu mid:%lu high:%lu\n", (unsigned long)_cfg.profileLow, (unsigned long)_cfg.profileMid, (unsigned long)_cfg.profileHigh);
+    out.printf("[cfg] profile_names   = low:%s | mid:%s | high:%s\n", _cfg.profileLowName, _cfg.profileMidName, _cfg.profileHighName);
     out.printf("[cfg] debug_ble       = %s\n", _cfg.debugBle ? "true" : "false");
     out.printf("[cfg] low_power       = %s\n", _cfg.lowPowerMode ? "true" : "false");
     out.printf("[cfg] wifi_ap_enabled = %s\n", _cfg.wifiApEnabled ? "true" : "false");
@@ -327,6 +337,9 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
         out.println("  set profile_low <id>       - native camera preset/profile ID for AUX low");
         out.println("  set profile_mid <id>       - native camera preset/profile ID for AUX middle");
         out.println("  set profile_high <id>      - native camera preset/profile ID for AUX high");
+        out.println("  set profile_low_name <txt> - OSD label for AUX low profile");
+        out.println("  set profile_mid_name <txt> - OSD label for AUX middle profile");
+        out.println("  set profile_high_name <txt>- OSD label for AUX high profile");
         out.println("  set debug_ble <0|1>        - log raw BLE TX/RX packets to the serial console");
         out.println("  set low_power <0|1>        - 1=minimum BLE/Wi-Fi TX power (default) to reduce RC receiver interference, shorter range; 0=maximum TX power (reboot required)");
         out.println("  set wifi_ap_enabled <0|1>  - 0=never auto-start the config-portal AP (BOOT-button force-AP still works)");
@@ -563,6 +576,9 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
         if (strncmp(rest, "profile_low ", 12) == 0) { setProfileId(0, strtoul(rest + 12, nullptr, 0)); out.printf("[cfg] profile_low = %lu (saved)\n", (unsigned long)_cfg.profileLow); return; }
         if (strncmp(rest, "profile_mid ", 12) == 0) { setProfileId(1, strtoul(rest + 12, nullptr, 0)); out.printf("[cfg] profile_mid = %lu (saved)\n", (unsigned long)_cfg.profileMid); return; }
         if (strncmp(rest, "profile_high ", 13) == 0) { setProfileId(2, strtoul(rest + 13, nullptr, 0)); out.printf("[cfg] profile_high = %lu (saved)\n", (unsigned long)_cfg.profileHigh); return; }
+        if (strncmp(rest, "profile_low_name ", 17) == 0) { setProfileName(0, rest+17); out.printf("[cfg] profile_low_name = %s (saved)\n", _cfg.profileLowName); return; }
+        if (strncmp(rest, "profile_mid_name ", 17) == 0) { setProfileName(1, rest+17); out.printf("[cfg] profile_mid_name = %s (saved)\n", _cfg.profileMidName); return; }
+        if (strncmp(rest, "profile_high_name ", 18) == 0) { setProfileName(2, rest+18); out.printf("[cfg] profile_high_name = %s (saved)\n", _cfg.profileHighName); return; }
 
         if (strncmp(rest, "debug_ble ", 10) == 0) {
             const char *val = rest + 10;
@@ -916,9 +932,16 @@ void ConfigManager::setProfileAuxChannel(uint8_t ch) {
 }
 
 void ConfigManager::setProfileId(uint8_t position, uint32_t id) {
-    if (position == 0) { _cfg.profileLow = id; _prefs.putUInt(KEY_PLOW, id); }
-    else if (position == 1) { _cfg.profileMid = id; _prefs.putUInt(KEY_PMID, id); }
-    else if (position == 2) { _cfg.profileHigh = id; _prefs.putUInt(KEY_PHIGH, id); }
+    if (position == 0) { if (_cfg.profileLow != id) setProfileName(0, ""); _cfg.profileLow = id; _prefs.putUInt(KEY_PLOW, id); }
+    else if (position == 1) { if (_cfg.profileMid != id) setProfileName(1, ""); _cfg.profileMid = id; _prefs.putUInt(KEY_PMID, id); }
+    else if (position == 2) { if (_cfg.profileHigh != id) setProfileName(2, ""); _cfg.profileHigh = id; _prefs.putUInt(KEY_PHIGH, id); }
+}
+
+void ConfigManager::setProfileName(uint8_t position, const char *name) {
+    const char *src = name ? name : "";
+    if (position == 0) { strlcpy(_cfg.profileLowName, src, sizeof(_cfg.profileLowName)); _prefs.putString(KEY_PLNAME, _cfg.profileLowName); }
+    else if (position == 1) { strlcpy(_cfg.profileMidName, src, sizeof(_cfg.profileMidName)); _prefs.putString(KEY_PMNAME, _cfg.profileMidName); }
+    else if (position == 2) { strlcpy(_cfg.profileHighName, src, sizeof(_cfg.profileHighName)); _prefs.putString(KEY_PHNAME, _cfg.profileHighName); }
 }
 
 void ConfigManager::setCameraMatchMode(uint8_t v) {
