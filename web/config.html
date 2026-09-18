@@ -491,14 +491,15 @@
         <select id="profileAux" disabled><option value="0">Disabled</option><option value="1">AUX 1</option><option value="2">AUX 2</option><option value="3">AUX 3</option><option value="4">AUX 4</option><option value="5">AUX 5</option><option value="6">AUX 6</option><option value="7">AUX 7</option><option value="8">AUX 8</option><option value="9">AUX 9</option><option value="10">AUX 10</option><option value="11">AUX 11</option><option value="12">AUX 12</option></select>
       </div>
       <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">
-        <div class="cfg-field-name">Native camera profile / preset IDs</div>
-        <div class="cfg-field-desc">GoPro: select each preset on the camera, then run <code>profile current</code> in CLI to read its runtime ID. IDs are camera/firmware specific and are deliberately not hard-coded.</div>
+        <div class="cfg-field-name">Camera presets</div>
+        <div class="cfg-field-desc">GoPro: discover the presets currently available on the connected camera, then assign one to each switch position. CamBuddy stores the camera's native IDs internally.</div>
+        <div style="width:100%;margin-top:10px;"><button id="profileDiscoverBtn" type="button" disabled>Discover GoPro Presets</button> <span class="cfg-field-desc" id="profileDiscoverStatus">Connect the camera first.</span></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;width:100%;margin-top:10px;align-items:center;">
-          <label>LOW</label><input type="number" id="profileLow" min="0" step="1" value="0" disabled>
-          <label>MIDDLE</label><input type="number" id="profileMid" min="0" step="1" value="0" disabled>
-          <label>HIGH</label><input type="number" id="profileHigh" min="0" step="1" value="0" disabled>
+          <label>LOW</label><select id="profileLow" disabled><option value="0">Unassigned</option></select>
+          <label>MIDDLE</label><select id="profileMid" disabled><option value="0">Unassigned</option></select>
+          <label>HIGH</label><select id="profileHigh" disabled><option value="0">Unassigned</option></select>
         </div>
-        <div class="cfg-field-desc" style="margin-top:10px;">0 = unassigned. GoPro native preset loading is enabled in this test build. DJI uses the same generic profile interface, but native DJI profile IDs are not enabled until model-specific DUML commands are hardware verified.</div>
+        <div class="cfg-field-desc" style="margin-top:10px;">GoPro preset names are read from the camera. DJI uses the same generic profile interface, but native DJI profile switching remains disabled until model-specific DUML commands are hardware verified.</div>
       </div>
       <div class="card-footer"><span class="saved-msg" id="profileSavedMsg"></span><button id="profileApplyBtn" class="primary" disabled>Apply</button></div>
     </div>
@@ -716,6 +717,8 @@ const profileMidInput = document.getElementById('profileMid');
 const profileHighInput = document.getElementById('profileHigh');
 const profileApplyBtn = document.getElementById('profileApplyBtn');
 const profileSavedMsg = document.getElementById('profileSavedMsg');
+const profileDiscoverBtn = document.getElementById('profileDiscoverBtn');
+const profileDiscoverStatus = document.getElementById('profileDiscoverStatus');
 const osd1Input      = document.getElementById('osd1');
 const osd2Input      = document.getElementById('osd2');
 const osd3Input      = document.getElementById('osd3');
@@ -770,6 +773,11 @@ let lineBuf     = '';
 let collectingCams = false;
 let camLines       = [];
 let camTimer       = null;
+
+// ── GoPro native preset discovery ─────────────────────────────────────────────
+let collectingProfiles = false;
+let discoveredProfiles = [];
+let profileTimer = null;
 
 // ── CLI history ───────────────────────────────────────────────────────────────
 const history = [];
@@ -954,6 +962,7 @@ async function startReading() {
         parseConfigLine(clean);
         collectCameraLine(clean);
         collectWifiScanLine(clean);
+        collectProfileLine(clean);
       }
     }
   } catch {
@@ -1161,6 +1170,58 @@ function updateDelayEquiv() {
   const ms = parseInt(delayInput.value) || 0;
   delayEquiv.textContent = ms === 0 ? '(immediate)' : `= ${(ms / 1000).toFixed(ms % 1000 === 0 ? 0 : 1)} s`;
 }
+
+
+// ── GoPro preset discovery ────────────────────────────────────────────────────
+function startProfileCapture() {
+  collectingProfiles = true;
+  discoveredProfiles = [];
+  clearTimeout(profileTimer);
+  profileDiscoverStatus.textContent = 'Querying camera…';
+  profileDiscoverBtn.disabled = true;
+  profileTimer = setTimeout(finalizeProfileCapture, 5000);
+}
+
+function collectProfileLine(line) {
+  if (!collectingProfiles) return;
+  const m = line.match(/^\[GP-PRESET\]\s+id=(\d+)\s+name=(.*?)\s+title=(\d+)\s+number=(-?\d+)/);
+  if (m) {
+    discoveredProfiles.push({ id: m[1], name: m[2].trim() || ('Preset ' + m[1]) });
+    clearTimeout(profileTimer);
+    profileTimer = setTimeout(finalizeProfileCapture, 500);
+  }
+}
+
+function finalizeProfileCapture() {
+  if (!collectingProfiles) return;
+  collectingProfiles = false;
+  clearTimeout(profileTimer);
+  if (!discoveredProfiles.length) {
+    profileDiscoverStatus.textContent = 'No presets returned. Make sure a supported GoPro is connected.';
+    profileDiscoverBtn.disabled = !port;
+    return;
+  }
+  const unique = [...new Map(discoveredProfiles.map(p => [p.id, p])).values()];
+  for (const sel of [profileLowInput, profileMidInput, profileHighInput]) {
+    const previous = sel.value;
+    sel.innerHTML = '<option value="0">Unassigned</option>';
+    for (const p of unique) {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name;
+      sel.appendChild(opt);
+    }
+    if ([...sel.options].some(o => o.value === previous)) sel.value = previous;
+  }
+  profileDiscoverStatus.textContent = unique.length + ' presets found.';
+  profileDiscoverBtn.disabled = !port;
+}
+
+profileDiscoverBtn.addEventListener('click', async () => {
+  if (!port) return;
+  startProfileCapture();
+  await sendCommand('profile query');
+});
 
 // ── Cameras ───────────────────────────────────────────────────────────────────
 function startCamCapture() {
@@ -1400,6 +1461,8 @@ function setConnected(connected) {
   profileLowInput.disabled = !connected;
   profileMidInput.disabled = !connected;
   profileHighInput.disabled = !connected;
+  profileDiscoverBtn.disabled = !connected;
+  if (!connected) profileDiscoverStatus.textContent = 'Connect the camera first.';
   profileApplyBtn.disabled = !connected;
   osd1Input.disabled     = !connected;
   osd2Input.disabled     = !connected;
