@@ -334,6 +334,12 @@ void MSPSerial::sendCustomText(uint8_t textType, const char *text) {
     sendFrame(MSP2_SET_TEXT, buf, 2 + textLen, '<');
 }
 
+void MSPSerial::showTransientMessage(uint8_t target, const char *text, uint16_t durationMs) {
+    _transientTarget = (target >= 1 && target <= 4) ? target : 1;
+    strlcpy(_transientText, text ? text : "", sizeof(_transientText));
+    _transientUntilMs = millis() + (durationMs < 100 ? 100 : durationMs);
+}
+
 void MSPSerial::sendCustomOSD1(const CameraData &data, const char *tpl) { sendCustomOSD(MSP_TEXT_CUSTOM_1, data, tpl); }
 void MSPSerial::sendCustomOSD2(const CameraData &data, const char *tpl) { sendCustomOSD(MSP_TEXT_CUSTOM_2, data, tpl); }
 void MSPSerial::sendCustomOSD3(const CameraData &data, const char *tpl) { sendCustomOSD(MSP_TEXT_CUSTOM_3, data, tpl); }
@@ -380,6 +386,16 @@ void MSPSerial::sendCustomOSD(uint8_t textType, const CameraData &data, const ch
     if (warningHere && warningPhase) {
         const uint8_t idx = static_cast<uint8_t>((millis() / 2000UL) % warningCount);
         sendCustomText(textType, warnings[idx]);
+        return;
+    }
+
+    // One-shot messages (for example camera profile changes) temporarily
+    // replace only their selected OSD destination, then the normal template
+    // returns automatically. Critical camera warnings retain priority.
+    const bool transientActive = _transientText[0] &&
+                                 static_cast<int32_t>(_transientUntilMs - millis()) > 0;
+    if (transientActive && destination == _transientTarget) {
+        sendCustomText(textType, _transientText);
         return;
     }
 
