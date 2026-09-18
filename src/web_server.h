@@ -29,6 +29,9 @@ private:
     uint32_t        _lastProbeLogMs = 0;
     uint32_t        _lastProbeCountLogged = 0;
     bool            _firstHttpLogged = false;
+    uint16_t        _cliSetCount = 0;
+    uint32_t        _cliSaveStartMs = 0;
+    String          _cliKeys;
 
     void handleRoot();
     void handleGetConfig();
