@@ -1111,7 +1111,7 @@ profileApplyBtn.addEventListener('click', async () => {
   await sendCommand(`set profile_mid ${mid}`);
   await sendCommand(`set profile_high ${high}`);
   await sendCommand(`set profile_osd ${profileOsdToggle.checked ? 1 : 0}`);
-  await sendCommand(`set profile_osd_dest ${parseInt(profileOsdDestSel.value)||1}`);
+  await sendCommand(`set profile_osd_dest ${profileOsdDestSel.value==='craft'?2:(parseInt(profileOsdDestSel.value)||1)}`);
   if (low) await sendCommand(`set profile_low_name ${lowName}`);
   if (mid) await sendCommand(`set profile_mid_name ${midName}`);
   if (high) await sendCommand(`set profile_high_name ${highName}`);
