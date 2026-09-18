@@ -1,4 +1,4 @@
-# Fresh Pages deployment trigger for V1.0.2 AP diagnostics + Osmo Nano candidate 8667f532
+# Fresh Pages deployment trigger for V1.0.2 deep AP diagnostics candidate 1433ce7b
 name: Deploy GitHub Pages
 
 on:
