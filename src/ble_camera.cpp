@@ -515,9 +515,90 @@ void BLECamera::queueNanoResponse(const NanoDumlFrame &f) {
                       f.cmdSet, f.cmdId, f.id);
 }
 
+static uint16_t nanoLe16(const uint8_t *p) {
+    return (uint16_t)p[0] | ((uint16_t)p[1] << 8);
+}
+static uint32_t nanoLe32(const uint8_t *p) {
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
+           ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
 void BLECamera::handleNanoDuml(const NanoDumlFrame &f) {
     DBG_SERIAL.printf("[Nano] DUML RX %02X/%02X flags=0x%02X id=0x%04X payload=%uB\n",
                       f.cmdSet, f.cmdId, f.flags, f.id, f.payloadLen);
+
+    // Native Nano camera-status push (GetPushStateInfo), hardware-captured at ~10 Hz.
+    // Layout is documented from real Mimo/Nano captures.
+    if (f.cmdSet == 0x02 && f.cmdId == 0x80 && f.payload && f.payloadLen >= 58) {
+        const uint32_t stateFlags = nanoLe32(f.payload + 0);
+        const bool recording = (stateFlags & 0x00000080UL) != 0;
+        const uint8_t mode = f.payload[57];
+
+        _camera.valid = true;
+        _camera.has_recording = true;
+        _camera.recording = recording;
+        _camera.camera_mode = mode;
+        _camera.record_time = nanoLe16(f.payload + 29);
+
+        const uint32_t freeMb = nanoLe32(f.payload + 9);
+        _camera.remain_cap_mb = freeMb;
+        const uint16_t remainSec = nanoLe16(f.payload + 17);
+        _camera.remain_time = remainSec;
+        _camera.has_remain_time = (mode != DJI_MODE_PHOTO);
+
+        switch (f.payload[57]) {
+            case DJI_MODE_VIDEO:
+            case DJI_MODE_SLOW_MOTION:
+            case DJI_MODE_TIMELAPSE:
+            case DJI_MODE_PHOTO:
+            case DJI_MODE_HYPERLAPSE:
+                _activeProfile = f.payload[57];
+                break;
+            default:
+                break;
+        }
+
+        _nanoLastStatusMs = millis();
+        if (_cameraCb) _cameraCb(_camera);
+        DBG_SERIAL.printf("[Nano] status rec=%s mode=0x%02X time=%us free=%luMB remain=%us\n",
+                          recording ? "yes" : "no", mode,
+                          (unsigned)_camera.record_time,
+                          (unsigned long)freeMb, (unsigned)remainSec);
+        return;
+    }
+
+    // Nano battery push: percent is byte 20. Temperature exists in the packet
+    // but remains intentionally unavailable until its scale is hardware-verified.
+    if (f.cmdSet == 0x0D && f.cmdId == 0x02 && f.payload && f.payloadLen >= 21) {
+        const uint8_t pct = f.payload[20];
+        if (pct <= 100) {
+            _camera.percent = pct;
+            _camera.has_battery = true;
+            _camera.valid = true;
+            if (_cameraCb) _cameraCb(_camera);
+            DBG_SERIAL.printf("[Nano] battery=%u%%\n", pct);
+        }
+        return;
+    }
+
+    // 0x02/0xA0 state-query response carries elapsed recording seconds @6.
+    // Use it only as a supplement to the authoritative 0x02/0x80 recording bit.
+    if (f.cmdSet == 0x02 && f.cmdId == 0xA0 && f.payload && f.payloadLen >= 8) {
+        _camera.record_time = nanoLe16(f.payload + 6);
+        _nanoLastStatusMs = millis();
+        if (_camera.valid && _cameraCb) _cameraCb(_camera);
+        return;
+    }
+
+    // Record-control response. 00=accepted; state confirmation comes from 02/80.
+    if (f.cmdSet == 0x02 && f.cmdId == 0x02 && f.flags == 0xC0) {
+        const uint8_t ret = (f.payloadLen && f.payload) ? f.payload[0] : 0xFF;
+        if (ret == 0)
+            DBG_SERIAL.println("[Nano] Record command accepted — waiting for status bit");
+        else
+            DBG_SERIAL.printf("[Nano] Record command rejected: 0x%02X\n", ret);
+        return;
+    }
 
     // Camera-originated requests must be ACKed or the Nano drops the BLE link.
     if (f.flags == 0x40) {
