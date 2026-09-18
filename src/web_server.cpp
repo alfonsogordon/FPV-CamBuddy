@@ -78,8 +78,7 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
     }
 
     // Apply AP transmit power only after the Wi-Fi driver and AP are active.
-    // This setting is intentionally independent from camera low-power mode.
-    WiFi.setTxPower(WIFI_POWER_19_5dBm);
+    // This setting is intentionally independent from camera low-power mode.\n    // V1.0.2 AP reliability test: use 8.5 dBm instead of maximum C3 TX power.\n    WiFi.setTxPower(WIFI_POWER_8_5dBm);
 
     // Do not accept HTTP clients until the AP interface has a valid address and
     // has had time to settle. This specifically protects the first association.
