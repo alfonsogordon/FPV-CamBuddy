@@ -52,6 +52,7 @@ public:
     bool switchCameraMode(uint8_t mode) override;
     bool loadProfile(uint32_t profileId) override;
     uint32_t activeProfileId() const override { return _activePresetId; }
+    bool queryProfiles();
     bool triggerBurstSloMo() override;
     bool exitBurstSloMo() override;
 
@@ -73,6 +74,8 @@ private:
     void sendRegisterSettings();
     void sendRegisterStatus();
     void sendStatusPoll();
+    void sendPresetStatusQuery();
+    void parsePresetStatusProto(const uint8_t *data, size_t len);
     void sendKeepAlive();
 
     // ── Notification handling ─────────────────────────────────────────────────
