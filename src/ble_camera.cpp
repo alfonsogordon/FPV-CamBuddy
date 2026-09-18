@@ -652,6 +652,39 @@ bool BLECamera::switchCameraMode(uint8_t mode) {
     return ok;
 }
 
+// DJI Action 4/5 Pro/6 profile support uses only the hardware-proven R-SDK
+// camera-mode switch. These cameras do not currently have a verified public
+// command for loading arbitrary native saved presets, so profile IDs are
+// deliberately limited to known camera modes instead of sending guessed DUML.
+// IDs are stable CamBuddy values and can therefore be assigned to AUX LOW/MID/HIGH.
+bool BLECamera::loadProfile(uint32_t profileId) {
+    if (!_djiConnected || _isOsmoNano) return false;
+    uint8_t mode;
+    switch (profileId) {
+        case DJI_MODE_VIDEO:       mode = DJI_MODE_VIDEO; break;
+        case DJI_MODE_SLOW_MOTION: mode = DJI_MODE_SLOW_MOTION; break;
+        case DJI_MODE_TIMELAPSE:   mode = DJI_MODE_TIMELAPSE; break;
+        case DJI_MODE_PHOTO:       mode = DJI_MODE_PHOTO; break;
+        case DJI_MODE_HYPERLAPSE:  mode = DJI_MODE_HYPERLAPSE; break;
+        default:
+            DBG_SERIAL.printf("[DJI-PROFILE] unsupported safe profile id=%lu\n", (unsigned long)profileId);
+            return false;
+    }
+    const bool ok = switchCameraMode(mode);
+    if (ok) _activeProfile = profileId;
+    return ok;
+}
+
+bool BLECamera::queryProfiles() {
+    if (!_djiConnected || _isOsmoNano) return false;
+    DBG_SERIAL.println("[DJI-PRESET] id=1 name=Video title=0 number=0");
+    DBG_SERIAL.println("[DJI-PRESET] id=0 name=Slow Motion title=0 number=0");
+    DBG_SERIAL.println("[DJI-PRESET] id=2 name=Timelapse title=0 number=0");
+    DBG_SERIAL.println("[DJI-PRESET] id=10 name=Hyperlapse title=0 number=0");
+    DBG_SERIAL.println("[DJI-PRESET] id=5 name=Photo title=0 number=0");
+    return true;
+}
+
 // Step 2 — subscribe to 2 Hz camera status push (battery, mode, temps, …).
 bool BLECamera::sendStatusSubscription() {
     DJIStatusSubscription sub{};
@@ -781,6 +814,7 @@ void BLECamera::handleConnectCommand(uint16_t camSeq, const uint8_t *payload,
     if (len >= 4) {
         uint32_t camDeviceId = (uint32_t)payload[0] | ((uint32_t)payload[1] << 8) |
                                ((uint32_t)payload[2] << 16) | ((uint32_t)payload[3] << 24);
+        _cameraDeviceId = camDeviceId;
         DBG_SERIAL.printf("[DJI] Camera hello (seq=0x%04X) device_id=0x%08X\n",
                           camSeq, camDeviceId);
     } else {
@@ -842,6 +876,7 @@ void BLECamera::handleCameraStatus(const uint8_t *payload, uint16_t len) {
     const uint16_t recordTime = (uint16_t)payload[5] | ((uint16_t)payload[6] << 8);
 
     _camera.camera_mode = mode;
+    _activeProfile = mode;
     _camera.recording = (status == 0x03 || status == 0x05);
     _camera.has_recording = true;
     _camera.record_time = recordTime;
