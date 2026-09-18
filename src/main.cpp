@@ -89,6 +89,20 @@ static void onAuxSwitch(bool high) {
     activeCamera->switchCameraMode(mode);
 }
 
+static void onProfileSwitch(uint8_t position) {
+    if (configMode || !activeCamera || position > 2) return;
+    const auto &cfg = configManager.config();
+    const uint32_t id = position == 0 ? cfg.profileLow : (position == 1 ? cfg.profileMid : cfg.profileHigh);
+    const char *name = position == 0 ? "LOW" : (position == 1 ? "MID" : "HIGH");
+    if (id == 0) {
+        DBG_SERIAL.printf("[main] Profile AUX %s -> unassigned\n", name);
+        return;
+    }
+    DBG_SERIAL.printf("[main] Profile AUX %s -> profile %lu\n", name, (unsigned long)id);
+    if (!activeCamera->loadProfile(id))
+        DBG_SERIAL.println("[main] Profile switch unsupported/not ready for selected camera");
+}
+
 // Called from the BLE stack task — copy + flag only; MSP output on main task.
 static void onCameraData(const CameraData &data) {
     if (configMode) return;
@@ -191,6 +205,7 @@ void setup() {
     mspSerial.begin(BF_SERIAL);
     mspSerial.setArmCallback(onArmStateChange);
     mspSerial.setAuxSwitchCallback(onAuxSwitch);
+    mspSerial.setProfileSwitchCallback(onProfileSwitch);
 
     // Caddx has no BLE scan/pairing flow or camera-match-mode fallback logic —
     // it just joins a Wi-Fi network directly — but it does still use the
@@ -248,6 +263,7 @@ void setup() {
 void loop() {
     configManager.update();
     mspSerial.setAuxChannel(configManager.config().auxChannel);
+    mspSerial.setProfileAuxChannel(configManager.config().profileAuxChannel);
 
     // Configuration mode owns the C3 radio until reboot. Do not let any camera
     // backend scan, reconnect, keep alive, or send commands after the AP starts.
