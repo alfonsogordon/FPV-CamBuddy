@@ -105,12 +105,12 @@ public:
     void setAuxSwitchCallback(AuxSwitchCallback cb) { _auxSwitchCb = cb; }
     void setProfileAuxChannel(uint8_t channel);
     void setProfileSwitchCallback(ProfileSwitchCallback cb) { _profileSwitchCb = cb; }
+    void showTransientMessage(uint8_t target, const char *text, uint16_t durationMs);
 
 private:
     void sendFrame(uint16_t cmd, const uint8_t *payload, uint16_t length, char dir = '>');
     void sendRequest(uint16_t cmd);
     void sendCustomText(uint8_t textType, const char *text);
-    void showTransientMessage(uint8_t target, const char *text, uint16_t durationMs);
     void sendCustomOSD(uint8_t textType, const CameraData &data, const char *tpl, const char *stateOverride = nullptr);
     void feedByte(uint8_t b);
     void processResponse();
