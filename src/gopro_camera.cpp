@@ -614,7 +614,13 @@ bool GoProCamera::loadProfile(uint32_t profileId) {
     // Open GoPro LOAD_PRESET (0x40) takes the runtime preset ID as UInt32 BE.
     // IDs are intentionally stored/configured at runtime; they must never be
     // compiled in because GoPro documents them as camera/firmware dependent.
+    // Open GoPro's BleWriteCommand framing is:
+    //   [cmd=0x40][param_len=0x04][preset_id UInt32 BE]
+    // sendCmd() supplies the outer GoPro packet header and cmd byte, so the
+    // params passed here must include the parameter-length byte just like the
+    // existing shutter/preset-group commands do.
     const uint8_t p[] = {
+        0x04,
         static_cast<uint8_t>((profileId >> 24) & 0xFF),
         static_cast<uint8_t>((profileId >> 16) & 0xFF),
         static_cast<uint8_t>((profileId >> 8) & 0xFF),
