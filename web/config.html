@@ -1073,13 +1073,22 @@ auxApplyBtn.addEventListener('click', async () => {
 });
 
 profileApplyBtn.addEventListener('click', async () => {
-  await sendCommand(`set profile_aux ${profileAuxSel.value}`);
-  await sendCommand(`set profile_low ${parseInt(profileLowInput.value)||0}`);
-  await sendCommand(`set profile_mid ${parseInt(profileMidInput.value)||0}`);
-  await sendCommand(`set profile_high ${parseInt(profileHighInput.value)||0}`);
+  // Snapshot all values before sending anything. Each "set" response is parsed
+  // immediately and can update the controls while this async save sequence is
+  // still running; reading .value after an await could therefore save a later
+  // field as 0/Disabled instead of what the user selected.
+  const aux  = profileAuxSel.value;
+  const low  = parseInt(profileLowInput.value) || 0;
+  const mid  = parseInt(profileMidInput.value) || 0;
+  const high = parseInt(profileHighInput.value) || 0;
+  await sendCommand(`set profile_aux ${aux}`);
+  await sendCommand(`set profile_low ${low}`);
+  await sendCommand(`set profile_mid ${mid}`);
+  await sendCommand(`set profile_high ${high}`);
+  // Read the board back after saving so the UI reflects persisted values.
+  await sendCommand('show');
   flashSaved(profileSavedMsg);
 });
-
 osdApplyBtn.addEventListener('click', async () => {
   await sendCommand(`set osd1 ${osd1Input.value}`);
   await sendCommand(`set osd2 ${osd2Input.value}`);
