@@ -76,6 +76,8 @@ private:
     // ── State ─────────────────────────────────────────────────────────────
     BLEClient                *_client       = nullptr;
     BLERemoteCharacteristic  *_writeChar    = nullptr;
+    bool                      _writeNoResponseOnly = false;
+    bool                      _isOsmoNano = false;
     std::string               _targetAddr;
     std::string               _targetName;
     esp_ble_addr_type_t       _targetType   = BLE_ADDR_TYPE_PUBLIC;
