@@ -67,3 +67,14 @@ Before this log was created, the current V1.0.2 AP implementation had been revie
 - No guessed native DJI preset/DUML writes were added. Arbitrary saved DJI presets remain unsupported until a verified command exists.
 - DJI profile discovery now feeds the same LOW/MIDDLE/HIGH configurator dropdown path as GoPro.
 - OSD profile-change notification is the next requested feature after this build is validated.
+
+
+### 2026-09-18 — Profile OSD, Demo Mode and documentation
+- GoPro native profile discovery/switching/persistence remains hardware-confirmed.
+- Added persistent `profile_osd` toggle, exposed in the main USB configurator and field AP configurator; enabled by default.
+- Successful profile switches can show only the saved profile name in the configured temporary-message OSD destination for 2.5 seconds; warnings retain priority and normal OSD resumes afterwards.
+- Added profile-name persistence so discovered GoPro names can survive reboot; stale names are cleared if the corresponding ID changes.
+- Added Demo Mode-only profile selector to the integrated OSD Preview. It uses built-in filming-oriented examples `CINEMATIC`, `ACTION`, and `SLOW MOTION` and does not depend on a camera ever having been connected.
+- Updated homepage, README and Quick Start to distinguish hardware-confirmed, active-test and pending camera support, including current GoPro, Osmo Nano, Insta360, DJI Action 4/5 Pro/6 and Action 2 status.
+- Intended test order: Demo Mode first; then connected C3/configurator save/readback; then installed board/quad OSD and AUX switching.
+- Do not call this candidate hardware-confirmed until those tests are complete.
