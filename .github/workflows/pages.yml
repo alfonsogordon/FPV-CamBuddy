@@ -172,3 +172,5 @@ jobs:
 # staging refresh: profile AUX candidate 211c0004
 
 # staging refresh: GoPro preset framing fix c2e3286d
+
+# V1.0.2 staging refresh: GoPro preset discovery query test
