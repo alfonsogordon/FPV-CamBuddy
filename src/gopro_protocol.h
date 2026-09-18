@@ -32,6 +32,7 @@
 #define GP_CMD_SET_SHUTTER       0x01
 #define GP_CMD_GET_HARDWARE_INFO 0x3C
 #define GP_CMD_LOAD_PRESET_GROUP 0x3E
+#define GP_CMD_LOAD_PRESET       0x40  // uint32 big-endian runtime preset ID (Open GoPro)
 
 // Preset group values (parameter to GP_CMD_LOAD_PRESET_GROUP)
 #define GP_PRESET_VIDEO       0x00
