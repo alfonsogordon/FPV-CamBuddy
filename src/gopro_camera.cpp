@@ -607,6 +607,22 @@ bool GoProCamera::exitBurstSloMo() {
     return true;
 }
 
+bool GoProCamera::loadProfile(uint32_t profileId) {
+    if (!_gpConnected || !_cmdChar || _legacyProtocol || profileId == 0) return false;
+    // Open GoPro LOAD_PRESET (0x40) takes the runtime preset ID as UInt32 BE.
+    // IDs are intentionally stored/configured at runtime; they must never be
+    // compiled in because GoPro documents them as camera/firmware dependent.
+    const uint8_t p[] = {
+        static_cast<uint8_t>((profileId >> 24) & 0xFF),
+        static_cast<uint8_t>((profileId >> 16) & 0xFF),
+        static_cast<uint8_t>((profileId >> 8) & 0xFF),
+        static_cast<uint8_t>(profileId & 0xFF)
+    };
+    sendCmd(GP_CMD_LOAD_PRESET, p, sizeof(p));
+    DBG_SERIAL.printf("[GP] Load preset id=%lu sent\n", (unsigned long)profileId);
+    return true;
+}
+
 bool GoProCamera::switchCameraMode(uint8_t dji_mode) {
     if (_legacyProtocol) {
         // Older cameras (e.g. HERO5 Session) predate preset groups and use a
