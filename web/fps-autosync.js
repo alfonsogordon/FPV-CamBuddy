@@ -11,6 +11,7 @@ function mark(e){if(e&&managed(e.id||'')&&!needsRead&&!reading&&!saving){dirty=t
 async function strictCmd(text){if(!writer)throw new Error('Serial port is not writable');log('> '+text,'cmd');await writer.write(new TextEncoder().encode(text+'\r\n'));await new Promise(r=>setTimeout(r,25))}
 function val(id,def=''){const e=$(id);return e?e.value:def}function chk(id,def=false){const e=$(id);return e?!!e.checked:def}
 function normTpl(v){return String(v??'').trim()}
+function selectedLabel(id){const e=$(id);return (e?.selectedOptions?.[0]?.textContent||'').trim().slice(0,15)}
 function targetCode(v,legacy){if(legacy)return v==='craft'?2:1;const n=parseInt(v,10);return n>=1&&n<=4?n:1}
 function snapshot(){
  const legacy=val('fpsBfMode','current')==='legacy';
@@ -18,7 +19,7 @@ function snapshot(){
  return {
   cameraType:val('cameraType','1'),cameraMatch:val('cameraMatch','0'),wakeGuard:chk('wakeGuard'),debugBle:chk('debugBle'),lowPower:chk('lowPower'),wifiApEnabled:chk('wifiApEnabled'),wifiApDelay:parseInt(val('wifiApDelay','0'))||0,disarmDelay:parseInt(val('disarmDelay','0'))||0,stopOnDisarm:chk('stopOnDisarm'),
   auxEnabled:chk('fpsAuxMaster'),auxChannel:val('auxChannel','0'),auxMode:val('auxMode','10'),
-  profileAux:val('profileAux','0'),profileLow:parseInt(val('profileLow','0'))||0,profileMid:parseInt(val('profileMid','0'))||0,profileHigh:parseInt(val('profileHigh','0'))||0,
+  profileAux:val('profileAux','0'),profileLow:parseInt(val('profileLow','0'))||0,profileMid:parseInt(val('profileMid','0'))||0,profileHigh:parseInt(val('profileHigh','0'))||0,profileLowName:selectedLabel('profileLow'),profileMidName:selectedLabel('profileMid'),profileHighName:selectedLabel('profileHigh'),
   bfMode:legacy?'legacy':'current',osdEnabled:chk('fpsOsdMaster'),msgs,pilotEnabled:chk('fpsPilotMaster'),pilotTpl:normTpl(val('pilotTpl')),craftEnabled:chk('fpsCraftMaster'),craftTpl:normTpl(val('craftTpl')),recOnly:chk('fpsRecOnly'),flashRec:chk('fpvFlash'),
   tempEnabled:chk('fpsTempMaster'),tempOnlyBeforeFirstArm:chk('fpvPreArm'),tempText:String(val('fpvPreArmText','CLEAN LENS')).replace(/^@[1-4]:/,''),tempDuration:Math.max(.1,Number(val('fpvCustomDurationSec','1'))||1),tempTarget:targetCode(val('fpsTempDest',legacy?'pilot':'1'),legacy),
   warnEnabled:chk('fpsWarnMaster'),lowPct:Math.max(0,Math.min(100,parseInt(val('fpvLowPct','10'))||0)),recLowMin:Math.max(0,Math.min(999,parseInt(val('fpvRecLowMin','5'))||0)),warnTarget:targetCode(val('fpsWarnDest',legacy?'pilot':'1'),legacy)
@@ -29,7 +30,7 @@ function compare(a,b){const aa=flat(a),bb=flat(b),bad=[];for(const k of Object.k
 async function writeSnapshot(s){
  await strictCmd(`set camera_type ${s.cameraType}`);await strictCmd(`set camera_match ${s.cameraMatch}`);await strictCmd(`set wake_guard ${s.wakeGuard?1:0}`);await strictCmd(`set debug_ble ${s.debugBle?1:0}`);await strictCmd(`set low_power ${s.lowPower?1:0}`);await strictCmd(`set wifi_ap_enabled ${s.wifiApEnabled?1:0}`);await strictCmd(`set wifi_ap_delay ${s.wifiApDelay}`);await strictCmd(`set disarm_delay ${s.disarmDelay}`);await strictCmd(`set stop_on_disarm ${s.stopOnDisarm?1:0}`);
  const auxCh=s.auxEnabled?(parseInt(s.auxChannel)||1):0,auxMode='0x'+parseInt(s.auxMode||10).toString(16).padStart(2,'0').toUpperCase();await strictCmd(`set aux_channel ${auxCh}`);await strictCmd(`set aux_mode ${auxMode}`);
- await strictCmd(`set profile_aux ${parseInt(s.profileAux)||0}`);await strictCmd(`set profile_low ${s.profileLow}`);await strictCmd(`set profile_mid ${s.profileMid}`);await strictCmd(`set profile_high ${s.profileHigh}`);
+ await strictCmd(`set profile_aux ${parseInt(s.profileAux)||0}`);await strictCmd(`set profile_low ${s.profileLow}`);await strictCmd(`set profile_mid ${s.profileMid}`);await strictCmd(`set profile_high ${s.profileHigh}`);if(s.profileLow)await strictCmd(`set profile_low_name ${s.profileLowName}`);if(s.profileMid)await strictCmd(`set profile_mid_name ${s.profileMidName}`);if(s.profileHigh)await strictCmd(`set profile_high_name ${s.profileHighName}`);
  const legacy=s.bfMode==='legacy';
  if(s.osdEnabled){
   for(let n=1;n<=4;n++){const m=s.msgs[n-1];await strictCmd(`set osd${n} ${m.enabled?(m.tpl||['','{batt}','{state} {recdur}','{mode} {res} {fps} {eis}','{rectf} {rcap}'][n]):'{off}'}`)}
