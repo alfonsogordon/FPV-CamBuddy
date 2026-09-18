@@ -537,6 +537,7 @@ void GoProCamera::sendRegisterStatus() {
             GP_STATUS_SD_REMAINING,
             GP_STATUS_BATTERY_PCT,
             GP_STATUS_PRESET_GROUP,
+            GP_STATUS_CURRENT_PRESET,
         };
         payload_len = 1 + (uint8_t)sizeof(ids);
         buf[0] = payload_len & 0x1F;
@@ -891,6 +892,14 @@ void GoProCamera::parseStatusTlv(const uint8_t *tlv, size_t len) {
 
         case GP_STATUS_OVERHEATING:
             if (vlen >= 1) { _camera.temp_over = v[0] ? 1 : 0; _camera.has_temperature = true; updated = true; }
+            break;
+
+        case GP_STATUS_CURRENT_PRESET:
+            if (vlen >= 4) {
+                _activePresetId = ((uint32_t)v[0] << 24) | ((uint32_t)v[1] << 16) |
+                                  ((uint32_t)v[2] << 8) | (uint32_t)v[3];
+                DBG_SERIAL.printf("[GP] Active preset id=%lu\n", (unsigned long)_activePresetId);
+            }
             break;
 
         case GP_STATUS_PRESET_GROUP:
