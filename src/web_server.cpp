@@ -8,6 +8,10 @@
 #include <BLEDevice.h>
 #include <ArduinoJson.h>
 #include <cstring>
+#include <esp_wifi.h>
+#include <esp_heap_caps.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/portmacro.h>
 
 class StringStream : public Stream {
 public:
@@ -20,6 +24,265 @@ public:
 private:
     String _buf;
 };
+
+// ── AP radio diagnostics ─────────────────────────────────────────────────────
+// Wi-Fi event callbacks run on the network task. Keep those callbacks tiny:
+// copy compact event data into a fixed ring buffer, then persist/print from the
+// normal loop in WebConfigServer::update().
+enum RadioDiagType : uint8_t {
+    RD_AP_START = 1,
+    RD_AP_STOP,
+    RD_STA_CONNECTED,
+    RD_STA_DISCONNECTED,
+    RD_IP_ASSIGNED,
+    RD_MGMT_AUTH,
+    RD_MGMT_ASSOC,
+    RD_MGMT_REASSOC,
+    RD_MGMT_DEAUTH,
+    RD_MGMT_DISASSOC
+};
+
+struct RadioDiagEvent {
+    uint32_t ms;
+    uint8_t type;
+    uint8_t mac[6];
+    int8_t rssi;
+    uint8_t channel;
+    uint16_t a;
+    uint16_t b;
+    uint32_t extra;
+};
+
+static portMUX_TYPE s_radioDiagMux = portMUX_INITIALIZER_UNLOCKED;
+static RadioDiagEvent s_radioDiagQ[32];
+static volatile uint8_t s_radioDiagHead = 0;
+static volatile uint8_t s_radioDiagTail = 0;
+static volatile uint32_t s_radioDiagDropped = 0;
+static volatile uint32_t s_probeCount = 0;
+static volatile int8_t s_lastProbeRssi = -127;
+static volatile int8_t s_bestProbeRssi = -127;
+static uint8_t s_lastProbeMac[6] = {};
+static uint8_t s_apMac[6] = {};
+static bool s_wifiEventsInstalled = false;
+static wifi_event_id_t s_wifiEventHandle = 0;
+static bool s_promiscEnabled = false;
+
+static void queueRadioDiag(uint8_t type, const uint8_t *mac = nullptr,
+                           int8_t rssi = 0, uint8_t channel = 0,
+                           uint16_t a = 0, uint16_t b = 0, uint32_t extra = 0) {
+    RadioDiagEvent e{};
+    e.ms = millis();
+    e.type = type;
+    if (mac) memcpy(e.mac, mac, 6);
+    e.rssi = rssi;
+    e.channel = channel;
+    e.a = a;
+    e.b = b;
+    e.extra = extra;
+
+    portENTER_CRITICAL(&s_radioDiagMux);
+    const uint8_t next = (uint8_t)((s_radioDiagHead + 1U) % 32U);
+    if (next == s_radioDiagTail) {
+        s_radioDiagDropped++;
+    } else {
+        s_radioDiagQ[s_radioDiagHead] = e;
+        s_radioDiagHead = next;
+    }
+    portEXIT_CRITICAL(&s_radioDiagMux);
+}
+
+static bool popRadioDiag(RadioDiagEvent &e) {
+    bool ok = false;
+    portENTER_CRITICAL(&s_radioDiagMux);
+    if (s_radioDiagTail != s_radioDiagHead) {
+        e = s_radioDiagQ[s_radioDiagTail];
+        s_radioDiagTail = (uint8_t)((s_radioDiagTail + 1U) % 32U);
+        ok = true;
+    }
+    portEXIT_CRITICAL(&s_radioDiagMux);
+    return ok;
+}
+
+static const char *mgmtReasonName(uint16_t reason) {
+    switch (reason) {
+        case 1:  return "unspecified";
+        case 2:  return "previous-auth-no-longer-valid";
+        case 3:  return "station-leaving";
+        case 4:  return "inactivity";
+        case 5:  return "AP-unable-to-handle";
+        case 6:  return "class2-frame-from-unauth";
+        case 7:  return "class3-frame-from-unassoc";
+        case 8:  return "station-leaving-BSS";
+        case 15: return "4way-handshake-timeout";
+        case 16: return "group-key-timeout";
+        case 17: return "IE-mismatch";
+        case 23: return "8021x-auth-failed";
+        default: return "other";
+    }
+}
+
+static void wifiPromiscRx(void *buf, wifi_promiscuous_pkt_type_t type) {
+    if (!buf || type != WIFI_PKT_MGMT) return;
+    const auto *pkt = reinterpret_cast<const wifi_promiscuous_pkt_t *>(buf);
+    const uint8_t *f = pkt->payload;
+    const uint16_t len = pkt->rx_ctrl.sig_len;
+    if (len < 24) return;
+
+    // For received management traffic addressed to our AP:
+    // addr1=destination/BSSID, addr2=station source.
+    if (memcmp(f + 4, s_apMac, 6) != 0) return;
+
+    const uint8_t subtype = (uint8_t)((f[0] >> 4) & 0x0F);
+    const uint8_t *src = f + 10;
+    const int8_t rssi = pkt->rx_ctrl.rssi;
+    const uint8_t channel = pkt->rx_ctrl.channel;
+    auto le16 = [](const uint8_t *p) -> uint16_t {
+        return (uint16_t)p[0] | ((uint16_t)p[1] << 8);
+    };
+
+    switch (subtype) {
+        case 0: // association request: capability, listen interval
+            if (len >= 28) queueRadioDiag(RD_MGMT_ASSOC, src, rssi, channel, le16(f+24), le16(f+26));
+            break;
+        case 2: // reassociation request
+            if (len >= 28) queueRadioDiag(RD_MGMT_REASSOC, src, rssi, channel, le16(f+24), le16(f+26));
+            break;
+        case 10: // disassociation: reason code
+            if (len >= 26) queueRadioDiag(RD_MGMT_DISASSOC, src, rssi, channel, le16(f+24));
+            break;
+        case 11: // authentication: algorithm, sequence, status
+            if (len >= 30) queueRadioDiag(RD_MGMT_AUTH, src, rssi, channel,
+                                           le16(f+24), le16(f+26), le16(f+28));
+            break;
+        case 12: // deauthentication: reason code
+            if (len >= 26) queueRadioDiag(RD_MGMT_DEAUTH, src, rssi, channel, le16(f+24));
+            break;
+        default:
+            break;
+    }
+}
+
+static void installWifiEventDiagnostics() {
+    if (s_wifiEventsInstalled) return;
+    s_wifiEventHandle = WiFi.onEvent([](arduino_event_id_t event, arduino_event_info_t info) {
+        switch (event) {
+            case ARDUINO_EVENT_WIFI_AP_START:
+                queueRadioDiag(RD_AP_START);
+                break;
+            case ARDUINO_EVENT_WIFI_AP_STOP:
+                queueRadioDiag(RD_AP_STOP);
+                break;
+            case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
+                queueRadioDiag(RD_STA_CONNECTED, info.wifi_ap_staconnected.mac,
+                               0, 0, info.wifi_ap_staconnected.aid);
+                break;
+            case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
+                queueRadioDiag(RD_STA_DISCONNECTED, info.wifi_ap_stadisconnected.mac,
+                               0, 0, info.wifi_ap_stadisconnected.aid);
+                break;
+            case ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED:
+                queueRadioDiag(RD_IP_ASSIGNED, nullptr, 0, 0, 0, 0,
+                               info.wifi_ap_staipassigned.ip.addr);
+                break;
+            case ARDUINO_EVENT_WIFI_AP_PROBEREQRECVED:
+                portENTER_CRITICAL(&s_radioDiagMux);
+                s_probeCount++;
+                s_lastProbeRssi = info.wifi_ap_probereqrecved.rssi;
+                if (s_lastProbeRssi > s_bestProbeRssi) s_bestProbeRssi = s_lastProbeRssi;
+                memcpy(s_lastProbeMac, info.wifi_ap_probereqrecved.mac, 6);
+                portEXIT_CRITICAL(&s_radioDiagMux);
+                break;
+            default:
+                break;
+        }
+    });
+    s_wifiEventsInstalled = true;
+}
+
+static void formatMac(char *out, size_t n, const uint8_t mac[6]) {
+    snprintf(out, n, "%02X:%02X:%02X:%02X:%02X:%02X",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+}
+
+static void logRadioSnapshot(const char *tag) {
+    wifi_mode_t mode = WIFI_MODE_NULL;
+    uint8_t primary = 0;
+    wifi_second_chan_t second = WIFI_SECOND_CHAN_NONE;
+    int8_t txQuarterDbm = 0;
+    wifi_ps_type_t ps = WIFI_PS_NONE;
+    wifi_country_t country{};
+    wifi_config_t apCfg{};
+    wifi_sta_list_t staList{};
+
+    const esp_err_t modeRc = esp_wifi_get_mode(&mode);
+    const esp_err_t chRc = esp_wifi_get_channel(&primary, &second);
+    const esp_err_t txRc = esp_wifi_get_max_tx_power(&txQuarterDbm);
+    const esp_err_t psRc = esp_wifi_get_ps(&ps);
+    const esp_err_t countryRc = esp_wifi_get_country(&country);
+    const esp_err_t cfgRc = esp_wifi_get_config(WIFI_IF_AP, &apCfg);
+    const esp_err_t staRc = esp_wifi_ap_get_sta_list(&staList);
+
+    diagLog("%s RADIO mode=%d(rc=%d) ch=%u/sec=%d(rc=%d) tx_qdbm=%d=%.1fdBm(rc=%d) ps=%d(rc=%d) country=%.2s(rc=%d)",
+            tag, (int)mode, (int)modeRc, (unsigned)primary, (int)second, (int)chRc,
+            (int)txQuarterDbm, ((float)txQuarterDbm)/4.0f, (int)txRc,
+            (int)ps, (int)psRc, country.cc, (int)countryRc);
+
+    char apMacStr[20];
+    formatMac(apMacStr, sizeof(apMacStr), s_apMac);
+    diagLog("%s AP mac=%s ip=%s ssid='%.*s' ssid_len=%u auth=%d hidden=%u max_conn=%u beacon=%u cfg_rc=%d sta_count=%u sta_rc=%d",
+            tag, apMacStr, WiFi.softAPIP().toString().c_str(),
+            cfgRc == ESP_OK ? (int)apCfg.ap.ssid_len : 0,
+            cfgRc == ESP_OK ? (const char *)apCfg.ap.ssid : "",
+            cfgRc == ESP_OK ? (unsigned)apCfg.ap.ssid_len : 0,
+            cfgRc == ESP_OK ? (int)apCfg.ap.authmode : -1,
+            cfgRc == ESP_OK ? (unsigned)apCfg.ap.ssid_hidden : 0,
+            cfgRc == ESP_OK ? (unsigned)apCfg.ap.max_connection : 0,
+            cfgRc == ESP_OK ? (unsigned)apCfg.ap.beacon_interval : 0,
+            (int)cfgRc,
+            staRc == ESP_OK ? (unsigned)staList.num : 0,
+            (int)staRc);
+
+    diagLog("%s MEM heap=%u min8=%u largest8=%u stations_api=%u tx_enum=%d",
+            tag,
+            (unsigned)ESP.getFreeHeap(),
+            (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT),
+            (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
+            (unsigned)WiFi.softAPgetStationNum(),
+            (int)WiFi.getTxPower());
+
+    if (staRc == ESP_OK) {
+        for (int i = 0; i < staList.num && i < 4; ++i) {
+            char staMac[20];
+            formatMac(staMac, sizeof(staMac), staList.sta[i].mac);
+            diagLog("%s STA[%d] mac=%s rssi=%d phy11b=%u 11g=%u 11n=%u lr=%u",
+                    tag, i, staMac, (int)staList.sta[i].rssi,
+                    (unsigned)staList.sta[i].phy_11b,
+                    (unsigned)staList.sta[i].phy_11g,
+                    (unsigned)staList.sta[i].phy_11n,
+                    (unsigned)staList.sta[i].phy_lr);
+        }
+    }
+}
+
+static void enablePromiscDiagnostics() {
+    if (s_promiscEnabled) return;
+    if (esp_wifi_get_mac(WIFI_IF_AP, s_apMac) != ESP_OK) memset(s_apMac, 0, sizeof(s_apMac));
+
+    wifi_promiscuous_filter_t filter{};
+    filter.filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT;
+    const esp_err_t filterRc = esp_wifi_set_promiscuous_filter(&filter);
+    const esp_err_t cbRc = esp_wifi_set_promiscuous_rx_cb(wifiPromiscRx);
+    const esp_err_t enRc = esp_wifi_set_promiscuous(true);
+    s_promiscEnabled = (enRc == ESP_OK);
+    diagLog("AP sniffer mgmt-only filter_rc=%d cb_rc=%d enable_rc=%d enabled=%d",
+            (int)filterRc, (int)cbRc, (int)enRc, s_promiscEnabled ? 1 : 0);
+}
+
+static void disablePromiscDiagnostics() {
+    if (!s_promiscEnabled) return;
+    esp_wifi_set_promiscuous(false);
+    s_promiscEnabled = false;
+}
 
 void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg) {
     _cfg = &cfg;
