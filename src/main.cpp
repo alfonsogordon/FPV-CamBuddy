@@ -12,6 +12,7 @@
 #include "msp_serial.h"
 #include "dji_protocol.h"
 #include "web_server.h"
+#include "diag_log.h"
 
 static BLECamera       djiCamera;
 static GoProCamera     goProCamera;
@@ -150,6 +151,7 @@ void benchSimStatus(Stream &out) {
 
 void setup() {
     DBG_SERIAL.begin(DBG_BAUD);
+    diagLogBoot();
     BF_SERIAL.begin(BF_BAUD, SERIAL_8N1, BF_RX_PIN, BF_TX_PIN);
 
     cameraRegistry.begin();
@@ -282,6 +284,7 @@ void loop() {
                 currentCamera  = CameraData{};
                 hasCamera      = false;
                 DBG_SERIAL.println("[wifi] Entering AP configuration mode until reboot");
+                diagLog("BOOT force-AP threshold reached; camera_connected=%d", activeCamera && activeCamera->isConnected() ? 1 : 0);
                 webServer.begin(configManager, &cameraRegistry, &DBG_SERIAL);
             }
         } else {
