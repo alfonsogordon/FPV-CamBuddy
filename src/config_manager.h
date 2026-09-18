@@ -24,6 +24,7 @@ public:
         char profileLowName[16];
         char profileMidName[16];
         char profileHighName[16];
+        bool profileOsdEnabled;
         uint8_t cameraType;
         uint8_t cameraMatchMode;
         bool cameraWakeGuard;
@@ -139,6 +140,7 @@ public:
     void setProfileAuxChannel(uint8_t ch);
     void setProfileId(uint8_t position, uint32_t id);
     void setProfileName(uint8_t position, const char *name);
+    void setProfileOsdEnabled(bool enabled);
     void setCameraMatchMode(uint8_t v);
     void setCameraWakeGuard(bool v);
     void setDebugBle(bool v);
