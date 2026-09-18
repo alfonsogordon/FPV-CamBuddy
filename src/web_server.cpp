@@ -295,7 +295,18 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
     // a deliberate quiet period before SoftAP starts so the first phone
     // association cannot race BLE/STA shutdown.
     if (_dbg) _dbg->println("[wifi] Entering dedicated configuration mode");
-    diagLog("AP begin camera_type=%u heap=%u", (unsigned)cfg.config().cameraType, (unsigned)ESP.getFreeHeap());
+    installWifiEventDiagnostics();
+
+    portENTER_CRITICAL(&s_radioDiagMux);
+    s_probeCount = 0;
+    s_lastProbeRssi = -127;
+    s_bestProbeRssi = -127;
+    memset(s_lastProbeMac, 0, sizeof(s_lastProbeMac));
+    portEXIT_CRITICAL(&s_radioDiagMux);
+
+    diagLog("AP begin camera_type=%u heap=%u mode_before=%d stations_before=%u",
+            (unsigned)cfg.config().cameraType, (unsigned)ESP.getFreeHeap(),
+            (int)WiFi.getMode(), (unsigned)WiFi.softAPgetStationNum());
 
     if (cfg.config().cameraType == 2) {
         // Caddx is the Wi-Fi camera backend. Drop its STA connection without
@@ -349,8 +360,14 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
     }
 
     // Apply AP transmit power only after the Wi-Fi driver and AP are active.
-    // This setting is intentionally independent from camera low-power mode.\n    // V1.0.2 AP reliability test: use 8.5 dBm instead of maximum C3 TX power.\n    WiFi.setTxPower(WIFI_POWER_8_5dBm);
-    diagLog("AP softAP started tx=8.5dBm mode=%d", (int)WiFi.getMode());
+    // This setting is intentionally independent from camera low-power mode.\n    // V1.0.2 AP reliability test: use 8.5 dBm instead of maximum C3 TX power.\n    const bool txOk = WiFi.setTxPower(WIFI_POWER_8_5dBm);
+    diagLog("AP softAP started tx_request=8.5dBm tx_set_ok=%d tx_enum=%d mode=%d",
+            txOk ? 1 : 0, (int)WiFi.getTxPower(), (int)WiFi.getMode());
+
+    // Capture incoming 802.11 management traffic addressed to this AP. This is
+    // diagnostic-only and lets us distinguish probe/auth/association failures
+    // from DHCP/HTTP failures, including client-sent deauth/disassoc reason codes.
+    enablePromiscDiagnostics();
 
     // Do not accept HTTP clients until the AP interface has a valid address and
     // has had time to settle. This specifically protects the first association.
@@ -381,7 +398,15 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
     _running = true;
     _lastStations = (int)WiFi.softAPgetStationNum();
     _apLostLogged = false;
+    _lastHealthMs = millis();
+    _lastProbeLogMs = millis();
+    _lastProbeCountLogged = 0;
+    _firstHttpLogged = false;
+    _cliSetCount = 0;
+    _cliSaveStartMs = 0;
+    _cliKeys = "";
     diagLog("AP READY ip=%s stations=%d heap=%u", WiFi.softAPIP().toString().c_str(), _lastStations, (unsigned)ESP.getFreeHeap());
+    logRadioSnapshot("READY");
 
     if (_dbg) {
         _dbg->printf("[wifi] FPV CamBuddy AP ready: %s  IP=%s  mode=AP-only  ch=%u  tx=%d\n",
@@ -396,6 +421,8 @@ void WebConfigServer::stop() {
     if (!_running) return;
 
     _server.stop();
+    logRadioSnapshot("STOP-BEFORE");
+    disablePromiscDiagnostics();
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_OFF);
 
@@ -407,21 +434,133 @@ void WebConfigServer::update() {
     if (!_running) return;
     _server.handleClient();
 
+    // Drain network-task events here so Preferences/NVS writes never happen
+    // inside the Wi-Fi callback itself.
+    RadioDiagEvent e;
+    while (popRadioDiag(e)) {
+        char mac[20];
+        formatMac(mac, sizeof(mac), e.mac);
+        switch (e.type) {
+            case RD_AP_START:
+                diagLog("WIFI-EVENT AP_START evt_ms=%lu", (unsigned long)e.ms);
+                break;
+            case RD_AP_STOP:
+                diagLog("WIFI-EVENT AP_STOP evt_ms=%lu", (unsigned long)e.ms);
+                break;
+            case RD_STA_CONNECTED:
+                diagLog("WIFI-EVENT STA_CONNECTED mac=%s aid=%u evt_ms=%lu stations=%u",
+                        mac, (unsigned)e.a, (unsigned long)e.ms,
+                        (unsigned)WiFi.softAPgetStationNum());
+                logRadioSnapshot("STA-CONNECT");
+                break;
+            case RD_STA_DISCONNECTED:
+                diagLog("WIFI-EVENT STA_DISCONNECTED mac=%s aid=%u evt_ms=%lu stations=%u reason=not-exposed-by-IDF4.4-AP-event",
+                        mac, (unsigned)e.a, (unsigned long)e.ms,
+                        (unsigned)WiFi.softAPgetStationNum());
+                logRadioSnapshot("STA-DISCONNECT");
+                break;
+            case RD_IP_ASSIGNED: {
+                const uint8_t *ip = reinterpret_cast<const uint8_t *>(&e.extra);
+                diagLog("WIFI-EVENT DHCP_IP_ASSIGNED ip=%u.%u.%u.%u evt_ms=%lu stations=%u",
+                        ip[0], ip[1], ip[2], ip[3], (unsigned long)e.ms,
+                        (unsigned)WiFi.softAPgetStationNum());
+                break;
+            }
+            case RD_MGMT_AUTH:
+                diagLog("80211 RX AUTH mac=%s rssi=%d ch=%u algorithm=%u sequence=%u status=%u evt_ms=%lu",
+                        mac, (int)e.rssi, (unsigned)e.channel,
+                        (unsigned)e.a, (unsigned)e.b, (unsigned)e.extra,
+                        (unsigned long)e.ms);
+                break;
+            case RD_MGMT_ASSOC:
+                diagLog("80211 RX ASSOC_REQ mac=%s rssi=%d ch=%u capability=0x%04X listen=%u evt_ms=%lu",
+                        mac, (int)e.rssi, (unsigned)e.channel,
+                        (unsigned)e.a, (unsigned)e.b, (unsigned long)e.ms);
+                break;
+            case RD_MGMT_REASSOC:
+                diagLog("80211 RX REASSOC_REQ mac=%s rssi=%d ch=%u capability=0x%04X listen=%u evt_ms=%lu",
+                        mac, (int)e.rssi, (unsigned)e.channel,
+                        (unsigned)e.a, (unsigned)e.b, (unsigned long)e.ms);
+                break;
+            case RD_MGMT_DEAUTH:
+                diagLog("80211 RX DEAUTH mac=%s rssi=%d ch=%u reason=%u(%s) evt_ms=%lu",
+                        mac, (int)e.rssi, (unsigned)e.channel,
+                        (unsigned)e.a, mgmtReasonName(e.a), (unsigned long)e.ms);
+                break;
+            case RD_MGMT_DISASSOC:
+                diagLog("80211 RX DISASSOC mac=%s rssi=%d ch=%u reason=%u(%s) evt_ms=%lu",
+                        mac, (int)e.rssi, (unsigned)e.channel,
+                        (unsigned)e.a, mgmtReasonName(e.a), (unsigned long)e.ms);
+                break;
+            default:
+                break;
+        }
+    }
+
     const wifi_mode_t mode = WiFi.getMode();
     const bool apUp = (mode & WIFI_MODE_AP) != 0;
     if (!apUp) {
         if (!_apLostLogged) {
             _apLostLogged = true;
-            diagLog("AP LOST while server running mode=%d heap=%u", (int)mode, (unsigned)ESP.getFreeHeap());
+            diagLog("AP LOST while server running mode=%d heap=%u dropped_events=%lu",
+                    (int)mode, (unsigned)ESP.getFreeHeap(),
+                    (unsigned long)s_radioDiagDropped);
         }
         return;
     }
     _apLostLogged = false;
+
     const int stations = (int)WiFi.softAPgetStationNum();
     if (stations != _lastStations) {
         diagLog("AP stations %d -> %d ip=%s heap=%u", _lastStations, stations,
                 WiFi.softAPIP().toString().c_str(), (unsigned)ESP.getFreeHeap());
         _lastStations = stations;
+    }
+
+    const uint32_t now = millis();
+
+    // Probe summary tells us whether the phone can at least hear/reach the AP
+    // even when authentication/association never completes.
+    uint32_t probeCount;
+    int8_t lastProbeRssi;
+    int8_t bestProbeRssi;
+    uint8_t lastProbeMac[6];
+    portENTER_CRITICAL(&s_radioDiagMux);
+    probeCount = s_probeCount;
+    lastProbeRssi = s_lastProbeRssi;
+    bestProbeRssi = s_bestProbeRssi;
+    memcpy(lastProbeMac, s_lastProbeMac, 6);
+    portEXIT_CRITICAL(&s_radioDiagMux);
+
+    if (probeCount != _lastProbeCountLogged && (now - _lastProbeLogMs) >= 5000UL) {
+        char pmac[20];
+        formatMac(pmac, sizeof(pmac), lastProbeMac);
+        diagLog("PROBES total=%lu delta=%lu last_mac=%s last_rssi=%d best_rssi=%d stations=%u",
+                (unsigned long)probeCount,
+                (unsigned long)(probeCount - _lastProbeCountLogged),
+                pmac, (int)lastProbeRssi, (int)bestProbeRssi,
+                (unsigned)stations);
+        _lastProbeCountLogged = probeCount;
+        _lastProbeLogMs = now;
+    }
+
+    // Sparse health heartbeat: every 10 s for the first minute, then every 30 s.
+    const uint32_t healthInterval = now < 60000UL ? 10000UL : 30000UL;
+    if ((now - _lastHealthMs) >= healthInterval) {
+        uint8_t ch = 0;
+        wifi_second_chan_t second = WIFI_SECOND_CHAN_NONE;
+        int8_t tx = 0;
+        const esp_err_t chRc = esp_wifi_get_channel(&ch, &second);
+        const esp_err_t txRc = esp_wifi_get_max_tx_power(&tx);
+        diagLog("HEALTH mode=%d ch=%u(rc=%d) tx_qdbm=%d=%.1fdBm(rc=%d) stations=%u probes=%lu dropped=%lu heap=%u min8=%u largest8=%u",
+                (int)mode, (unsigned)ch, (int)chRc,
+                (int)tx, ((float)tx)/4.0f, (int)txRc,
+                (unsigned)stations, (unsigned long)probeCount,
+                (unsigned long)s_radioDiagDropped,
+                (unsigned)ESP.getFreeHeap(),
+                (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT),
+                (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+        _lastHealthMs = now;
     }
 }
 
@@ -432,10 +571,20 @@ void WebConfigServer::handleDiag() {
 }
 
 void WebConfigServer::handleRoot() {
+    const IPAddress remote = _server.client().remoteIP();
+    if (!_firstHttpLogged) {
+        _firstHttpLogged = true;
+        diagLog("HTTP FIRST_REQUEST path=/ remote=%s stations=%u heap=%u",
+                remote.toString().c_str(), (unsigned)WiFi.softAPgetStationNum(),
+                (unsigned)ESP.getFreeHeap());
+    } else {
+        diagLog("HTTP GET / remote=%s", remote.toString().c_str());
+    }
     _server.send_P(200, "text/html", WEB_INDEX_HTML);
 }
 
 void WebConfigServer::handleGetConfig() {
+    diagLog("HTTP GET /api/config remote=%s", _server.client().remoteIP().toString().c_str());
     const auto &c = _cfg->config();
     JsonDocument d;
     d["camera_type"] = c.cameraType;
@@ -493,6 +642,9 @@ void WebConfigServer::handleGetConfig() {
 }
 
 void WebConfigServer::handlePostConfig() {
+    diagLog("HTTP POST /api/config remote=%s bytes=%u",
+            _server.client().remoteIP().toString().c_str(),
+            _server.hasArg("plain") ? (unsigned)_server.arg("plain").length() : 0U);
     if (!_server.hasArg("plain")) {
         _server.send(400, "text/plain", "No body");
         return;
@@ -633,11 +785,13 @@ void WebConfigServer::handlePostConfig() {
     }
 
     if (mismatch.length()) {
+        diagLog("SAVE /api/config VERIFY_FAIL keys=%s", mismatch.c_str());
         if (_dbg) _dbg->printf("[cfg] AP NVS verification FAILED: %s\n", mismatch.c_str());
         _server.send(500, "text/plain", String("Save verification failed after NVS reload: ") + mismatch);
         return;
     }
 
+    diagLog("SAVE /api/config VERIFIED after NVS reload");
     if (_dbg) _dbg->println("[cfg] AP save verified by reloading persisted NVS state");
     _server.send(200, "application/json", "{\"ok\":true,\"verified\":true,\"source\":\"nvs\"}");
 }
@@ -662,7 +816,43 @@ void WebConfigServer::handleCli() {
         _server.send(400, "text/plain", "Empty command");
         return;
     }
+
+    if (cmd.startsWith("set ")) {
+        if (_cliSetCount == 0) {
+            _cliSaveStartMs = millis();
+            _cliKeys = "";
+            diagLog("SAVE CLI sequence START remote=%s",
+                    _server.client().remoteIP().toString().c_str());
+        }
+        _cliSetCount++;
+        const int keyStart = 4;
+        int keyEnd = cmd.indexOf(' ', keyStart);
+        if (keyEnd < 0) keyEnd = cmd.length();
+        const String key = cmd.substring(keyStart, keyEnd);
+        if (_cliKeys.length() < 600) {
+            if (_cliKeys.length()) _cliKeys += ",";
+            _cliKeys += key;
+        }
+    }
+
     StringStream out;
     _cfg->processCommand(cmd.c_str(), out);
-    _server.send(200, "text/plain", out.str());
+    const String response = out.str();
+
+    if (response.indexOf("error") >= 0 || response.indexOf("invalid") >= 0 ||
+        response.indexOf("unknown") >= 0 || response.indexOf("FAILED") >= 0) {
+        diagLog("SAVE/CLI ERROR cmd='%s' response='%s'", cmd.c_str(), response.c_str());
+    }
+
+    if (cmd == "show" && _cliSetCount > 0) {
+        diagLog("SAVE CLI sequence END commands=%u duration_ms=%lu keys=%s",
+                (unsigned)_cliSetCount,
+                (unsigned long)(millis() - _cliSaveStartMs),
+                _cliKeys.c_str());
+        _cliSetCount = 0;
+        _cliSaveStartMs = 0;
+        _cliKeys = "";
+    }
+
+    _server.send(200, "text/plain", response);
 }
