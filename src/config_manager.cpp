@@ -1,6 +1,7 @@
 #include "config_manager.h"
 #include "camera_registry.h"
 #include "camera.h"
+#include "gopro_camera.h"
 #include "config.h"
 #include "diag_log.h"
 #include <WiFi.h>
