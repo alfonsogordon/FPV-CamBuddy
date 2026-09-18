@@ -366,6 +366,8 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
         out.println("  status                     - report ESP32 and camera status");
         out.println("  record start               - start camera recording now");
         out.println("  record stop                - stop camera recording now");
+        out.println("  profile current            - show active native preset/profile ID");
+        out.println("  profile load <id>          - bench-load a native preset/profile ID");
         out.println("  sim arm <0|1>              - bench-test FC arm state through normal camera handler");
         out.println("  sim aux <low|high>         - bench-test configured AUX camera action");
         out.println("  sim status                 - show RAM-only bench simulation state");
@@ -439,6 +441,20 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
     if (strcmp(line, "sim aux low") == 0) { benchSimAux(false); out.println("[sim] aux=low"); return; }
     if (strcmp(line, "sim off") == 0) { benchSimOff(); out.println("[sim] off"); return; }
     if (strcmp(line, "sim status") == 0) { benchSimStatus(out); return; }
+
+    if (strcmp(line, "profile current") == 0) {
+        if (!_camera || !_camera->isConnected()) { out.println("[profile] camera not connected"); return; }
+        const uint32_t id = _camera->activeProfileId();
+        if (id) out.printf("[profile] active id=%lu\n", (unsigned long)id);
+        else out.println("[profile] active preset ID not available yet");
+        return;
+    }
+    if (strncmp(line, "profile load ", 13) == 0) {
+        if (!_camera || !_camera->isConnected()) { out.println("[profile] camera not connected"); return; }
+        const uint32_t id = strtoul(line + 13, nullptr, 0);
+        out.printf("[profile] load %lu: %s\n", (unsigned long)id, _camera->loadProfile(id) ? "sent" : "unsupported/failed");
+        return;
+    }
 
     if (strcmp(line, "record start") == 0 || strcmp(line, "record stop") == 0) {
         if (!_camera) {
