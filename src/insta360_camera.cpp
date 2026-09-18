@@ -138,6 +138,20 @@ void Insta360Camera::update() {
     const uint32_t now = millis();
 
     if (_instaConnected) {
+        // Lost query responses must not permanently stop polling.
+        if (_pendingCaptureStatusSeq != 0 && (now - _lastCapturePollMs) >= 3000UL) {
+            if (_debugBle)
+                DBG_SERIAL.printf("[Insta360][DBG] Capture-status query timeout seq=%lu\n",
+                                  (unsigned long)_pendingCaptureStatusSeq);
+            _pendingCaptureStatusSeq = 0;
+        }
+        if (_pendingOptionsSeq != 0 && (now - _lastOptionsPollMs) >= 8000UL) {
+            if (_debugBle)
+                DBG_SERIAL.printf("[Insta360][DBG] Telemetry-options query timeout seq=%lu\n",
+                                  (unsigned long)_pendingOptionsSeq);
+            _pendingOptionsSeq = 0;
+        }
+
         // Keep capture state fresh enough for OSD/CLI without flooding the BLE link.
         if (_pendingCaptureStatusSeq == 0 && (now - _lastCapturePollMs) >= 1000UL) {
             requestCaptureStatus();
