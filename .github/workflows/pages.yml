@@ -170,3 +170,5 @@ jobs:
 # V1.0.2 deploy trigger 7f1971c 2026-09-18
 
 # staging refresh: profile AUX candidate 211c0004
+
+# staging refresh: GoPro preset framing fix c2e3286d
