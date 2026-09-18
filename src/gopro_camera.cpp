@@ -562,6 +562,7 @@ void GoProCamera::sendStatusPoll() {
         GP_STATUS_PRIMARY_STORAGE,
         GP_STATUS_REMAINING_TIME,
         GP_STATUS_SD_REMAINING,
+        GP_STATUS_CURRENT_PRESET,
     };
 
     const uint8_t payload_len = 1 + (uint8_t)sizeof(ids);
