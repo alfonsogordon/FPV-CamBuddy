@@ -51,6 +51,7 @@ public:
     // mode is a DJI_MODE_* constant; GoProCamera maps it to a GoPro preset group.
     bool switchCameraMode(uint8_t mode) override;
     bool loadProfile(uint32_t profileId) override;
+    uint32_t activeProfileId() const override { return _activePresetId; }
     bool triggerBurstSloMo() override;
     bool exitBurstSloMo() override;
 
@@ -106,6 +107,7 @@ private:
     bool                     _targetFound = false;
     bool                     _bleConnected = false;
     bool                     _gpConnected  = false;
+    uint32_t                 _activePresetId = 0;
     bool                     _scanning     = false;
     bool                     _legacyProtocol = false;  // HERO4/5-Session-era status IDs/mode command
     uint32_t                 _lastAttemptMs = 0;
