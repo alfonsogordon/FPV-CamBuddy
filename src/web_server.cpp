@@ -601,6 +601,7 @@ void WebConfigServer::handleGetConfig() {
     d["profile_mid"] = c.profileMid;
     d["profile_high"] = c.profileHigh;
     d["profile_osd"] = c.profileOsdEnabled;
+    d["profile_osd_dest"] = c.profileOsdTarget;
     d["camera_match"] = c.cameraMatchMode;
     d["wake_guard"] = c.cameraWakeGuard;
     d["debug_ble"] = c.debugBle;
@@ -675,6 +676,7 @@ void WebConfigServer::handlePostConfig() {
     if (d["profile_mid"].is<uint32_t>()) _cfg->setProfileId(1, d["profile_mid"].as<uint32_t>());
     if (d["profile_high"].is<uint32_t>()) _cfg->setProfileId(2, d["profile_high"].as<uint32_t>());
     if (d["profile_osd"].is<bool>()) _cfg->setProfileOsdEnabled(d["profile_osd"].as<bool>());
+    if (d["profile_osd_dest"].is<int>()) _cfg->setProfileOsdTarget(d["profile_osd_dest"].as<uint8_t>());
     if (d["camera_match"].is<int>()) _cfg->setCameraMatchMode(d["camera_match"].as<uint8_t>());
     if (d["wake_guard"].is<bool>()) _cfg->setCameraWakeGuard(d["wake_guard"].as<bool>());
     if (d["debug_ble"].is<bool>()) _cfg->setDebugBle(d["debug_ble"].as<bool>());
