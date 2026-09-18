@@ -360,7 +360,9 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
     }
 
     // Apply AP transmit power only after the Wi-Fi driver and AP are active.
-    // This setting is intentionally independent from camera low-power mode.\n    // V1.0.2 AP reliability test: use 8.5 dBm instead of maximum C3 TX power.\n    const bool txOk = WiFi.setTxPower(WIFI_POWER_8_5dBm);
+    // This setting is intentionally independent from camera low-power mode.
+    // V1.0.2 AP reliability test: use 8.5 dBm instead of maximum C3 TX power.
+    const bool txOk = WiFi.setTxPower(WIFI_POWER_8_5dBm);
     diagLog("AP softAP started tx_request=8.5dBm tx_set_ok=%d tx_enum=%d mode=%d",
             txOk ? 1 : 0, (int)WiFi.getTxPower(), (int)WiFi.getMode());
 
