@@ -255,20 +255,24 @@ bool BLECamera::connectAndSetup() {
     DBG_SERIAL.println("[BLE] Subscribed to 0xFFF4 notify");
 
     // Write characteristic — ESP32 → camera.
-    // Older cameras: 0xFFF5.  DJI Action 5 Pro: 0xFFF5 reports w=0, fall back to 0xFFF3.
+    // Osmo Nano exposes 0xFFF5 as Write-Without-Response, while some Action
+    // bodies expose normal Write. Action 5 Pro may require the 0xFFF3 fallback.
+    _writeNoResponseOnly = false;
     _writeChar = svc->getCharacteristic(BLEUUID((uint16_t)DJI_WRITE_CHAR_UUID));
-    if (!_writeChar || !_writeChar->canWrite()) {
+    if (!_writeChar || (!_writeChar->canWrite() && !_writeChar->canWriteNoResponse())) {
         _writeChar = svc->getCharacteristic(BLEUUID((uint16_t)DJI_WRITE_CHAR_UUID_ALT));
     }
-    if (!_writeChar || !_writeChar->canWrite()) {
+    if (!_writeChar || (!_writeChar->canWrite() && !_writeChar->canWriteNoResponse())) {
         DBG_SERIAL.println("[BLE] No writable command char found (tried 0xFFF5, 0xFFF3)");
         _client->disconnect();
         _targetFound   = false;
         _lastAttemptMs = millis();
         return false;
     }
-    DBG_SERIAL.printf("[BLE] Write char 0x%04X ready\n",
-                      _writeChar->getUUID().getNative()->uuid.uuid16);
+    _writeNoResponseOnly = !_writeChar->canWrite() && _writeChar->canWriteNoResponse();
+    DBG_SERIAL.printf("[BLE] Write char 0x%04X ready (%s)\n",
+                      _writeChar->getUUID().getNative()->uuid.uuid16,
+                      _writeNoResponseOnly ? "write-no-response" : "write");
 
     _bleConnected = true;
 
@@ -291,6 +295,8 @@ void BLECamera::onDisconnect(BLEClient * /*c*/) {
     _djiConnected  = false;
     _bleConnected  = false;
     _writeChar     = nullptr;
+    _writeNoResponseOnly = false;
+    _isOsmoNano = false;
     _targetFound   = false;
     _targetAddr    = "";
     _targetName    = "";
@@ -329,7 +335,9 @@ bool BLECamera::sendFrame(uint8_t cmd_set, uint8_t cmd_id, uint8_t cmd_type,
                                   seq, payload, len);
     if (n == 0) return false;
     if (_debugBle) bleDebugDump(DBG_SERIAL, "TX", "0xFFF5", buf, n);
-    _writeChar->writeValue(buf, n, with_rsp);
+    // Never request an ATT response from a write-no-response-only characteristic
+    // (Osmo Nano 0xFFF5). Existing Action cameras keep their prior behaviour.
+    _writeChar->writeValue(buf, n, _writeNoResponseOnly ? false : with_rsp);
     return true;
 }
 
