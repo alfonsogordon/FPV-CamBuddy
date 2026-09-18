@@ -107,6 +107,8 @@ static void onProfileSwitch(uint8_t position) {
     // Reuse the existing Temporary Message destination + duration so profile
     // notifications require no extra OSD slot/config. The saved dropdown label
     // is preferred; manual/AP ID edits safely fall back to LOW/MID/HIGH.
+    if (!cfg.profileOsdEnabled) return;
+
     const char *profileName = position == 0 ? cfg.profileLowName :
                               (position == 1 ? cfg.profileMidName : cfg.profileHighName);
     if (!profileName || !profileName[0]) profileName = name;
