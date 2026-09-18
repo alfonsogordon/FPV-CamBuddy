@@ -25,6 +25,7 @@ public:
         char profileMidName[16];
         char profileHighName[16];
         bool profileOsdEnabled;
+        uint8_t profileOsdTarget;
         uint8_t cameraType;
         uint8_t cameraMatchMode;
         bool cameraWakeGuard;
@@ -74,6 +75,7 @@ public:
     static constexpr uint8_t DEFAULT_AUX_CHANNEL = 0;
     static constexpr uint8_t DEFAULT_AUX_MODE = 0x00;
     static constexpr uint8_t DEFAULT_PROFILE_AUX_CHANNEL = 0;
+    static constexpr uint8_t DEFAULT_PROFILE_OSD_TARGET = 1;
     static constexpr uint32_t DEFAULT_PROFILE_ID = 0;
     static constexpr uint8_t DEFAULT_CAMERA_TYPE = 1;
     static constexpr uint8_t DEFAULT_CAMERA_MATCH_MODE = 0;
@@ -141,6 +143,7 @@ public:
     void setProfileId(uint8_t position, uint32_t id);
     void setProfileName(uint8_t position, const char *name);
     void setProfileOsdEnabled(bool enabled);
+    void setProfileOsdTarget(uint8_t target);
     void setCameraMatchMode(uint8_t v);
     void setCameraWakeGuard(bool v);
     void setDebugBle(bool v);
