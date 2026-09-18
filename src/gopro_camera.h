@@ -52,7 +52,7 @@ public:
     bool switchCameraMode(uint8_t mode) override;
     bool loadProfile(uint32_t profileId) override;
     uint32_t activeProfileId() const override { return _activePresetId; }
-    bool queryProfiles();
+    bool queryProfiles() override;
     bool triggerBurstSloMo() override;
     bool exitBurstSloMo() override;
 
