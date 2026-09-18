@@ -110,6 +110,7 @@ private:
     void sendFrame(uint16_t cmd, const uint8_t *payload, uint16_t length, char dir = '>');
     void sendRequest(uint16_t cmd);
     void sendCustomText(uint8_t textType, const char *text);
+    void showTransientMessage(uint8_t target, const char *text, uint16_t durationMs);
     void sendCustomOSD(uint8_t textType, const CameraData &data, const char *tpl, const char *stateOverride = nullptr);
     void feedByte(uint8_t b);
     void processResponse();
@@ -162,5 +163,8 @@ private:
     char _fpvPreArmText[32] = "";
     uint16_t _fpvPreArmShowMs = 1000;
     uint16_t _fpvPreArmIntervalMs = 3000;
+    char _transientText[32] = "";
+    uint8_t _transientTarget = 1;
+    uint32_t _transientUntilMs = 0;
     bool _hasArmedSinceBoot = false;
 };
