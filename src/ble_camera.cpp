@@ -571,43 +571,67 @@ void BLECamera::handleModeSwitchAck(const uint8_t *payload, uint16_t len) {
 }
 
 void BLECamera::handleCameraStatus(const uint8_t *payload, uint16_t len) {
-    if (len < sizeof(DJICameraStatus)) return;
-    const auto *s = reinterpret_cast<const DJICameraStatus *>(payload);
-
-    _camera.percent       = s->bat_percent;
-    _camera.recording     = (s->camera_status == 0x03);
-    _camera.has_battery = true;
-    _camera.has_recording = true;
-    _camera.has_temperature = true;
-    _camera.has_remain_time = true;
-    _camera.camera_mode   = s->camera_mode;
-    _camera.temp_over     = s->temp_over;
-    _camera.record_time   = s->record_time;
-    _camera.remain_cap_mb = s->remain_capacity;
-    _camera.remain_time   = s->remain_time;
-
-    // DJI eis_mode byte (0-4) maps directly to CAM_EIS_OFF..CAM_EIS_HB.
-    _camera.eis_mode = s->eis_mode;  // 0=off, 1=RS, 2=HS, 3=RS+, 4=HB
-
-    // video_resolution is a sparse code, not a sequential index — values per
-    // DJI's official protocol_data_segment.md (dji-sdk/Osmo-GPS-Controller-Demo).
-    // Photo-mode sizes (3/4) collide with video codes and aren't distinguished here.
-    switch (s->video_resolution) {
-        case 10:  _camera.resolution = CAM_RES_1080P;   break;  // 1080P
-        case 66:  _camera.resolution = CAM_RES_1080P;   break;  // 1080P 9:16
-        case 16:  _camera.resolution = CAM_RES_4K;       break;  // 4K 16:9
-        case 109: _camera.resolution = CAM_RES_4K;       break;  // 4K 9:16
-        case 103: _camera.resolution = CAM_RES_4K_WIDE;  break;  // 4K 4:3
-        case 45:  _camera.resolution = CAM_RES_2_7K;     break;  // 2.7K 16:9
-        case 67:  _camera.resolution = CAM_RES_2_7K;     break;  // 2.7K 9:16
-        case 95:  _camera.resolution = CAM_RES_2_7K;     break;  // 2.7K 4:3
-        default:  _camera.resolution = CAM_RES_UNKNOWN;  break;
+    // Current DJI R-SDK bodies share the first seven bytes (mode/status/res/fps/
+    // EIS/record-time). Nano support keeps that useful subset even if a future
+    // firmware returns a shorter status struct than the 38-byte Action layout.
+    if (len < 7) {
+        DBG_SERIAL.printf("[DJI] Status push too short: %uB\n", len);
+        return;
     }
 
-    // fps_idx is likewise a sparse code (same source). In Slow Motion mode it's
-    // actually a multiplier and in Photo mode a burst count — not handled here,
-    // matching this function's pre-existing scope of video fps only.
-    switch (s->fps_idx) {
+    const uint8_t mode = payload[0];
+    const uint8_t status = payload[1];
+    const uint8_t videoResolution = payload[2];
+    const uint8_t fpsCode = payload[3];
+    const uint8_t eisMode = payload[4];
+    const uint16_t recordTime = (uint16_t)payload[5] | ((uint16_t)payload[6] << 8);
+
+    _camera.camera_mode = mode;
+    _camera.recording = (status == 0x03 || status == 0x05);
+    _camera.has_recording = true;
+    _camera.record_time = recordTime;
+    _camera.eis_mode = eisMode;
+
+    if (len >= sizeof(DJICameraStatus)) {
+        const auto *s = reinterpret_cast<const DJICameraStatus *>(payload);
+        _camera.percent = s->bat_percent;
+        _camera.has_battery = true;
+        _camera.has_temperature = true;
+        _camera.has_remain_time = true;
+        _camera.temp_over = s->temp_over;
+        _camera.remain_cap_mb = s->remain_capacity;
+        _camera.remain_time = s->remain_time;
+    } else {
+        // Osmosis' hardware-tested R-SDK parser treats the last byte as battery
+        // on shorter camera-status variants. Surface it when it is plausible,
+        // while leaving unsupported temperature/storage fields invalid.
+        const uint8_t tail = payload[len - 1];
+        if (tail <= 100) {
+            _camera.percent = tail;
+            _camera.has_battery = true;
+        }
+        _camera.has_temperature = false;
+        _camera.has_remain_time = false;
+        _camera.temp_over = 0;
+        _camera.remain_cap_mb = 0;
+        _camera.remain_time = 0;
+        DBG_SERIAL.printf("[DJI] Short status variant %uB (Nano-compatible basic decode)\n", len);
+    }
+
+    // video_resolution is a sparse code, not a sequential index.
+    switch (videoResolution) {
+        case 10:  _camera.resolution = CAM_RES_1080P;   break;
+        case 66:  _camera.resolution = CAM_RES_1080P;   break;
+        case 16:  _camera.resolution = CAM_RES_4K;      break;
+        case 109: _camera.resolution = CAM_RES_4K;      break;
+        case 103: _camera.resolution = CAM_RES_4K_WIDE; break;
+        case 45:  _camera.resolution = CAM_RES_2_7K;    break;
+        case 67:  _camera.resolution = CAM_RES_2_7K;    break;
+        case 95:  _camera.resolution = CAM_RES_2_7K;    break;
+        default:  _camera.resolution = CAM_RES_UNKNOWN; break;
+    }
+
+    switch (fpsCode) {
         case 1:  _camera.fps_idx = CAM_FPS_24;  break;
         case 2:  _camera.fps_idx = CAM_FPS_25;  break;
         case 3:  _camera.fps_idx = CAM_FPS_30;  break;
@@ -622,15 +646,13 @@ void BLECamera::handleCameraStatus(const uint8_t *payload, uint16_t len) {
     }
 
     _camera.valid = true;
-
     if (_cameraCb) _cameraCb(_camera);
 
-    DBG_SERIAL.printf("[DJI] bat=%u%%  mode=0x%02X  rec=%s  eis=%u  "
-                      "time=%us  sd=%uMB  remain=%us  temp=%u\n",
-                      s->bat_percent, s->camera_mode,
-                      _camera.recording ? "yes" : "no",
-                      s->eis_mode, s->record_time,
-                      s->remain_capacity, s->remain_time, s->temp_over);
+    DBG_SERIAL.printf("[DJI] bat=%s%u%%  mode=0x%02X  rec=%s  eis=%u  time=%us  status_len=%u\n",
+                      _camera.has_battery ? "" : "?",
+                      _camera.has_battery ? _camera.percent : 0,
+                      mode, _camera.recording ? "yes" : "no",
+                      eisMode, recordTime, len);
 }
 
 // 0x1D/0x06: newer cameras (Action 5 Pro, etc.) push mode name + params as ASCII.
