@@ -367,6 +367,7 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
         out.println("  record start               - start camera recording now");
         out.println("  record stop                - stop camera recording now");
         out.println("  profile current            - show active native preset/profile ID");
+        out.println("  profile query              - list camera-native presets/profiles (GoPro test)");
         out.println("  profile load <id>          - bench-load a native preset/profile ID");
         out.println("  sim arm <0|1>              - bench-test FC arm state through normal camera handler");
         out.println("  sim aux <low|high>         - bench-test configured AUX camera action");
@@ -442,6 +443,13 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
     if (strcmp(line, "sim off") == 0) { benchSimOff(); out.println("[sim] off"); return; }
     if (strcmp(line, "sim status") == 0) { benchSimStatus(out); return; }
 
+    if (strcmp(line, "profile query") == 0) {
+        if (!_camera || !_camera->isConnected()) { out.println("[profile] camera not connected"); return; }
+        GoProCamera *gp = dynamic_cast<GoProCamera *>(_camera);
+        if (!gp) { out.println("[profile] native preset query not supported by this camera yet"); return; }
+        out.println(gp->queryProfiles() ? "[profile] preset query sent" : "[profile] preset query unavailable");
+        return;
+    }
     if (strcmp(line, "profile current") == 0) {
         if (!_camera || !_camera->isConnected()) { out.println("[profile] camera not connected"); return; }
         const uint32_t id = _camera->activeProfileId();
