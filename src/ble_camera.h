@@ -10,6 +10,7 @@
 #include <esp_mac.h>            // esp_read_mac()
 #include "camera.h"
 #include "dji_protocol.h"
+#include "nano_duml.h"
 
 // BLE client for DJI Action cameras.
 //
@@ -48,6 +49,16 @@ private:
     bool sendConnectionRequest();   // DJI handshake step 1
     bool sendStatusSubscription();  // DJI handshake step 2
 
+    // ── Osmo Nano DUML pre-session ─────────────────────────────────────────
+    bool startNanoPairing();
+    bool sendNanoDuml(uint16_t target, uint16_t id, uint8_t flags,
+                      uint8_t cmdSet, uint8_t cmdId,
+                      const uint8_t *payload = nullptr, uint16_t payloadLen = 0);
+    void handleNanoDuml(const NanoDumlFrame &f);
+    void queueNanoResponse(const NanoDumlFrame &f);
+    void beginNanoRsdk();
+    void sendNanoKeepalive();
+
     // ── DJI frame I/O ─────────────────────────────────────────────────────
     // override_seq >= 0 forces a specific seq number (for ACKing camera frames).
     bool sendFrame(uint8_t cmd_set, uint8_t cmd_id, uint8_t cmd_type,
@@ -76,8 +87,18 @@ private:
     // ── State ─────────────────────────────────────────────────────────────
     BLEClient                *_client       = nullptr;
     BLERemoteCharacteristic  *_writeChar    = nullptr;
+    BLERemoteCharacteristic  *_notifyChar   = nullptr;   // FFF4; Nano pairing arm writes here
     bool                      _writeNoResponseOnly = false;
     bool                      _isOsmoNano = false;
+    bool                      _nanoPaired = false;
+    bool                      _nanoPairApprovalNeeded = false;
+    bool                      _nanoRsdkStarted = false;
+    uint32_t                  _nanoPairStartMs = 0;
+    uint32_t                  _nanoLastPairTxMs = 0;
+    uint32_t                  _nanoLastKeepaliveMs = 0;
+    bool                      _pendingNanoPairComplete = false;
+    uint8_t                   _pendingNanoResp[160]{};
+    uint16_t                  _pendingNanoRespLen = 0;
     std::string               _targetAddr;
     std::string               _targetName;
     esp_ble_addr_type_t       _targetType   = BLE_ADDR_TYPE_PUBLIC;
