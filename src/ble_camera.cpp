@@ -121,29 +121,42 @@ void BLECamera::scanDoneCallback(BLEScanResults /*r*/) {
 // in case the preferred device appears later in the window.
 void BLECamera::onResult(BLEAdvertisedDevice device) {
     bool isDJI = false;
+    bool isNano = false;
 
     if (device.haveManufacturerData()) {
         const std::string mfr = device.getManufacturerData();
-        if (mfr.size() >= 5 &&
+        if (mfr.size() >= 3 &&
             (uint8_t)mfr[0] == 0xAA &&
-            (uint8_t)mfr[1] == 0x08 &&
-            (uint8_t)mfr[4] == 0xFA) {
-            isDJI = true;
+            (uint8_t)mfr[1] == 0x08) {
+            // Existing Action cameras use the 0xFA marker at byte 4.
+            // Hardware-verified Osmo Nano advertisements use model byte 0x19.
+            if ((mfr.size() >= 5 && (uint8_t)mfr[4] == 0xFA) ||
+                (uint8_t)mfr[2] == 0x19) {
+                isDJI = true;
+                isNano = ((uint8_t)mfr[2] == 0x19);
+            }
         }
     }
 
-    if (!isDJI && device.haveName() &&
-        device.getName().find(DJI_DEVICE_NAME_PREFIX) != std::string::npos) {
-        isDJI = true;
+    if (device.haveName()) {
+        const std::string devName = device.getName();
+        if (!isDJI && devName.find(DJI_DEVICE_NAME_PREFIX) != std::string::npos)
+            isDJI = true;
+        if (devName.find("OsmoNano-") != std::string::npos) {
+            isDJI = true;
+            isNano = true;
+        }
     }
 
     if (!isDJI) return;
 
     std::string addr = device.getAddress().toString();
-    std::string name = device.haveName() ? device.getName() : "DJI Action";
+    std::string name = device.haveName() ? device.getName() :
+                       (isNano ? "DJI Osmo Nano" : "DJI Action");
 
-    DBG_SERIAL.printf("[BLE] Found DJI camera: \"%s\"  addr=%s  rssi=%d\n",
-                      name.c_str(), addr.c_str(), device.getRSSI());
+    DBG_SERIAL.printf("[BLE] Found DJI camera: \"%s\"  addr=%s  rssi=%d%s\n",
+                      name.c_str(), addr.c_str(), device.getRSSI(),
+                      isNano ? "  [Osmo Nano]" : "");
 
     if (_matchMode == CAM_MATCH_BEST_SIGNAL) {
         int8_t rssi = device.getRSSI();
@@ -187,7 +200,10 @@ void BLECamera::onResult(BLEAdvertisedDevice device) {
 // ─── Connect & characteristic discovery ──────────────────────────────────────
 
 bool BLECamera::connectAndSetup() {
-    DBG_SERIAL.printf("[BLE] Connecting to %s ...\n", _targetAddr.c_str());
+    _isOsmoNano = (_targetName.find("OsmoNano-") != std::string::npos ||
+                   _targetName.find("Osmo Nano") != std::string::npos);
+    DBG_SERIAL.printf("[BLE] Connecting to %s%s ...\n", _targetAddr.c_str(),
+                      _isOsmoNano ? " (Osmo Nano)" : "");
 
     if (!_client) {
         _client = BLEDevice::createClient();
