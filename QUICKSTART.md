@@ -39,6 +39,7 @@ For most GoPro FPV setups, the fresh defaults are already sensible. They include
 - flashing REC
 - first-arm **CLEAN LENS** reminder
 - camera warnings
+- optional 2.5-second profile-name OSD notification when AUX camera profiles are used
 
 Change anything you want in the web configurator, then press the single **SAVE / APPLY SETTINGS** button.
 
@@ -125,6 +126,8 @@ If that works, the normal setup is complete. 🤘
 ## Want to change the behaviour?
 
 Use **FPSteVe Easy Config**. It contains the camera, recording, OSD, warnings, AUX and connection settings in one place, plus the integrated **OSD Preview** so you can see most OSD changes before trying them on the quad.
+
+In V1.0.2, GoPro saved presets can be discovered and assigned to LOW / MIDDLE / HIGH AUX positions. **Show profile name in OSD** can display only the selected profile name for about 2.5 seconds after a change. Demo Mode includes built-in **CINEMATIC / ACTION / SLOW MOTION** example profiles, so this behaviour can be tested without ever connecting a camera.
 
 You shouldn't need to edit CLI values for normal use.
 
