@@ -13,6 +13,7 @@ on:
     types:
       - completed
     branches:
+      - main
       - experimental
       - v1.0.2
   workflow_dispatch:
@@ -64,6 +65,30 @@ jobs:
             mkdir -p "web/firmware/$tag"
             gh release download "$tag" --repo ${{ github.repository }} --pattern "*.bin" --dir "web/firmware/$tag" --clobber 2>/dev/null || echo "Failed to download assets for $tag, skipping"
           done
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Download latest successful validated main candidate firmware
+        working-directory: stable
+        run: |
+          mkdir -p web/firmware/main-candidate
+          run_id=$(gh run list --repo ${{ github.repository }} --branch main --workflow "Validate FPV CamBuddy" --status success --limit 20 --json databaseId,headSha --jq '.[0].databaseId // empty')
+          test -n "$run_id" || { echo "No successful validated main firmware run found"; exit 1; }
+          cand_sha=$(gh run view "$run_id" --repo ${{ github.repository }} --json headSha --jq '.headSha')
+          echo "Using validated main candidate run $run_id at $cand_sha"
+          rm -rf /tmp/main-artifacts
+          mkdir -p /tmp/main-artifacts
+          gh run download "$run_id" --repo ${{ github.repository }} --dir /tmp/main-artifacts
+          c3=$(find /tmp/main-artifacts -type d -name 'freeclinker-stage3-esp32c3' | head -n1)
+          esp=$(find /tmp/main-artifacts -type d -name 'freeclinker-stage3-esp32' | head -n1)
+          test -n "$c3" -a -n "$esp" || { echo "Validated main firmware artifacts missing"; exit 1; }
+          cp "$c3/bootloader.bin" web/firmware/main-candidate/bootloader-esp32c3supermini.bin
+          cp "$c3/partitions.bin" web/firmware/main-candidate/partitions-esp32c3supermini.bin
+          cp "$c3/firmware.bin" web/firmware/main-candidate/firmware-esp32c3supermini.bin
+          cp "$esp/bootloader.bin" web/firmware/main-candidate/bootloader-esp32dev.bin
+          cp "$esp/partitions.bin" web/firmware/main-candidate/partitions-esp32dev.bin
+          cp "$esp/firmware.bin" web/firmware/main-candidate/firmware-esp32dev.bin
+          printf '{"sha":"%s","run_id":"%s"}\n' "$cand_sha" "$run_id" > web/firmware/main-candidate/meta.json
         env:
           GH_TOKEN: ${{ github.token }}
 
