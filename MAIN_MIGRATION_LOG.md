@@ -138,3 +138,9 @@ For individual migration commits, prefer `git revert <migration-commit-sha>` so 
 ### Pre-change: mobile UI polish requested during acceptance testing
 - Requested from live mobile screenshots: add more vertical separation above the blue Original FreeCLinker credit panel, and hide/remove the AP Diagnostic Log button from the normal Easy Config UI.
 - Scope is presentation only on main; no firmware behavior, camera protocol, configurator save logic, release/tag, or frozen `v1.0.2` branch changes.
+
+### Pre-change: AP local hostname
+- Requested during V1.0.2 acceptance preparation: add an mDNS hostname for the field/AP configurator so supported clients can use `http://cambuddy.local`, while retaining `http://192.168.4.1` as the guaranteed fallback.
+- Planned implementation: start mDNS only after the FPVCamBuddy SoftAP is successfully configured; stop mDNS when AP mode stops; failure to start mDNS must not prevent the AP/IP configurator from working.
+- Documentation/UI references will advertise both `cambuddy.local` and the IP fallback.
+- Scope: main only. Frozen `v1.0.2` remains untouched. No release/tag.
