@@ -98,3 +98,11 @@ For individual migration commits, prefer `git revert <migration-commit-sha>` so 
 - Frozen `v1.0.2` remains unchanged at `139d47de841ed7fe0c9198019926b5bb635e2285`.
 - Rollback, newest first: `git revert 4023de95f9d30fe3af8c301e641fc6b1d9eb46f6`, then `git revert d235e30f74c93f883e7b6255921677aa220f896a`.
 - Exact-head validation/Pages status for `4023de95...` was still queued/pending when this log entry was written; do not call the flasher candidate ready until both complete successfully.
+
+### Candidate flasher verification
+- Exact current main `14143836961f2b16313d0de4afcdec0a7955d955` completed **Validate FPV CamBuddy** successfully (run `35433670481`) and completed **Deploy GitHub Pages** successfully (run `35433670468`).
+- A subsequent Pages workflow-run deployment for the same exact main SHA also completed successfully (run `35433746938`).
+- The intermediate candidate-flasher commit `4023de95f9d30fe3af8c301e641fc6b1d9eb46f6` also passed validation (run `35433661032`).
+- CI therefore confirms that the production site generation and both ESP32-C3/ESP32 firmware builds succeed with the replacement, version gating, and candidate-flasher changes.
+- Live GitHub Pages content could not be independently fetched through the available GitHub connector during this check because that connector only accepts github.com instance URLs. Treat the successful Pages deployment as deployment verification, but Steve's browser check remains the final UI confirmation.
+- Hardware status remains unchanged: Profile OSD on a real FC is still pending Steve's test.
