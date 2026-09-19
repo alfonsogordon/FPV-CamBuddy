@@ -113,3 +113,10 @@ For individual migration commits, prefer `git revert <migration-commit-sha>` so 
 - Planned affected path: `web/fps-autosync.js`.
 - Fix: every autosync board read/verification will request `version` before `show`, keeping unknown locked until a positive version response arrives.
 - Rollback: revert the hardening commit recorded below.
+
+### Firmware detection/read-path hardening
+- `3ad6d11898595e4457f0ee260d9d66cdafedecbc`: autosync board reads and post-save verification now issue `version` before `show`, so normal automatic connection/read flow can positively identify compatible, old, or development firmware instead of remaining unknown.
+- `c53020718d541f62658dfe775e476d7bd3cf7813`: `setConnected()` now reapplies the firmware gate after generic connection-state enable/disable logic. This prevents that generic logic from accidentally re-enabling V1.0.2-only controls before compatibility is known.
+- Ordinary V1.0.1-compatible controls remain governed only by connection state.
+- Rollback, newest first: `git revert c53020718d541f62658dfe775e476d7bd3cf7813`, then `git revert 3ad6d11898595e4457f0ee260d9d66cdafedecbc`.
+- Hardware verification is still pending; this is source/CI hardening only.
