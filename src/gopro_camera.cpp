@@ -537,6 +537,7 @@ void GoProCamera::sendRegisterStatus() {
             GP_STATUS_SD_REMAINING,
             GP_STATUS_BATTERY_PCT,
             GP_STATUS_PRESET_GROUP,
+            GP_STATUS_CURRENT_PRESET,
         };
         payload_len = 1 + (uint8_t)sizeof(ids);
         buf[0] = payload_len & 0x1F;
@@ -561,6 +562,7 @@ void GoProCamera::sendStatusPoll() {
         GP_STATUS_PRIMARY_STORAGE,
         GP_STATUS_REMAINING_TIME,
         GP_STATUS_SD_REMAINING,
+        GP_STATUS_CURRENT_PRESET,
     };
 
     const uint8_t payload_len = 1 + (uint8_t)sizeof(ids);
@@ -572,6 +574,102 @@ void GoProCamera::sendStatusPoll() {
     if (_debugBle)
         bleDebugDump(DBG_SERIAL, "TX", "GP-0076 STATUS POLL", buf, 1 + payload_len);
     _queryChar->writeValue(buf, 1 + payload_len, false);
+}
+
+bool GoProCamera::queryProfiles() {
+    if (!_gpConnected || !_queryChar || _legacyProtocol) return false;
+    sendPresetStatusQuery();
+    return true;
+}
+
+void GoProCamera::sendPresetStatusQuery() {
+    if (!_queryChar) return;
+    // Open GoPro protobuf RequestGetPresetStatus:
+    // Feature QUERY=0xF5, Action GET_PRESET_STATUS=0x72.
+    // Official Open GoPro SDK registers PRESET status (field 1, enum value 1)
+    // when requesting the available preset set. Keep constant setting IDs on
+    // and hidden presets off. Protobuf: 08 01 18 01 20 00.
+    const uint8_t payload[] = {0xF5, 0x72, 0x08, 0x01, 0x18, 0x01, 0x20, 0x00};
+    uint8_t buf[1 + sizeof(payload)];
+    buf[0] = sizeof(payload);
+    memcpy(buf + 1, payload, sizeof(payload));
+    if (_debugBle) bleDebugDump(DBG_SERIAL, "TX", "GP-0076 PRESETS", buf, sizeof(buf));
+    _queryChar->writeValue(buf, sizeof(buf), false);
+    DBG_SERIAL.println("[GP] Available-preset query sent");
+}
+
+// Tiny protobuf reader for NotifyPresetStatus. We only decode the fields needed
+// by CamBuddy's selector: group.preset_array -> preset id/title/title_number/
+// custom_name. Unknown fields are skipped, so newer cameras can add fields
+// without breaking this diagnostic query.
+static bool gpPbVarint(const uint8_t *d, size_t n, size_t &p, uint64_t &v) {
+    v = 0; uint8_t s = 0;
+    while (p < n && s < 64) { uint8_t b=d[p++]; v |= (uint64_t)(b & 0x7F) << s; if (!(b & 0x80)) return true; s += 7; }
+    return false;
+}
+static bool gpPbSkip(const uint8_t *d, size_t n, size_t &p, uint8_t wt) {
+    uint64_t v=0;
+    if (wt==0) return gpPbVarint(d,n,p,v);
+    if (wt==1) { if(p+8>n)return false; p+=8; return true; }
+    if (wt==2) { if(!gpPbVarint(d,n,p,v)||p+v>n)return false; p+=(size_t)v; return true; }
+    if (wt==5) { if(p+4>n)return false; p+=4; return true; }
+    return false;
+}
+static const char *gpPresetTitle(uint32_t t) {
+    // EnumPresetTitle values from GoPro's official preset_status.proto.
+    switch(t) {
+        case 0:return "Activity"; case 1:return "Standard"; case 2:return "Cinematic";
+        case 3:return "Photo"; case 4:return "Live Burst"; case 5:return "Burst";
+        case 6:return "Night"; case 7:return "Time Warp"; case 8:return "Time Lapse";
+        case 9:return "Night Lapse"; case 10:return "Video"; case 11:return "Slo-Mo";
+        case 13:return "Photo"; case 14:return "Panorama"; case 16:return "Time Warp";
+        case 18:return "Custom"; case 19:return "Air"; case 20:return "Bike";
+        case 21:return "Epic"; case 22:return "Indoor"; case 23:return "Motor";
+        case 24:return "Mounted"; case 25:return "Outdoor"; case 26:return "POV";
+        case 27:return "Selfie"; case 28:return "Skate"; case 29:return "Snow";
+        case 30:return "Trail"; case 31:return "Travel"; case 32:return "Water";
+        case 33:return "Looping"; case 34:return "Stars"; case 35:return "Action";
+        case 36:return "Follow Cam"; case 37:return "Surf"; case 38:return "City";
+        case 39:return "Shaky"; case 40:return "Chesty"; case 41:return "Helmet";
+        case 42:return "Bite"; case 43:return "Custom Cinematic"; case 44:return "Vlog";
+        case 45:return "FPV"; case 46:return "HDR"; case 47:return "Landscape";
+        case 48:return "Log"; case 49:return "Custom Slo-Mo"; case 50:return "Tripod";
+        case 58:return "Basic"; case 59:return "Ultra Slo-Mo";
+        case 60:return "Standard Endurance"; case 61:return "Activity Endurance";
+        case 62:return "Cinematic Endurance"; case 63:return "Slo-Mo Endurance";
+        case 64:return "Stationary 1"; case 65:return "Stationary 2";
+        case 66:return "Stationary 3"; case 67:return "Stationary 4";
+        case 68:return "Simple Video"; case 69:return "Simple Time Warp";
+        case 70:return "Simple Super Photo"; case 71:return "Simple Night Photo";
+        case 72:return "Simple Video Endurance"; case 73:return "Highest Quality";
+        case 74:return "Extended Battery"; case 75:return "Longest Battery";
+        case 76:return "Star Trail"; case 77:return "Light Painting";
+        case 78:return "Light Trail"; case 79:return "Full Frame";
+        case 82:return "Standard Quality Video"; case 83:return "Basic Quality Video";
+        case 93:return "Highest Quality Video"; case 94:return "Custom";
+        case 99:return "Easy Standard"; case 100:return "Easy HDR";
+        case 106:return "Burst Slo-Mo"; case 125:return "4:3 Video";
+        case 126:return "16:9 Video"; case 127:return "16:9 Slo-Mo";
+        case 131:return "Time Lapse Video"; case 132:return "Time Lapse Photo";
+        case 133:return "Night Lapse Video"; case 134:return "Night Lapse Photo";
+        default:return nullptr;
+    }
+}
+static void gpParsePreset(const uint8_t *d, size_t n) {
+    size_t p=0; uint32_t id=0,title=0,num=0; String custom;
+    while(p<n){uint64_t k=0,v=0;if(!gpPbVarint(d,n,p,k))break;uint32_t f=k>>3;uint8_t wt=k&7;
+        if((f==1||f==3||f==4)&&wt==0){if(!gpPbVarint(d,n,p,v))break;if(f==1)id=(uint32_t)v;else if(f==3)title=(uint32_t)v;else num=(uint32_t)v;}
+        else if(f==10&&wt==2){if(!gpPbVarint(d,n,p,v)||p+v>n)break;custom=String((const char*)(d+p),(unsigned int)v);p+=(size_t)v;}
+        else if(!gpPbSkip(d,n,p,wt))break;
+    }
+    if(id){const char *known=gpPresetTitle(title);String name=custom.length()?custom:(known?String(known):String("Preset"));if(!custom.length()&&num)name+=" "+String(num);
+        DBG_SERIAL.printf("[GP-PRESET] id=%lu name=%s title=%lu number=%lu\n",(unsigned long)id,name.c_str(),(unsigned long)title,(unsigned long)num);}
+}
+static void gpParseGroup(const uint8_t *d,size_t n){size_t p=0;while(p<n){uint64_t k=0,l=0;if(!gpPbVarint(d,n,p,k))break;uint32_t f=k>>3;uint8_t wt=k&7;if(f==2&&wt==2){if(!gpPbVarint(d,n,p,l)||p+l>n)break;gpParsePreset(d+p,(size_t)l);p+=(size_t)l;}else if(!gpPbSkip(d,n,p,wt))break;}}
+void GoProCamera::parsePresetStatusProto(const uint8_t *data,size_t len){
+    size_t p=0;unsigned count=0;DBG_SERIAL.println("[GP-PRESET] available presets:");
+    while(p<len){uint64_t k=0,l=0;if(!gpPbVarint(data,len,p,k))break;uint32_t f=k>>3;uint8_t wt=k&7;if(f==1&&wt==2){if(!gpPbVarint(data,len,p,l)||p+l>len)break;gpParseGroup(data+p,(size_t)l);p+=(size_t)l;count++;}else if(!gpPbSkip(data,len,p,wt))break;}
+    if(!count)DBG_SERIAL.println("[GP-PRESET] no preset groups decoded");
 }
 
 // ─── Recording & mode commands ────────────────────────────────────────────────
@@ -604,6 +702,28 @@ bool GoProCamera::exitBurstSloMo() {
     if (!_gpConnected) return false;
     sendSetting(GP_SETTING_GENERAL_SUB_MODE, GP_SUB_MODE_STANDARD);
     DBG_SERIAL.println("[GP] Sub-mode → Standard sent");
+    return true;
+}
+
+bool GoProCamera::loadProfile(uint32_t profileId) {
+    if (!_gpConnected || !_cmdChar || _legacyProtocol || profileId == 0) return false;
+    // Open GoPro LOAD_PRESET (0x40) takes the runtime preset ID as UInt32 BE.
+    // IDs are intentionally stored/configured at runtime; they must never be
+    // compiled in because GoPro documents them as camera/firmware dependent.
+    // Open GoPro's BleWriteCommand framing is:
+    //   [cmd=0x40][param_len=0x04][preset_id UInt32 BE]
+    // sendCmd() supplies the outer GoPro packet header and cmd byte, so the
+    // params passed here must include the parameter-length byte just like the
+    // existing shutter/preset-group commands do.
+    const uint8_t p[] = {
+        0x04,
+        static_cast<uint8_t>((profileId >> 24) & 0xFF),
+        static_cast<uint8_t>((profileId >> 16) & 0xFF),
+        static_cast<uint8_t>((profileId >> 8) & 0xFF),
+        static_cast<uint8_t>(profileId & 0xFF)
+    };
+    sendCmd(GP_CMD_LOAD_PRESET, p, sizeof(p));
+    DBG_SERIAL.printf("[GP] Load preset id=%lu sent\n", (unsigned long)profileId);
     return true;
 }
 
@@ -791,6 +911,10 @@ void GoProCamera::handleQueryMessage(const uint8_t *msg, size_t len) {
             if (_camera.valid && _gpConnected && _cameraCb)
                 _cameraCb(_camera);
         }
+    } else if (query_id == 0xF5) {
+        // Protobuf response begins [FeatureId=F5][ActionId=F2][NotifyPresetStatus...].
+        if (len >= 2 && msg[1] == 0xF2) parsePresetStatusProto(msg + 2, len - 2);
+        else DBG_SERIAL.printf("[GP-PRESET] unexpected protobuf action 0x%02X\n", len > 1 ? msg[1] : 0);
     } else {
         DBG_SERIAL.printf("[GP] Unhandled query/notify id 0x%02X\n", query_id);
     }
@@ -875,6 +999,14 @@ void GoProCamera::parseStatusTlv(const uint8_t *tlv, size_t len) {
 
         case GP_STATUS_OVERHEATING:
             if (vlen >= 1) { _camera.temp_over = v[0] ? 1 : 0; _camera.has_temperature = true; updated = true; }
+            break;
+
+        case GP_STATUS_CURRENT_PRESET:
+            if (vlen >= 4) {
+                _activePresetId = ((uint32_t)v[0] << 24) | ((uint32_t)v[1] << 16) |
+                                  ((uint32_t)v[2] << 8) | (uint32_t)v[3];
+                DBG_SERIAL.printf("[GP] Active preset id=%lu\n", (unsigned long)_activePresetId);
+            }
             break;
 
         case GP_STATUS_PRESET_GROUP:

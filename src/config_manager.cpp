@@ -2,6 +2,7 @@
 #include "camera_registry.h"
 #include "camera.h"
 #include "config.h"
+#include "diag_log.h"
 #include <WiFi.h>
 #include <cstring>
 #include <cstdlib>
@@ -11,6 +12,15 @@ static constexpr const char *KEY_DSD  = "disarm_delay";
 static constexpr const char *KEY_SOD  = "stop_on_disarm";
 static constexpr const char *KEY_ACH  = "aux_channel";
 static constexpr const char *KEY_AMD  = "aux_mode";
+static constexpr const char *KEY_PACH = "profile_aux";
+static constexpr const char *KEY_PLOW = "profile_low";
+static constexpr const char *KEY_PMID = "profile_mid";
+static constexpr const char *KEY_PHIGH = "profile_high";
+static constexpr const char *KEY_PLNAME = "prof_low_name";
+static constexpr const char *KEY_PMNAME = "prof_mid_name";
+static constexpr const char *KEY_PHNAME = "prof_hi_name";
+static constexpr const char *KEY_POSD = "profile_osd";
+static constexpr const char *KEY_POSDT = "prof_osd_dst";
 static constexpr const char *KEY_CAM  = "camera_type";
 static constexpr const char *KEY_OSD1 = "osd1_tpl";
 static constexpr const char *KEY_OSD2 = "osd2_tpl";
@@ -79,6 +89,16 @@ void ConfigManager::load() {
     _cfg.stopOnDisarm      = _prefs.getBool(KEY_SOD, DEFAULT_STOP_ON_DISARM);
     _cfg.auxChannel        = static_cast<uint8_t>(_prefs.getUInt(KEY_ACH, DEFAULT_AUX_CHANNEL));
     _cfg.auxMode           = static_cast<uint8_t>(_prefs.getUInt(KEY_AMD, DEFAULT_AUX_MODE));
+    _cfg.profileAuxChannel = static_cast<uint8_t>(_prefs.getUInt(KEY_PACH, DEFAULT_PROFILE_AUX_CHANNEL));
+    _cfg.profileLow = _prefs.getUInt(KEY_PLOW, DEFAULT_PROFILE_ID);
+    _cfg.profileMid = _prefs.getUInt(KEY_PMID, DEFAULT_PROFILE_ID);
+    _cfg.profileHigh = _prefs.getUInt(KEY_PHIGH, DEFAULT_PROFILE_ID);
+    loadStr(_prefs, KEY_PLNAME, _cfg.profileLowName, sizeof(_cfg.profileLowName), "");
+    loadStr(_prefs, KEY_PMNAME, _cfg.profileMidName, sizeof(_cfg.profileMidName), "");
+    loadStr(_prefs, KEY_PHNAME, _cfg.profileHighName, sizeof(_cfg.profileHighName), "");
+    _cfg.profileOsdEnabled = _prefs.getBool(KEY_POSD, true);
+    _cfg.profileOsdTarget = static_cast<uint8_t>(_prefs.getUInt(KEY_POSDT, DEFAULT_PROFILE_OSD_TARGET));
+    if (_cfg.profileOsdTarget < 1 || _cfg.profileOsdTarget > 4) _cfg.profileOsdTarget = DEFAULT_PROFILE_OSD_TARGET;
     _cfg.cameraType        = static_cast<uint8_t>(_prefs.getUInt(KEY_CAM, DEFAULT_CAMERA_TYPE));
     _cfg.cameraMatchMode   = static_cast<uint8_t>(_prefs.getUInt(KEY_CMM, DEFAULT_CAMERA_MATCH_MODE));
     _cfg.cameraWakeGuard   = _prefs.getBool(KEY_WAKE, DEFAULT_CAMERA_WAKE_GUARD);
@@ -157,6 +177,15 @@ void ConfigManager::save() {
     _prefs.putBool(KEY_SOD, _cfg.stopOnDisarm);
     _prefs.putUInt(KEY_ACH, _cfg.auxChannel);
     _prefs.putUInt(KEY_AMD, _cfg.auxMode);
+    _prefs.putUInt(KEY_PACH, _cfg.profileAuxChannel);
+    _prefs.putUInt(KEY_PLOW, _cfg.profileLow);
+    _prefs.putUInt(KEY_PMID, _cfg.profileMid);
+    _prefs.putUInt(KEY_PHIGH, _cfg.profileHigh);
+    _prefs.putString(KEY_PLNAME, _cfg.profileLowName);
+    _prefs.putString(KEY_PMNAME, _cfg.profileMidName);
+    _prefs.putString(KEY_PHNAME, _cfg.profileHighName);
+    _prefs.putBool(KEY_POSD, _cfg.profileOsdEnabled);
+    _prefs.putUInt(KEY_POSDT, _cfg.profileOsdTarget);
     _prefs.putUInt(KEY_CAM, _cfg.cameraType);
     _prefs.putUInt(KEY_CMM, _cfg.cameraMatchMode);
     _prefs.putBool(KEY_WAKE, _cfg.cameraWakeGuard);
@@ -225,6 +254,12 @@ void ConfigManager::printAll(Stream &out) {
     else
         out.printf("[cfg] aux_channel     = AUX%u\n", _cfg.auxChannel);
     out.printf("[cfg] aux_mode        = 0x%02X\n", _cfg.auxMode);
+    if (_cfg.profileAuxChannel) out.printf("[cfg] profile_aux     = AUX%u\n", _cfg.profileAuxChannel);
+    else out.println("[cfg] profile_aux     = disabled");
+    out.printf("[cfg] profile_ids     = low:%lu mid:%lu high:%lu\n", (unsigned long)_cfg.profileLow, (unsigned long)_cfg.profileMid, (unsigned long)_cfg.profileHigh);
+    out.printf("[cfg] profile_names   = low:%s | mid:%s | high:%s\n", _cfg.profileLowName, _cfg.profileMidName, _cfg.profileHighName);
+    out.printf("[cfg] profile_osd     = %s\n", _cfg.profileOsdEnabled ? "true" : "false");
+    out.printf("[cfg] profile_osd_dest = %u\n", _cfg.profileOsdTarget);
     out.printf("[cfg] debug_ble       = %s\n", _cfg.debugBle ? "true" : "false");
     out.printf("[cfg] low_power       = %s\n", _cfg.lowPowerMode ? "true" : "false");
     out.printf("[cfg] wifi_ap_enabled = %s\n", _cfg.wifiApEnabled ? "true" : "false");
@@ -275,6 +310,20 @@ void ConfigManager::printAll(Stream &out) {
 void ConfigManager::handleLine(const char *line, Stream &out) {
     while (*line == ' ') line++;
 
+    if (strcmp(line, "diag") == 0) {
+        out.println("[diag] persistent AP log:");
+        String s = diagRead();
+        if (s.length()) out.print(s);
+        else out.println("(empty)");
+        return;
+    }
+
+    if (strcmp(line, "diag clear") == 0) {
+        diagClear();
+        out.println("[diag] cleared");
+        return;
+    }
+
     if (strcmp(line, "version") == 0) {
         out.printf("[cfg] FreeCLinker firmware v%s\n", FIRMWARE_VERSION);
         return;
@@ -283,6 +332,8 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
     if (strcmp(line, "help") == 0) {
         out.println("Commands:");
         out.println("  version                    - print firmware version");
+        out.println("  diag                       - print persistent AP diagnostic log");
+        out.println("  diag clear                 - clear persistent AP diagnostic log");
         out.println("  show                       - print all settings");
         out.println("  set camera_type <0-5>      - 0=DJI, 1=GoPro, 2=Caddx Orca, 3=Sony Alpha, 4=Blackmagic, 5=Insta360 (reboot required)");
         out.println("  set camera_match <0-2>     - 0=fallback (preferred, else any found), 1=strict (preferred only), 2=best_signal (strongest RSSI, ignores preferred)");
@@ -291,6 +342,15 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
         out.println("  set stop_on_disarm <0|1>   - disable (0) or enable (1) stop on disarm");
         out.println("  set aux_channel <0-12>     - AUX channel for camera mode switch (0=off)");
         out.println("  set aux_mode <0x00-0xFF>   - camera mode when AUX high (0x00=slow_motion 0x01=video 0x0A=hyperlapse)");
+        out.println("  set profile_aux <0-12>     - independent 3-position AUX for camera profiles (0=off)");
+        out.println("  set profile_low <id>       - native camera preset/profile ID for AUX low");
+        out.println("  set profile_mid <id>       - native camera preset/profile ID for AUX middle");
+        out.println("  set profile_high <id>      - native camera preset/profile ID for AUX high");
+        out.println("  set profile_low_name <txt> - OSD label for AUX low profile");
+        out.println("  set profile_mid_name <txt> - OSD label for AUX middle profile");
+        out.println("  set profile_high_name <txt>- OSD label for AUX high profile");
+        out.println("  set profile_osd <0|1>       - show profile name briefly in OSD");
+        out.println("  set profile_osd_dest <1-4>  - OSD destination for profile name");
         out.println("  set debug_ble <0|1>        - log raw BLE TX/RX packets to the serial console");
         out.println("  set low_power <0|1>        - 1=minimum BLE/Wi-Fi TX power (default) to reduce RC receiver interference, shorter range; 0=maximum TX power (reboot required)");
         out.println("  set wifi_ap_enabled <0|1>  - 0=never auto-start the config-portal AP (BOOT-button force-AP still works)");
@@ -330,6 +390,9 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
         out.println("  status                     - report ESP32 and camera status");
         out.println("  record start               - start camera recording now");
         out.println("  record stop                - stop camera recording now");
+        out.println("  profile current            - show active native preset/profile ID");
+        out.println("  profile query              - list camera-native presets/profiles (GoPro test)");
+        out.println("  profile load <id>          - bench-load a native preset/profile ID");
         out.println("  sim arm <0|1>              - bench-test FC arm state through normal camera handler");
         out.println("  sim aux <low|high>         - bench-test configured AUX camera action");
         out.println("  sim status                 - show RAM-only bench simulation state");
@@ -403,6 +466,25 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
     if (strcmp(line, "sim aux low") == 0) { benchSimAux(false); out.println("[sim] aux=low"); return; }
     if (strcmp(line, "sim off") == 0) { benchSimOff(); out.println("[sim] off"); return; }
     if (strcmp(line, "sim status") == 0) { benchSimStatus(out); return; }
+
+    if (strcmp(line, "profile query") == 0) {
+        if (!_camera || !_camera->isConnected()) { out.println("[profile] camera not connected"); return; }
+        out.println(_camera->queryProfiles() ? "[profile] preset query sent" : "[profile] native preset query not supported by this camera yet");
+        return;
+    }
+    if (strcmp(line, "profile current") == 0) {
+        if (!_camera || !_camera->isConnected()) { out.println("[profile] camera not connected"); return; }
+        const uint32_t id = _camera->activeProfileId();
+        if (id) out.printf("[profile] active id=%lu\n", (unsigned long)id);
+        else out.println("[profile] active preset ID not available yet");
+        return;
+    }
+    if (strncmp(line, "profile load ", 13) == 0) {
+        if (!_camera || !_camera->isConnected()) { out.println("[profile] camera not connected"); return; }
+        const uint32_t id = strtoul(line + 13, nullptr, 0);
+        out.printf("[profile] load %lu: %s\n", (unsigned long)id, _camera->loadProfile(id) ? "sent" : "unsupported/failed");
+        return;
+    }
 
     if (strcmp(line, "record start") == 0 || strcmp(line, "record stop") == 0) {
         if (!_camera) {
@@ -493,6 +575,23 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
             out.printf("[cfg] aux_mode = 0x%02X (saved)\n", _cfg.auxMode);
             return;
         }
+
+        if (strncmp(rest, "profile_aux ", 12) == 0) {
+            uint8_t ch = static_cast<uint8_t>(strtoul(rest + 12, nullptr, 10));
+            if (ch > 12) { out.println("[cfg] profile_aux must be 0-12"); return; }
+            setProfileAuxChannel(ch);
+            if (ch) out.printf("[cfg] profile_aux = AUX%u (saved)\n", ch);
+            else out.println("[cfg] profile_aux = disabled (saved)");
+            return;
+        }
+        if (strncmp(rest, "profile_low ", 12) == 0) { setProfileId(0, strtoul(rest + 12, nullptr, 0)); out.printf("[cfg] profile_low = %lu (saved)\n", (unsigned long)_cfg.profileLow); return; }
+        if (strncmp(rest, "profile_mid ", 12) == 0) { setProfileId(1, strtoul(rest + 12, nullptr, 0)); out.printf("[cfg] profile_mid = %lu (saved)\n", (unsigned long)_cfg.profileMid); return; }
+        if (strncmp(rest, "profile_high ", 13) == 0) { setProfileId(2, strtoul(rest + 13, nullptr, 0)); out.printf("[cfg] profile_high = %lu (saved)\n", (unsigned long)_cfg.profileHigh); return; }
+        if (strncmp(rest, "profile_low_name ", 17) == 0) { setProfileName(0, rest+17); out.printf("[cfg] profile_low_name = %s (saved)\n", _cfg.profileLowName); return; }
+        if (strncmp(rest, "profile_mid_name ", 17) == 0) { setProfileName(1, rest+17); out.printf("[cfg] profile_mid_name = %s (saved)\n", _cfg.profileMidName); return; }
+        if (strncmp(rest, "profile_high_name ", 18) == 0) { setProfileName(2, rest+18); out.printf("[cfg] profile_high_name = %s (saved)\n", _cfg.profileHighName); return; }
+        if (strncmp(rest, "profile_osd ", 12) == 0) { setProfileOsdEnabled(atoi(rest+12) != 0); out.printf("[cfg] profile_osd = %s (saved)\n", _cfg.profileOsdEnabled ? "true" : "false"); return; }
+        if (strncmp(rest, "profile_osd_dest ", 17) == 0) { uint8_t target=static_cast<uint8_t>(atoi(rest+17)); if(target<1||target>4){out.println("[cfg] profile_osd_dest must be 1-4");return;} setProfileOsdTarget(target); out.printf("[cfg] profile_osd_dest = %u (saved)\n", target); return; }
 
         if (strncmp(rest, "debug_ble ", 10) == 0) {
             const char *val = rest + 10;
@@ -840,6 +939,24 @@ void ConfigManager::setAuxMode(uint8_t mode) {
     _prefs.putUInt(KEY_AMD, mode);
 }
 
+void ConfigManager::setProfileAuxChannel(uint8_t ch) {
+    _cfg.profileAuxChannel = ch;
+    _prefs.putUInt(KEY_PACH, ch);
+}
+
+void ConfigManager::setProfileId(uint8_t position, uint32_t id) {
+    if (position == 0) { if (_cfg.profileLow != id) setProfileName(0, ""); _cfg.profileLow = id; _prefs.putUInt(KEY_PLOW, id); }
+    else if (position == 1) { if (_cfg.profileMid != id) setProfileName(1, ""); _cfg.profileMid = id; _prefs.putUInt(KEY_PMID, id); }
+    else if (position == 2) { if (_cfg.profileHigh != id) setProfileName(2, ""); _cfg.profileHigh = id; _prefs.putUInt(KEY_PHIGH, id); }
+}
+
+void ConfigManager::setProfileName(uint8_t position, const char *name) {
+    const char *src = name ? name : "";
+    if (position == 0) { strlcpy(_cfg.profileLowName, src, sizeof(_cfg.profileLowName)); _prefs.putString(KEY_PLNAME, _cfg.profileLowName); }
+    else if (position == 1) { strlcpy(_cfg.profileMidName, src, sizeof(_cfg.profileMidName)); _prefs.putString(KEY_PMNAME, _cfg.profileMidName); }
+    else if (position == 2) { strlcpy(_cfg.profileHighName, src, sizeof(_cfg.profileHighName)); _prefs.putString(KEY_PHNAME, _cfg.profileHighName); }
+}
+
 void ConfigManager::setCameraMatchMode(uint8_t v) {
     _cfg.cameraMatchMode = v;
     _prefs.putUInt(KEY_CMM, v);
@@ -953,3 +1070,6 @@ bool ConfigManager::setCaddxPass(const char *pass) {
     if (idx < 0 || !_registry->getEntry((uint8_t)idx, e) || e.cameraType != 2) return false;
     return _registry->setPassword((uint8_t)idx, pass);
 }
+
+void ConfigManager::setProfileOsdEnabled(bool enabled) { _cfg.profileOsdEnabled = enabled; _prefs.putBool(KEY_POSD, enabled); }
+void ConfigManager::setProfileOsdTarget(uint8_t target) { if (target < 1 || target > 4) target = 1; _cfg.profileOsdTarget = target; _prefs.putUInt(KEY_POSDT, target); }

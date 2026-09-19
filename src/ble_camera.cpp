@@ -17,8 +17,63 @@ void BLECamera::begin() {
 }
 
 void BLECamera::update() {
-    // Deferred connect ACK: send from the main loop, not from the BLE callback,
-    // to avoid calling writeValue() inside a BLE stack context (causes crash).
+    const uint32_t now = millis();
+
+    // Nano DUML request ACKs are queued by the BLE callback and written here;
+    // writing from inside the callback can re-enter the BLE stack and crash.
+    if (_pendingNanoRespLen && _bleConnected && _writeChar) {
+        const uint16_t n = _pendingNanoRespLen;
+        _pendingNanoRespLen = 0;
+        if (_debugBle) bleDebugDump(DBG_SERIAL, "TX", "Nano DUML ACK", _pendingNanoResp, n);
+        _writeChar->writeValue(_pendingNanoResp, n, false);
+        DBG_SERIAL.printf("[Nano] DUML response sent (%uB)\n", n);
+        return;
+    }
+
+    if (_pendingNanoPairComplete && _bleConnected) {
+        _pendingNanoPairComplete = false;
+        _nanoPaired = true;
+        _nanoPairApprovalNeeded = false;
+        DBG_SERIAL.println("[Nano] Pairing complete — starting persistent session");
+
+        // The camera remembers this identity after first approval, so only mark
+        // it preferred once the Nano has actually accepted our app-level pair.
+        if (_registry)
+            _registry->onConnected(_targetName.c_str(), _targetAddr.c_str(),
+                                   (uint8_t)_targetType, /*DJI=*/0);
+
+        beginNanoRsdk();
+        return;
+    }
+
+    // Hardware-verified Nano BLE sessions need this Mimo-style DUML keepalive
+    // or the camera tears the link down after roughly 5–6 seconds.
+    if (_isOsmoNano && _bleConnected && _nanoPaired &&
+        (now - _nanoLastKeepaliveMs) >= 1000UL) {
+        sendNanoKeepalive();
+        _nanoLastKeepaliveMs = now;
+    }
+
+    // If the first SetPairingPIN write was lost, retry with the same identity.
+    // Stop once the camera has answered with either ALREADY PAIRED or
+    // APPROVAL REQUIRED; the latter waits for the tester to approve on-camera.
+    if (_isOsmoNano && _bleConnected && !_nanoPaired && !_nanoPairApprovalNeeded) {
+        const uint32_t age = now - _nanoPairStartMs;
+        if ((age >= 2500UL && _nanoLastPairTxMs < _nanoPairStartMs + 2000UL) ||
+            (age >= 5000UL && _nanoLastPairTxMs < _nanoPairStartMs + 4500UL)) {
+            DBG_SERIAL.println("[Nano] No pairing reply yet — retrying SetPairingPIN");
+            uint8_t payload[96];
+            uint16_t o = 0;
+            o += nano_pack_string(payload + o, sizeof(payload) - o,
+                                  "284ae5b8d76b3375a04a6417ad71bea3");
+            o += nano_pack_string(payload + o, sizeof(payload) - o, "cambuddy");
+            sendNanoDuml(0x0702, 0x8092, 0x40, 0x07, 0x45, payload, o);
+            _nanoLastPairTxMs = now;
+        }
+    }
+
+    // Deferred R-SDK connect ACK: send from the main loop, not from the BLE
+    // callback, to avoid calling writeValue() inside a BLE stack context.
     if (_pendingConnectAck && _bleConnected && !_djiConnected) {
         _pendingConnectAck = false;
 
@@ -32,10 +87,29 @@ void BLECamera::update() {
             DBG_SERIAL.println("[DJI] Failed to send connect ACK");
         } else {
             DBG_SERIAL.println("[DJI] Connection established — subscribing to status");
-            if (sendStatusSubscription())
+            if (sendStatusSubscription()) {
                 _djiConnected = true;
+                if (_isOsmoNano) {
+                    _nanoLastStatusMs = 0;
+                    _nanoLastStatusPollMs = now;
+                    DBG_SERIAL.println("[Nano] R-SDK ready — ARM/disarm record control enabled");
+                }
+            }
         }
         return;
+    }
+
+    // Nano control/status stays on the hardware-proven BLE DUML path.
+    // 0x02/0x80 normally pushes at ~10 Hz; if it goes quiet, poke the camera
+    // with the documented 0x02/0x61 status poll and 0x02/0xA0 state query.
+    if (_isOsmoNano && _djiConnected &&
+        (now - _nanoLastStatusPollMs) >= 1500UL &&
+        (_nanoLastStatusMs == 0 || (now - _nanoLastStatusMs) >= 2000UL)) {
+        _nanoLastStatusPollMs = now;
+        DBG_SERIAL.println("[Nano] Status feed quiet — polling DUML camera status");
+        sendNanoDuml(0x0102, 0x8061, 0x00, 0x02, 0x61, nullptr, 0);
+        delay(15);
+        sendNanoDuml(0x0102, 0x80A0, 0x00, 0x02, 0xA0, nullptr, 0);
     }
 
     if (_djiConnected || _bleConnected || _scanning) return;
@@ -121,29 +195,42 @@ void BLECamera::scanDoneCallback(BLEScanResults /*r*/) {
 // in case the preferred device appears later in the window.
 void BLECamera::onResult(BLEAdvertisedDevice device) {
     bool isDJI = false;
+    bool isNano = false;
 
     if (device.haveManufacturerData()) {
         const std::string mfr = device.getManufacturerData();
-        if (mfr.size() >= 5 &&
+        if (mfr.size() >= 3 &&
             (uint8_t)mfr[0] == 0xAA &&
-            (uint8_t)mfr[1] == 0x08 &&
-            (uint8_t)mfr[4] == 0xFA) {
-            isDJI = true;
+            (uint8_t)mfr[1] == 0x08) {
+            // Existing Action cameras use the 0xFA marker at byte 4.
+            // Hardware-verified Osmo Nano advertisements use model byte 0x19.
+            if ((mfr.size() >= 5 && (uint8_t)mfr[4] == 0xFA) ||
+                (uint8_t)mfr[2] == 0x19) {
+                isDJI = true;
+                isNano = ((uint8_t)mfr[2] == 0x19);
+            }
         }
     }
 
-    if (!isDJI && device.haveName() &&
-        device.getName().find(DJI_DEVICE_NAME_PREFIX) != std::string::npos) {
-        isDJI = true;
+    if (device.haveName()) {
+        const std::string devName = device.getName();
+        if (!isDJI && devName.find(DJI_DEVICE_NAME_PREFIX) != std::string::npos)
+            isDJI = true;
+        if (devName.find("OsmoNano-") != std::string::npos) {
+            isDJI = true;
+            isNano = true;
+        }
     }
 
     if (!isDJI) return;
 
     std::string addr = device.getAddress().toString();
-    std::string name = device.haveName() ? device.getName() : "DJI Action";
+    std::string name = device.haveName() ? device.getName() :
+                       (isNano ? "DJI Osmo Nano" : "DJI Action");
 
-    DBG_SERIAL.printf("[BLE] Found DJI camera: \"%s\"  addr=%s  rssi=%d\n",
-                      name.c_str(), addr.c_str(), device.getRSSI());
+    DBG_SERIAL.printf("[BLE] Found DJI camera: \"%s\"  addr=%s  rssi=%d%s\n",
+                      name.c_str(), addr.c_str(), device.getRSSI(),
+                      isNano ? "  [Osmo Nano]" : "");
 
     if (_matchMode == CAM_MATCH_BEST_SIGNAL) {
         int8_t rssi = device.getRSSI();
@@ -187,7 +274,10 @@ void BLECamera::onResult(BLEAdvertisedDevice device) {
 // ─── Connect & characteristic discovery ──────────────────────────────────────
 
 bool BLECamera::connectAndSetup() {
-    DBG_SERIAL.printf("[BLE] Connecting to %s ...\n", _targetAddr.c_str());
+    _isOsmoNano = (_targetName.find("OsmoNano-") != std::string::npos ||
+                   _targetName.find("Osmo Nano") != std::string::npos);
+    DBG_SERIAL.printf("[BLE] Connecting to %s%s ...\n", _targetAddr.c_str(),
+                      _isOsmoNano ? " (Osmo Nano)" : "");
 
     if (!_client) {
         _client = BLEDevice::createClient();
@@ -236,33 +326,51 @@ bool BLECamera::connectAndSetup() {
         return false;
     }
     notifyCh->registerForNotify(notifyCallback);
-    DBG_SERIAL.println("[BLE] Subscribed to 0xFFF4 notify");
+    _notifyChar = notifyCh;
+    DBG_SERIAL.printf("[BLE] Subscribed to 0xFFF4 notify (write=%d writeNR=%d)\n",
+                      notifyCh->canWrite() ? 1 : 0,
+                      notifyCh->canWriteNoResponse() ? 1 : 0);
 
     // Write characteristic — ESP32 → camera.
-    // Older cameras: 0xFFF5.  DJI Action 5 Pro: 0xFFF5 reports w=0, fall back to 0xFFF3.
+    // Osmo Nano exposes 0xFFF5 as Write-Without-Response, while some Action
+    // bodies expose normal Write. Action 5 Pro may require the 0xFFF3 fallback.
+    _writeNoResponseOnly = false;
     _writeChar = svc->getCharacteristic(BLEUUID((uint16_t)DJI_WRITE_CHAR_UUID));
-    if (!_writeChar || !_writeChar->canWrite()) {
+    if (!_writeChar || (!_writeChar->canWrite() && !_writeChar->canWriteNoResponse())) {
         _writeChar = svc->getCharacteristic(BLEUUID((uint16_t)DJI_WRITE_CHAR_UUID_ALT));
     }
-    if (!_writeChar || !_writeChar->canWrite()) {
+    if (!_writeChar || (!_writeChar->canWrite() && !_writeChar->canWriteNoResponse())) {
         DBG_SERIAL.println("[BLE] No writable command char found (tried 0xFFF5, 0xFFF3)");
         _client->disconnect();
         _targetFound   = false;
         _lastAttemptMs = millis();
         return false;
     }
-    DBG_SERIAL.printf("[BLE] Write char 0x%04X ready\n",
-                      _writeChar->getUUID().getNative()->uuid.uuid16);
+    _writeNoResponseOnly = !_writeChar->canWrite() && _writeChar->canWriteNoResponse();
+    DBG_SERIAL.printf("[BLE] Write char 0x%04X ready (%s notify=%d)\n",
+                      _writeChar->getUUID().getNative()->uuid.uuid16,
+                      _writeNoResponseOnly ? "write-no-response" : "write",
+                      _writeChar->canNotify() ? 1 : 0);
+
+    // Nano can send DUML/R-SDK notifications on both FFF4 and FFF5.
+    if (_isOsmoNano && _writeChar->canNotify() && _writeChar != _notifyChar) {
+        _writeChar->registerForNotify(notifyCallback);
+        DBG_SERIAL.println("[Nano] Subscribed to 0xFFF5 notify too");
+    }
 
     _bleConnected = true;
 
-    // Record this camera in the registry so it is preferred on next boot
-    if (_registry)
-        _registry->onConnected(_targetName.c_str(), _targetAddr.c_str(),
-                               (uint8_t)_targetType, /*DJI=*/0);
-
-    // Kick off the DJI handshake; response arrives via notify callback
-    sendConnectionRequest();
+    // Existing Action cameras keep their proven R-SDK flow. Nano first needs
+    // DJI's app-level DUML pairing/session sequence; only after that do we probe
+    // the R-SDK status/record-control channel.
+    if (_isOsmoNano) {
+        startNanoPairing();
+    } else {
+        if (_registry)
+            _registry->onConnected(_targetName.c_str(), _targetAddr.c_str(),
+                                   (uint8_t)_targetType, /*DJI=*/0);
+        sendConnectionRequest();
+    }
     return true;
 }
 
@@ -275,6 +383,19 @@ void BLECamera::onDisconnect(BLEClient * /*c*/) {
     _djiConnected  = false;
     _bleConnected  = false;
     _writeChar     = nullptr;
+    _notifyChar    = nullptr;
+    _writeNoResponseOnly = false;
+    _isOsmoNano = false;
+    _nanoPaired = false;
+    _nanoPairApprovalNeeded = false;
+    _nanoRsdkStarted = false;
+    _nanoPairStartMs = 0;
+    _nanoLastPairTxMs = 0;
+    _nanoLastKeepaliveMs = 0;
+    _nanoLastStatusMs = 0;
+    _nanoLastStatusPollMs = 0;
+    _pendingNanoPairComplete = false;
+    _pendingNanoRespLen = 0;
     _targetFound   = false;
     _targetAddr    = "";
     _targetName    = "";
@@ -301,6 +422,245 @@ void BLECamera::printServices() {
     DBG_SERIAL.println("[BLE] ──────────────────────────────────────────");
 }
 
+// ─── Osmo Nano DUML pairing/session ─────────────────────────────────────────
+
+bool BLECamera::sendNanoDuml(uint16_t target, uint16_t id, uint8_t flags,
+                             uint8_t cmdSet, uint8_t cmdId,
+                             const uint8_t *payload, uint16_t payloadLen) {
+    if (!_writeChar) return false;
+    uint8_t frame[180];
+    const uint16_t n = nano_duml_build(frame, sizeof(frame), target, id,
+                                       flags, cmdSet, cmdId, payload, payloadLen);
+    if (!n) return false;
+    if (_debugBle) bleDebugDump(DBG_SERIAL, "TX", "Nano DUML", frame, n);
+    _writeChar->writeValue(frame, n, false);
+    DBG_SERIAL.printf("[Nano] DUML TX %02X/%02X flags=0x%02X id=0x%04X len=%u\n",
+                      cmdSet, cmdId, flags, id, n);
+    return true;
+}
+
+bool BLECamera::startNanoPairing() {
+    if (!_notifyChar || !_writeChar) return false;
+
+    _nanoPaired = false;
+    _nanoPairApprovalNeeded = false;
+    _nanoRsdkStarted = false;
+    _pendingNanoPairComplete = false;
+    _pendingNanoRespLen = 0;
+
+    // Hardware-verified Mimo/Osmosis sequence:
+    //   FFF4 <- [01 00]                    arm app-level pairing
+    //   DUML 00/2B [04 00] -> target F0   wake/session preamble
+    //   DUML 07/45 identifier + token     pair this app identity
+    const uint8_t arm[2] = {0x01, 0x00};
+    const bool armWithRsp = _notifyChar->canWrite();
+    if (!_notifyChar->canWrite() && !_notifyChar->canWriteNoResponse()) {
+        DBG_SERIAL.println("[Nano] FFF4 is not writable — cannot arm pairing");
+        return false;
+    }
+    _notifyChar->writeValue((uint8_t *)arm, sizeof(arm),
+                            armWithRsp ? true : false);
+    DBG_SERIAL.printf("[Nano] Pairing arm [01 00] -> FFF4 (%s)\n",
+                      armWithRsp ? "write-response" : "write-no-response");
+    delay(80);
+
+    const uint8_t wake[2] = {0x04, 0x00};
+    sendNanoDuml(0xF002, 0x802B, 0x40, 0x00, 0x2B, wake, sizeof(wake));
+    delay(120);
+
+    uint8_t payload[96];
+    uint16_t o = 0;
+    o += nano_pack_string(payload + o, sizeof(payload) - o,
+                          "284ae5b8d76b3375a04a6417ad71bea3");
+    o += nano_pack_string(payload + o, sizeof(payload) - o, "cambuddy");
+    const bool ok = sendNanoDuml(0x0702, 0x8092, 0x40, 0x07, 0x45, payload, o);
+    _nanoPairStartMs = millis();
+    _nanoLastPairTxMs = _nanoPairStartMs;
+    DBG_SERIAL.println("[Nano] SetPairingPIN sent (token='cambuddy'); first use may require approval on camera");
+    return ok;
+}
+
+void BLECamera::queueNanoResponse(const NanoDumlFrame &f) {
+    uint8_t payload[96];
+    const uint8_t *p = f.payload;
+    uint16_t plen = f.payloadLen;
+
+    // Mimo supplies an APP identity blob when the camera asks 00/81.
+    if (f.cmdSet == 0x00 && f.cmdId == 0x81) {
+        memset(payload, 0, sizeof(payload));
+        uint16_t o = 0;
+        payload[o++] = 0x00;
+        payload[o++] = 'A'; payload[o++] = 'P'; payload[o++] = 'P';
+        o += 37;
+        payload[o++] = 0x02;
+        o += 8;
+        payload[o++] = 0x02; payload[o++] = 0x08;
+        o += 10;
+        p = payload;
+        plen = o;
+    }
+
+    // Inbound target is receiver/sender; swap the two address bytes for reply.
+    const uint16_t replyTarget = (uint16_t)((f.target << 8) | (f.target >> 8));
+    const uint16_t n = nano_duml_build(_pendingNanoResp, sizeof(_pendingNanoResp),
+                                       replyTarget, f.id, 0xC0,
+                                       f.cmdSet, f.cmdId, p, plen);
+    if (!n) {
+        DBG_SERIAL.printf("[Nano] Could not build response for %02X/%02X\n",
+                          f.cmdSet, f.cmdId);
+        return;
+    }
+    _pendingNanoRespLen = n;
+    DBG_SERIAL.printf("[Nano] Queued response to inbound request %02X/%02X id=0x%04X\n",
+                      f.cmdSet, f.cmdId, f.id);
+}
+
+static uint16_t nanoLe16(const uint8_t *p) {
+    return (uint16_t)p[0] | ((uint16_t)p[1] << 8);
+}
+static uint32_t nanoLe32(const uint8_t *p) {
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
+           ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
+void BLECamera::handleNanoDuml(const NanoDumlFrame &f) {
+    DBG_SERIAL.printf("[Nano] DUML RX %02X/%02X flags=0x%02X id=0x%04X payload=%uB\n",
+                      f.cmdSet, f.cmdId, f.flags, f.id, f.payloadLen);
+
+    // Native Nano camera-status push (GetPushStateInfo), hardware-captured at ~10 Hz.
+    // Layout is documented from real Mimo/Nano captures.
+    if (f.cmdSet == 0x02 && f.cmdId == 0x80 && f.payload && f.payloadLen >= 58) {
+        const uint32_t stateFlags = nanoLe32(f.payload + 0);
+        const bool recording = (stateFlags & 0x00000080UL) != 0;
+        const uint8_t mode = f.payload[57];
+
+        _camera.valid = true;
+        _camera.has_recording = true;
+        _camera.recording = recording;
+        _camera.camera_mode = mode;
+        _camera.record_time = nanoLe16(f.payload + 29);
+
+        const uint32_t freeMb = nanoLe32(f.payload + 9);
+        _camera.remain_cap_mb = freeMb;
+        const uint16_t remainSec = nanoLe16(f.payload + 17);
+        _camera.remain_time = remainSec;
+        _camera.has_remain_time = (mode != DJI_MODE_PHOTO);
+
+        switch (f.payload[57]) {
+            case DJI_MODE_VIDEO:
+            case DJI_MODE_SLOW_MOTION:
+            case DJI_MODE_TIMELAPSE:
+            case DJI_MODE_PHOTO:
+            case DJI_MODE_HYPERLAPSE:
+                _activeProfile = f.payload[57];
+                break;
+            default:
+                break;
+        }
+
+        _nanoLastStatusMs = millis();
+        if (_cameraCb) _cameraCb(_camera);
+        DBG_SERIAL.printf("[Nano] status rec=%s mode=0x%02X time=%us free=%luMB remain=%us\n",
+                          recording ? "yes" : "no", mode,
+                          (unsigned)_camera.record_time,
+                          (unsigned long)freeMb, (unsigned)remainSec);
+        return;
+    }
+
+    // Nano battery push: percent is byte 20. Temperature exists in the packet
+    // but remains intentionally unavailable until its scale is hardware-verified.
+    if (f.cmdSet == 0x0D && f.cmdId == 0x02 && f.payload && f.payloadLen >= 21) {
+        const uint8_t pct = f.payload[20];
+        if (pct <= 100) {
+            _camera.percent = pct;
+            _camera.has_battery = true;
+            _camera.valid = true;
+            if (_cameraCb) _cameraCb(_camera);
+            DBG_SERIAL.printf("[Nano] battery=%u%%\n", pct);
+        }
+        return;
+    }
+
+    // 0x02/0xA0 state-query response carries elapsed recording seconds @6.
+    // Use it only as a supplement to the authoritative 0x02/0x80 recording bit.
+    if (f.cmdSet == 0x02 && f.cmdId == 0xA0 && f.payload && f.payloadLen >= 8) {
+        _camera.record_time = nanoLe16(f.payload + 6);
+        _nanoLastStatusMs = millis();
+        if (_camera.valid && _cameraCb) _cameraCb(_camera);
+        return;
+    }
+
+    // Record-control response. 00=accepted; state confirmation comes from 02/80.
+    if (f.cmdSet == 0x02 && f.cmdId == 0x02 && f.flags == 0xC0) {
+        const uint8_t ret = (f.payloadLen && f.payload) ? f.payload[0] : 0xFF;
+        if (ret == 0)
+            DBG_SERIAL.println("[Nano] Record command accepted — waiting for status bit");
+        else
+            DBG_SERIAL.printf("[Nano] Record command rejected: 0x%02X\n", ret);
+        return;
+    }
+
+    // Camera-originated requests must be ACKed or the Nano drops the BLE link.
+    if (f.flags == 0x40) {
+        queueNanoResponse(f);
+        if (f.cmdSet == 0x07 && f.cmdId == 0x46) {
+            DBG_SERIAL.println("[Nano] Pairing APPROVED by camera (07/46 request)");
+            _pendingNanoPairComplete = true;
+        }
+        return;
+    }
+
+    if (f.cmdSet == 0x07 && f.cmdId == 0x45) {
+        const int status = (f.payloadLen >= 2) ? f.payload[1] : -1;
+        if (status == 0x01) {
+            DBG_SERIAL.println("[Nano] Pairing status: ALREADY PAIRED");
+            _pendingNanoPairComplete = true;
+        } else if (status == 0x02) {
+            _nanoPairApprovalNeeded = true;
+            DBG_SERIAL.println("[Nano] Pairing status: APPROVAL REQUIRED — approve FPV CamBuddy on the Nano screen");
+        } else {
+            DBG_SERIAL.printf("[Nano] Pairing status unknown: 0x%02X\n",
+                              status < 0 ? 0xFF : status);
+        }
+    } else if (f.cmdSet == 0x07 && f.cmdId == 0x46) {
+        DBG_SERIAL.println("[Nano] Pairing APPROVED (07/46)");
+        _pendingNanoPairComplete = true;
+    }
+}
+
+void BLECamera::sendNanoKeepalive() {
+    const uint8_t keepalive[2] = {0x01, 0x01};
+    sendNanoDuml(0xF002, 0x802B, 0x40, 0x00, 0x2B,
+                 keepalive, sizeof(keepalive));
+}
+
+void BLECamera::beginNanoRsdk() {
+    if (_nanoRsdkStarted) return;
+    _nanoRsdkStarted = true;
+
+    // Mimo wakes the post-pair session with 53/10 addressed to type 0x1C.
+    const uint8_t wake5310[4] = {0, 0, 0, 0};
+    sendNanoDuml(0x1C02, 0x8053, 0x40, 0x53, 0x10,
+                 wake5310, sizeof(wake5310));
+    delay(120);
+    sendNanoKeepalive();
+    _nanoLastKeepaliveMs = millis();
+
+    // Nano's proven control plane is BLE DUML, not the 0xAA Action R-SDK
+    // handshake. Mark it connected once app-level pairing succeeds so MSP
+    // arm/disarm can drive the camera immediately.
+    _djiConnected = true;
+    _nanoLastStatusMs = 0;
+    _nanoLastStatusPollMs = 0;
+    DBG_SERIAL.println("[Nano] BLE DUML control ready — ARM/disarm record control enabled");
+
+    // Kick status/state once; regular pushes should follow.
+    delay(15);
+    sendNanoDuml(0x0102, 0x8061, 0x00, 0x02, 0x61, nullptr, 0);
+    delay(15);
+    sendNanoDuml(0x0102, 0x80A0, 0x00, 0x02, 0xA0, nullptr, 0);
+}
+
 // ─── DJI frame send ───────────────────────────────────────────────────────────
 
 bool BLECamera::sendFrame(uint8_t cmd_set, uint8_t cmd_id, uint8_t cmd_type,
@@ -313,7 +673,9 @@ bool BLECamera::sendFrame(uint8_t cmd_set, uint8_t cmd_id, uint8_t cmd_type,
                                   seq, payload, len);
     if (n == 0) return false;
     if (_debugBle) bleDebugDump(DBG_SERIAL, "TX", "0xFFF5", buf, n);
-    _writeChar->writeValue(buf, n, with_rsp);
+    // Never request an ATT response from a write-no-response-only characteristic
+    // (Osmo Nano 0xFFF5). Existing Action cameras keep their prior behaviour.
+    _writeChar->writeValue(buf, n, _writeNoResponseOnly ? false : with_rsp);
     return true;
 }
 
@@ -332,17 +694,33 @@ bool BLECamera::sendConnectionRequest() {
     req.mac_addr_len = 6;
     memcpy(req.mac_addr, mac, 6);
     req.fw_version  = 0x00;   // 0 = "no version" per DJI reference; non-zero triggers OTA update prompt
-    req.verify_mode = 0;      // 0 = reconnect (camera auto-approves); 1 = new pairing
-    req.verify_data = 0;
+    req.verify_mode = 0;
+    // Nano follows DJI's current R-SDK approval flow. A non-zero verification
+    // value gives the camera a concrete first-use approval request; already
+    // approved controllers still reconnect without user interaction.
+    req.verify_data = _isOsmoNano ? (uint16_t)(esp_random() % 10000U) : 0;
 
-    bool ok = sendFrame(DJI_CMDSET_GENERAL, DJI_CMD_CONNECT, DJI_CMD,
+    const uint8_t connectType = _isOsmoNano ? 0x02 : DJI_CMD;
+    bool ok = sendFrame(DJI_CMDSET_GENERAL, DJI_CMD_CONNECT, connectType,
                         reinterpret_cast<const uint8_t *>(&req), sizeof(req),
                         /*with_rsp=*/true);
-    if (ok) DBG_SERIAL.println("[DJI] Connection request sent");
+    if (ok) {
+        if (_isOsmoNano)
+            DBG_SERIAL.printf("[DJI] Osmo Nano R-SDK connection request sent (approval code=%u)\n", req.verify_data);
+        else
+            DBG_SERIAL.println("[DJI] Connection request sent");
+    }
     return ok;
 }
 
 bool BLECamera::startRecording() {
+    if (_isOsmoNano) {
+        if (!_bleConnected || !_nanoPaired) return false;
+        const uint8_t start = 0x01;
+        const bool ok = sendNanoDuml(0x0102, 0x8202, 0x40, 0x02, 0x02, &start, 1);
+        if (ok) DBG_SERIAL.println("[Nano] Record START sent via DUML 02/02");
+        return ok;
+    }
     DJIRecordControl ctrl{};
     ctrl.device_id = _deviceId;
     ctrl.action    = DJI_RECORD_START;
@@ -354,6 +732,13 @@ bool BLECamera::startRecording() {
 }
 
 bool BLECamera::stopRecording() {
+    if (_isOsmoNano) {
+        if (!_bleConnected || !_nanoPaired) return false;
+        const uint8_t stop = 0x00;
+        const bool ok = sendNanoDuml(0x0102, 0x8202, 0x40, 0x02, 0x02, &stop, 1);
+        if (ok) DBG_SERIAL.println("[Nano] Record STOP sent via DUML 02/02");
+        return ok;
+    }
     DJIRecordControl ctrl{};
     ctrl.device_id = _deviceId;
     ctrl.action    = DJI_RECORD_STOP;
@@ -365,6 +750,24 @@ bool BLECamera::stopRecording() {
 }
 
 bool BLECamera::switchCameraMode(uint8_t mode) {
+    if (_isOsmoNano) {
+        if (!_bleConnected || !_nanoPaired) return false;
+        // Sparse, hardware-captured Nano shooting-mode enum. Never sweep it.
+        switch (mode) {
+            case DJI_MODE_SLOW_MOTION:
+            case DJI_MODE_VIDEO:
+            case DJI_MODE_TIMELAPSE:
+            case DJI_MODE_PHOTO:
+            case DJI_MODE_HYPERLAPSE:
+                break;
+            default:
+                DBG_SERIAL.printf("[Nano] Unsupported shooting mode 0x%02X\n", mode);
+                return false;
+        }
+        const bool ok = sendNanoDuml(0x0102, 0x82E1, 0x40, 0x02, 0xE1, &mode, 1);
+        if (ok) DBG_SERIAL.printf("[Nano] Shooting mode 0x%02X sent via DUML 02/E1\n", mode);
+        return ok;
+    }
     DJICameraModeSwitch cmd{};
     cmd.device_id = _deviceId;
     cmd.mode      = mode;
@@ -373,6 +776,39 @@ bool BLECamera::switchCameraMode(uint8_t mode) {
                         /*with_rsp=*/true);
     if (ok) DBG_SERIAL.printf("[DJI] Mode switch 0x%02X sent\n", mode);
     return ok;
+}
+
+// DJI Action 4/5 Pro/6 profile support uses only the hardware-proven R-SDK
+// camera-mode switch. These cameras do not currently have a verified public
+// command for loading arbitrary native saved presets, so profile IDs are
+// deliberately limited to known camera modes instead of sending guessed DUML.
+// IDs are stable CamBuddy values and can therefore be assigned to AUX LOW/MID/HIGH.
+bool BLECamera::loadProfile(uint32_t profileId) {
+    if (!_djiConnected || _isOsmoNano) return false;
+    uint8_t mode;
+    switch (profileId) {
+        case DJI_MODE_VIDEO:       mode = DJI_MODE_VIDEO; break;
+        case DJI_MODE_SLOW_MOTION: mode = DJI_MODE_SLOW_MOTION; break;
+        case DJI_MODE_TIMELAPSE:   mode = DJI_MODE_TIMELAPSE; break;
+        case DJI_MODE_PHOTO:       mode = DJI_MODE_PHOTO; break;
+        case DJI_MODE_HYPERLAPSE:  mode = DJI_MODE_HYPERLAPSE; break;
+        default:
+            DBG_SERIAL.printf("[DJI-PROFILE] unsupported safe profile id=%lu\n", (unsigned long)profileId);
+            return false;
+    }
+    const bool ok = switchCameraMode(mode);
+    if (ok) _activeProfile = profileId;
+    return ok;
+}
+
+bool BLECamera::queryProfiles() {
+    if (!_djiConnected || _isOsmoNano) return false;
+    DBG_SERIAL.println("[DJI-PRESET] id=1 name=Video title=0 number=0");
+    DBG_SERIAL.println("[DJI-PRESET] id=0 name=Slow Motion title=0 number=0");
+    DBG_SERIAL.println("[DJI-PRESET] id=2 name=Timelapse title=0 number=0");
+    DBG_SERIAL.println("[DJI-PRESET] id=10 name=Hyperlapse title=0 number=0");
+    DBG_SERIAL.println("[DJI-PRESET] id=5 name=Photo title=0 number=0");
+    return true;
 }
 
 // Step 2 — subscribe to 2 Hz camera status push (battery, mode, temps, …).
@@ -403,9 +839,19 @@ void BLECamera::notifyCallback(BLERemoteCharacteristic * /*ch*/,
 void BLECamera::handleNotification(uint8_t *data, size_t length) {
     if (length == 0) return;
 
-    if (_debugBle) bleDebugDump(DBG_SERIAL, "RX", "0xFFF4", data, length);
+    if (_debugBle) bleDebugDump(DBG_SERIAL, "RX", "DJI BLE", data, length);
 
-    // 0x55-prefixed telemetry stream and anything else that isn't a DJI frame — ignore.
+    if (_isOsmoNano && data[0] == 0x55) {
+        NanoDumlFrame f;
+        if (nano_duml_parse(data, (uint16_t)length, f)) {
+            handleNanoDuml(f);
+        } else {
+            DBG_SERIAL.printf("[Nano] Unparsed DUML notification (%uB)\n", (unsigned)length);
+        }
+        return;
+    }
+
+    // R-SDK frames use the existing 0xAA transport.
     if (data[0] != DJI_SOF) return;
     if (length < 14) return;   // need at least SOF…CmdID
 
@@ -494,11 +940,30 @@ void BLECamera::handleConnectCommand(uint16_t camSeq, const uint8_t *payload,
     if (len >= 4) {
         uint32_t camDeviceId = (uint32_t)payload[0] | ((uint32_t)payload[1] << 8) |
                                ((uint32_t)payload[2] << 16) | ((uint32_t)payload[3] << 24);
-        DBG_SERIAL.printf("[DJI] Camera hello (seq=0x%04X) device_id=0x%08X — queuing ACK\n",
+        _cameraDeviceId = camDeviceId;
+        DBG_SERIAL.printf("[DJI] Camera hello (seq=0x%04X) device_id=0x%08X\n",
                           camSeq, camDeviceId);
     } else {
-        DBG_SERIAL.printf("[DJI] Camera hello (seq=0x%04X) — queuing ACK\n", camSeq);
+        DBG_SERIAL.printf("[DJI] Camera hello (seq=0x%04X)\n", camSeq);
     }
+
+    // Current R-SDK cameras, including Osmo Nano, put approval result in
+    // verify_mode @26 + verify_data @27 (u16 LE). verify_mode=2 / data=0 means
+    // approved. A non-zero data value is rejection; don't ACK it as connected.
+    if (len >= 29) {
+        const uint8_t verifyMode = payload[26];
+        const uint16_t verifyData = (uint16_t)payload[27] | ((uint16_t)payload[28] << 8);
+        DBG_SERIAL.printf("[DJI] Camera verify mode=%u data=%u\n", verifyMode, verifyData);
+        if (verifyMode == 2 && verifyData != 0) {
+            DBG_SERIAL.println("[DJI] Camera rejected controller approval");
+            if (_client) _client->disconnect();
+            return;
+        }
+        if (_isOsmoNano && verifyMode == 2 && verifyData == 0)
+            DBG_SERIAL.println("[DJI] Osmo Nano controller approved");
+    }
+
+    DBG_SERIAL.printf("[DJI] Queuing connection ACK seq=0x%04X\n", camSeq);
     _pendingAckSeq     = camSeq;
     _pendingConnectAck = true;
 }
@@ -520,43 +985,69 @@ void BLECamera::handleModeSwitchAck(const uint8_t *payload, uint16_t len) {
 }
 
 void BLECamera::handleCameraStatus(const uint8_t *payload, uint16_t len) {
-    if (len < sizeof(DJICameraStatus)) return;
-    const auto *s = reinterpret_cast<const DJICameraStatus *>(payload);
-
-    _camera.percent       = s->bat_percent;
-    _camera.recording     = (s->camera_status == 0x03);
-    _camera.has_battery = true;
-    _camera.has_recording = true;
-    _camera.has_temperature = true;
-    _camera.has_remain_time = true;
-    _camera.camera_mode   = s->camera_mode;
-    _camera.temp_over     = s->temp_over;
-    _camera.record_time   = s->record_time;
-    _camera.remain_cap_mb = s->remain_capacity;
-    _camera.remain_time   = s->remain_time;
-
-    // DJI eis_mode byte (0-4) maps directly to CAM_EIS_OFF..CAM_EIS_HB.
-    _camera.eis_mode = s->eis_mode;  // 0=off, 1=RS, 2=HS, 3=RS+, 4=HB
-
-    // video_resolution is a sparse code, not a sequential index — values per
-    // DJI's official protocol_data_segment.md (dji-sdk/Osmo-GPS-Controller-Demo).
-    // Photo-mode sizes (3/4) collide with video codes and aren't distinguished here.
-    switch (s->video_resolution) {
-        case 10:  _camera.resolution = CAM_RES_1080P;   break;  // 1080P
-        case 66:  _camera.resolution = CAM_RES_1080P;   break;  // 1080P 9:16
-        case 16:  _camera.resolution = CAM_RES_4K;       break;  // 4K 16:9
-        case 109: _camera.resolution = CAM_RES_4K;       break;  // 4K 9:16
-        case 103: _camera.resolution = CAM_RES_4K_WIDE;  break;  // 4K 4:3
-        case 45:  _camera.resolution = CAM_RES_2_7K;     break;  // 2.7K 16:9
-        case 67:  _camera.resolution = CAM_RES_2_7K;     break;  // 2.7K 9:16
-        case 95:  _camera.resolution = CAM_RES_2_7K;     break;  // 2.7K 4:3
-        default:  _camera.resolution = CAM_RES_UNKNOWN;  break;
+    if (_isOsmoNano) _nanoLastStatusMs = millis();
+    // Current DJI R-SDK bodies share the first seven bytes (mode/status/res/fps/
+    // EIS/record-time). Nano support keeps that useful subset even if a future
+    // firmware returns a shorter status struct than the 38-byte Action layout.
+    if (len < 7) {
+        DBG_SERIAL.printf("[DJI] Status push too short: %uB\n", len);
+        return;
     }
 
-    // fps_idx is likewise a sparse code (same source). In Slow Motion mode it's
-    // actually a multiplier and in Photo mode a burst count — not handled here,
-    // matching this function's pre-existing scope of video fps only.
-    switch (s->fps_idx) {
+    const uint8_t mode = payload[0];
+    const uint8_t status = payload[1];
+    const uint8_t videoResolution = payload[2];
+    const uint8_t fpsCode = payload[3];
+    const uint8_t eisMode = payload[4];
+    const uint16_t recordTime = (uint16_t)payload[5] | ((uint16_t)payload[6] << 8);
+
+    _camera.camera_mode = mode;
+    _activeProfile = mode;
+    _camera.recording = (status == 0x03 || status == 0x05);
+    _camera.has_recording = true;
+    _camera.record_time = recordTime;
+    _camera.eis_mode = eisMode;
+
+    if (len >= sizeof(DJICameraStatus)) {
+        const auto *s = reinterpret_cast<const DJICameraStatus *>(payload);
+        _camera.percent = s->bat_percent;
+        _camera.has_battery = true;
+        _camera.has_temperature = true;
+        _camera.has_remain_time = true;
+        _camera.temp_over = s->temp_over;
+        _camera.remain_cap_mb = s->remain_capacity;
+        _camera.remain_time = s->remain_time;
+    } else {
+        // Osmosis' hardware-tested R-SDK parser treats the last byte as battery
+        // on shorter camera-status variants. Surface it when it is plausible,
+        // while leaving unsupported temperature/storage fields invalid.
+        const uint8_t tail = payload[len - 1];
+        if (tail <= 100) {
+            _camera.percent = tail;
+            _camera.has_battery = true;
+        }
+        _camera.has_temperature = false;
+        _camera.has_remain_time = false;
+        _camera.temp_over = 0;
+        _camera.remain_cap_mb = 0;
+        _camera.remain_time = 0;
+        DBG_SERIAL.printf("[DJI] Short status variant %uB (Nano-compatible basic decode)\n", len);
+    }
+
+    // video_resolution is a sparse code, not a sequential index.
+    switch (videoResolution) {
+        case 10:  _camera.resolution = CAM_RES_1080P;   break;
+        case 66:  _camera.resolution = CAM_RES_1080P;   break;
+        case 16:  _camera.resolution = CAM_RES_4K;      break;
+        case 109: _camera.resolution = CAM_RES_4K;      break;
+        case 103: _camera.resolution = CAM_RES_4K_WIDE; break;
+        case 45:  _camera.resolution = CAM_RES_2_7K;    break;
+        case 67:  _camera.resolution = CAM_RES_2_7K;    break;
+        case 95:  _camera.resolution = CAM_RES_2_7K;    break;
+        default:  _camera.resolution = CAM_RES_UNKNOWN; break;
+    }
+
+    switch (fpsCode) {
         case 1:  _camera.fps_idx = CAM_FPS_24;  break;
         case 2:  _camera.fps_idx = CAM_FPS_25;  break;
         case 3:  _camera.fps_idx = CAM_FPS_30;  break;
@@ -571,15 +1062,13 @@ void BLECamera::handleCameraStatus(const uint8_t *payload, uint16_t len) {
     }
 
     _camera.valid = true;
-
     if (_cameraCb) _cameraCb(_camera);
 
-    DBG_SERIAL.printf("[DJI] bat=%u%%  mode=0x%02X  rec=%s  eis=%u  "
-                      "time=%us  sd=%uMB  remain=%us  temp=%u\n",
-                      s->bat_percent, s->camera_mode,
-                      _camera.recording ? "yes" : "no",
-                      s->eis_mode, s->record_time,
-                      s->remain_capacity, s->remain_time, s->temp_over);
+    DBG_SERIAL.printf("[DJI] bat=%s%u%%  mode=0x%02X  rec=%s  eis=%u  time=%us  status_len=%u\n",
+                      _camera.has_battery ? "" : "?",
+                      _camera.has_battery ? _camera.percent : 0,
+                      mode, _camera.recording ? "yes" : "no",
+                      eisMode, recordTime, len);
 }
 
 // 0x1D/0x06: newer cameras (Action 5 Pro, etc.) push mode name + params as ASCII.

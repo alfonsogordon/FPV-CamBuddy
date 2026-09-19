@@ -61,11 +61,17 @@ private:
     void startScan();
     bool connectAndSetup();
     void discoverBatteryService();  // best-effort; logs and continues on failure
-    bool sendCommand(uint16_t cmd);
+    bool sendCommand(uint16_t cmd, const uint8_t *payload = nullptr,
+                     uint16_t payloadLen = 0, uint32_t *seqOut = nullptr);
+    bool requestCaptureStatus();
+    bool requestTelemetryOptions();
 
     // ── Notification handling ─────────────────────────────────────────────────
     void handleNotification(uint8_t *data, size_t len);
     void handleBatteryNotification(uint8_t *data, size_t len);
+    void handleCaptureStatusPayload(const uint8_t *data, size_t len, bool wrapped);
+    void handleOptionsPayload(const uint8_t *data, size_t len);
+    void handleStorageUpdatePayload(const uint8_t *data, size_t len);
 
     // ── Static trampolines ────────────────────────────────────────────────────
     static void notifyCallback(BLERemoteCharacteristic *pChar,
@@ -102,8 +108,17 @@ private:
     // Set right after sending a start/stop command; cleared once the 200-OK
     // ack (or a failure) resolves it. Only one recording command is ever
     // in flight at a time, so no correlation beyond this flag is needed.
-    bool _awaitingRecordAck   = false;
-    bool _pendingRecordTarget = false;
+    bool     _awaitingRecordAck   = false;
+    bool     _pendingRecordTarget = false;
+    uint32_t _pendingRecordSeq    = 0;
+
+    // Lightweight telemetry polling over the same 0xBE80 BLE command channel.
+    // Sequence tracking prevents a telemetry 200-OK response from being
+    // mistaken for a record-start/stop acknowledgement.
+    uint32_t _pendingCaptureStatusSeq = 0;
+    uint32_t _pendingOptionsSeq       = 0;
+    uint32_t _lastCapturePollMs       = 0;
+    uint32_t _lastOptionsPollMs       = 0;
 
     CameraData _camera{};
 

@@ -17,6 +17,15 @@ public:
         bool stopOnDisarm;
         uint8_t auxChannel;
         uint8_t auxMode;
+        uint8_t profileAuxChannel;
+        uint32_t profileLow;
+        uint32_t profileMid;
+        uint32_t profileHigh;
+        char profileLowName[16];
+        char profileMidName[16];
+        char profileHighName[16];
+        bool profileOsdEnabled;
+        uint8_t profileOsdTarget;
         uint8_t cameraType;
         uint8_t cameraMatchMode;
         bool cameraWakeGuard;
@@ -65,6 +74,9 @@ public:
     static constexpr bool DEFAULT_STOP_ON_DISARM = true;
     static constexpr uint8_t DEFAULT_AUX_CHANNEL = 0;
     static constexpr uint8_t DEFAULT_AUX_MODE = 0x00;
+    static constexpr uint8_t DEFAULT_PROFILE_AUX_CHANNEL = 0;
+    static constexpr uint8_t DEFAULT_PROFILE_OSD_TARGET = 1;
+    static constexpr uint32_t DEFAULT_PROFILE_ID = 0;
     static constexpr uint8_t DEFAULT_CAMERA_TYPE = 1;
     static constexpr uint8_t DEFAULT_CAMERA_MATCH_MODE = 0;
     static constexpr bool DEFAULT_CAMERA_WAKE_GUARD = true;
@@ -117,12 +129,21 @@ public:
     void setRegistry(CameraRegistry *reg) { _registry = reg; }
     void setCamera(Camera *cam, const CameraData *data) { _camera = cam; _cameraData = data; }
     const Config &config() const { return _cfg; }
+    // Re-read the authoritative persisted Preferences/NVS values into RAM.
+    // Used by the AP configurator to prove a save survived storage before
+    // reporting success to the browser.
+    void reloadFromStorage() { load(); }
     void processCommand(const char *line, Stream &out);
     void setCameraType(uint8_t v);
     void setDisarmDelay(uint32_t ms);
     void setStopOnDisarm(bool v);
     void setAuxChannel(uint8_t ch);
     void setAuxMode(uint8_t mode);
+    void setProfileAuxChannel(uint8_t ch);
+    void setProfileId(uint8_t position, uint32_t id);
+    void setProfileName(uint8_t position, const char *name);
+    void setProfileOsdEnabled(bool enabled);
+    void setProfileOsdTarget(uint8_t target);
     void setCameraMatchMode(uint8_t v);
     void setCameraWakeGuard(bool v);
     void setDebugBle(bool v);

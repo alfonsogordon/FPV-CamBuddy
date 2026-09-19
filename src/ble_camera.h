@@ -10,6 +10,7 @@
 #include <esp_mac.h>            // esp_read_mac()
 #include "camera.h"
 #include "dji_protocol.h"
+#include "nano_duml.h"
 
 // BLE client for DJI Action cameras.
 //
@@ -35,6 +36,9 @@ public:
     bool startRecording() override;
     bool stopRecording() override;
     bool switchCameraMode(uint8_t mode) override;  // DJI_MODE_* constants
+    bool loadProfile(uint32_t profileId) override;
+    uint32_t activeProfileId() const override { return _activeProfile; }
+    bool queryProfiles() override;
 
 private:
     // BLE stack callbacks
@@ -47,6 +51,16 @@ private:
     bool connectAndSetup();         // BLE connect + char discovery + notify sub
     bool sendConnectionRequest();   // DJI handshake step 1
     bool sendStatusSubscription();  // DJI handshake step 2
+
+    // ── Osmo Nano DUML pre-session ─────────────────────────────────────────
+    bool startNanoPairing();
+    bool sendNanoDuml(uint16_t target, uint16_t id, uint8_t flags,
+                      uint8_t cmdSet, uint8_t cmdId,
+                      const uint8_t *payload = nullptr, uint16_t payloadLen = 0);
+    void handleNanoDuml(const NanoDumlFrame &f);
+    void queueNanoResponse(const NanoDumlFrame &f);
+    void beginNanoRsdk();
+    void sendNanoKeepalive();
 
     // ── DJI frame I/O ─────────────────────────────────────────────────────
     // override_seq >= 0 forces a specific seq number (for ACKing camera frames).
@@ -76,6 +90,20 @@ private:
     // ── State ─────────────────────────────────────────────────────────────
     BLEClient                *_client       = nullptr;
     BLERemoteCharacteristic  *_writeChar    = nullptr;
+    BLERemoteCharacteristic  *_notifyChar   = nullptr;   // FFF4; Nano pairing arm writes here
+    bool                      _writeNoResponseOnly = false;
+    bool                      _isOsmoNano = false;
+    bool                      _nanoPaired = false;
+    bool                      _nanoPairApprovalNeeded = false;
+    bool                      _nanoRsdkStarted = false;
+    uint32_t                  _nanoPairStartMs = 0;
+    uint32_t                  _nanoLastPairTxMs = 0;
+    uint32_t                  _nanoLastKeepaliveMs = 0;
+    uint32_t                  _nanoLastStatusMs = 0;
+    uint32_t                  _nanoLastStatusPollMs = 0;
+    bool                      _pendingNanoPairComplete = false;
+    uint8_t                   _pendingNanoResp[160]{};
+    uint16_t                  _pendingNanoRespLen = 0;
     std::string               _targetAddr;
     std::string               _targetName;
     esp_ble_addr_type_t       _targetType   = BLE_ADDR_TYPE_PUBLIC;
@@ -103,6 +131,8 @@ private:
     uint16_t                  _pendingAckSeq     = 0;
 
     uint32_t        _deviceId  = 0;      // device_id used in connect request
+    uint32_t        _cameraDeviceId = 0; // model id reported by camera hello
+    uint32_t        _activeProfile = 0;
     CameraData      _camera{};
 
     static BLECamera *_instance;

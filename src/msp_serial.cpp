@@ -196,7 +196,7 @@ void MSPSerial::update() {
     if (millis() - _lastPollMs >= 100) {
         _lastPollMs = millis();
         sendRequest(MSP_STATUS);
-        if (_auxChannel > 0) sendRequest(MSP_RC);
+        if (_auxChannel > 0 || _profileAuxChannel > 0) sendRequest(MSP_RC);
     }
     while (_serial->available()) feedByte(static_cast<uint8_t>(_serial->read()));
 }
@@ -265,15 +265,29 @@ void MSPSerial::handleStatusResponse() {
 }
 
 void MSPSerial::handleRcResponse() {
-    if (_auxChannel == 0) return;
-    const uint8_t rcIdx = 3 + _auxChannel;
-    if (_rxSize < static_cast<uint16_t>(rcIdx + 1) * 2) return;
-    uint16_t value = 0;
-    memcpy(&value, _rxBuf + rcIdx * 2, sizeof(value));
-    const bool high = value > 1500;
-    if (high != _auxHigh) {
-        _auxHigh = high;
-        if (_auxSwitchCb) _auxSwitchCb(high);
+    if (_auxChannel > 0) {
+        const uint8_t rcIdx = 3 + _auxChannel;
+        if (_rxSize >= static_cast<uint16_t>(rcIdx + 1) * 2) {
+            uint16_t value = 0;
+            memcpy(&value, _rxBuf + rcIdx * 2, sizeof(value));
+            const bool high = value > 1500;
+            if (high != _auxHigh) {
+                _auxHigh = high;
+                if (_auxSwitchCb) _auxSwitchCb(high);
+            }
+        }
+    }
+    if (_profileAuxChannel > 0) {
+        const uint8_t rcIdx = 3 + _profileAuxChannel;
+        if (_rxSize >= static_cast<uint16_t>(rcIdx + 1) * 2) {
+            uint16_t value = 0;
+            memcpy(&value, _rxBuf + rcIdx * 2, sizeof(value));
+            const uint8_t pos = value < 1300 ? 0 : (value > 1700 ? 2 : 1);
+            if (pos != _profilePosition) {
+                _profilePosition = pos;
+                if (_profileSwitchCb) _profileSwitchCb(pos);
+            }
+        }
     }
 }
 
@@ -281,6 +295,13 @@ void MSPSerial::setAuxChannel(uint8_t channel) {
     if (channel != _auxChannel) {
         _auxChannel = channel;
         _auxHigh = false;
+    }
+}
+
+void MSPSerial::setProfileAuxChannel(uint8_t channel) {
+    if (channel != _profileAuxChannel) {
+        _profileAuxChannel = channel;
+        _profilePosition = 0xFF;
     }
 }
 
@@ -311,6 +332,12 @@ void MSPSerial::sendCustomText(uint8_t textType, const char *text) {
     buf[1] = textLen;
     if (textLen) memcpy(buf + 2, text, textLen);
     sendFrame(MSP2_SET_TEXT, buf, 2 + textLen, '<');
+}
+
+void MSPSerial::showTransientMessage(uint8_t target, const char *text, uint16_t durationMs) {
+    _transientTarget = (target >= 1 && target <= 4) ? target : 1;
+    strlcpy(_transientText, text ? text : "", sizeof(_transientText));
+    _transientUntilMs = millis() + (durationMs < 100 ? 100 : durationMs);
 }
 
 void MSPSerial::sendCustomOSD1(const CameraData &data, const char *tpl) { sendCustomOSD(MSP_TEXT_CUSTOM_1, data, tpl); }
@@ -359,6 +386,16 @@ void MSPSerial::sendCustomOSD(uint8_t textType, const CameraData &data, const ch
     if (warningHere && warningPhase) {
         const uint8_t idx = static_cast<uint8_t>((millis() / 2000UL) % warningCount);
         sendCustomText(textType, warnings[idx]);
+        return;
+    }
+
+    // One-shot messages (for example camera profile changes) temporarily
+    // replace only their selected OSD destination, then the normal template
+    // returns automatically. Critical camera warnings retain priority.
+    const bool transientActive = _transientText[0] &&
+                                 static_cast<int32_t>(_transientUntilMs - millis()) > 0;
+    if (transientActive && destination == _transientTarget) {
+        sendCustomText(textType, _transientText);
         return;
     }
 

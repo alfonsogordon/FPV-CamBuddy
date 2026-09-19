@@ -32,6 +32,7 @@
 #define GP_CMD_SET_SHUTTER       0x01
 #define GP_CMD_GET_HARDWARE_INFO 0x3C
 #define GP_CMD_LOAD_PRESET_GROUP 0x3E
+#define GP_CMD_LOAD_PRESET       0x40  // uint32 big-endian runtime preset ID (Open GoPro)
 
 // Preset group values (parameter to GP_CMD_LOAD_PRESET_GROUP)
 #define GP_PRESET_VIDEO       0x00
@@ -79,6 +80,7 @@
 #define GP_STATUS_SD_REMAINING   54   // uint32 big-endian, MB remaining on SD
 #define GP_STATUS_BATTERY_PCT    70   // uint8: 0-100 %
 #define GP_STATUS_PRESET_GROUP   96   // uint8: 0=video, 1=photo, 2=timelapse
+#define GP_STATUS_CURRENT_PRESET 97   // uint32 big-endian runtime preset ID
 
 // ─── Setting IDs (queried via GP-0076, same channel as statuses) ──────────────
 // These are registered separately from the status IDs above (0x52 vs 0x53),
@@ -125,7 +127,8 @@
 
 // Reassembly state for one characteristic's incoming stream.
 struct GpRxAssembler {
-    uint8_t  buf[512];
+    static constexpr uint16_t CAPACITY = 4096;
+    uint8_t  buf[CAPACITY];
     uint16_t expected = 0;
     uint16_t pos      = 0;
 
@@ -134,9 +137,13 @@ struct GpRxAssembler {
         if (len == 0) return false;
 
         if (data[0] & 0x80) {
-            // Continuation packet
+            // Continuation packet. Reject oversized/malformed messages instead
+            // of writing past buf; preset-status protobuf responses can be much
+            // larger than the normal status TLVs.
+            if (expected == 0 || expected > CAPACITY || pos > expected) { reset(); return false; }
             size_t copy = len - 1;
             if (pos + copy > expected) copy = expected - pos;
+            if (pos + copy > CAPACITY) { reset(); return false; }
             memcpy(buf + pos, data + 1, copy);
             pos += (uint16_t)copy;
         } else {
@@ -153,8 +160,10 @@ struct GpRxAssembler {
                 return false;
             }
             pos = 0;
+            if (expected == 0 || expected > CAPACITY) { reset(); return false; }
             size_t copy = len - offset;
             if (copy > expected) copy = expected;
+            if (copy > CAPACITY) { reset(); return false; }
             memcpy(buf, data + offset, copy);
             pos = (uint16_t)copy;
         }

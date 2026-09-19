@@ -24,6 +24,12 @@ public:
     virtual bool stopRecording() = 0;
     // mode uses DJI_MODE_* constants; each implementation maps as needed.
     virtual bool switchCameraMode(uint8_t mode) = 0;
+    // Load a camera-native profile/preset by runtime ID. Backends that do not
+    // expose native presets leave this unsupported.
+    virtual bool loadProfile(uint32_t profileId) { (void)profileId; return false; }
+    virtual uint32_t activeProfileId() const { return 0; }
+    // Query camera-native profiles/presets when the backend supports discovery.
+    virtual bool queryProfiles() { return false; }
     // Trigger a burst slow-motion capture (GoPro only; no-op on other cameras).
     virtual bool triggerBurstSloMo() { return false; }
     // Return to standard sub-mode after a burst slow-motion capture.

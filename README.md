@@ -26,7 +26,9 @@ FreeCLinker includes camera backends/support paths for:
 - **Insta360**
 - **Caddx**
 
-**FPV CamBuddy hardware-tested:** GoPro HERO11 Black Mini and GoPro MAX2.
+**FPV CamBuddy hardware-tested:** GoPro HERO11 Black Mini, GoPro MAX2, and core DJI Osmo Nano BLE/recording/telemetry behaviour.
+
+**V1.0.2 profile work:** GoPro native saved-preset discovery, naming, persistence and AUX switching are hardware-confirmed. DJI Action 4 / 5 Pro / 6 expose verified basic camera modes through the same profile UI, but genuine DJI Custom Modes 1–5 are still under investigation. Insta360 telemetry/ARM behaviour remains in active testing, and dedicated DJI Action 2 work is still pending.
 
 The other camera families are supported by the FreeCLinker firmware foundations/backends but have **not necessarily been physically validated by FPSteVe**. Protocol capabilities and available OSD telemetry can vary by camera family and model.
 
@@ -46,6 +48,8 @@ You can exercise the same behaviour interactively in the **OSD Preview** inside 
 - Configurable delayed stop after disarm — **5 seconds by default**
 - Optional AUX camera-mode control
 - GoPro Burst Slo-Mo support through AUX while recording
+- GoPro native saved-preset discovery and LOW / MIDDLE / HIGH AUX profile switching
+- Optional name-only profile-change OSD notification for about 2.5 seconds
 - GoPro BLE keepalive while connected
 - Camera matching for multi-camera setups
 - Low-power radio mode to reduce RF output near the flight-control/RC system
@@ -76,6 +80,7 @@ You can exercise the same behaviour interactively in the **OSD Preview** inside 
 - Read-back verification after saving
 - Settings stored on the C3 and retained across power cycles
 - Integrated live OSD Preview
+- Demo Mode profile simulation with built-in CINEMATIC / ACTION / SLOW MOTION examples
 - Preview controls for ARM, recording, camera errors/hot state and first-arm reset
 - Fresh-board defaults designed to be useful without a long setup session
 
@@ -115,7 +120,9 @@ The following have been physically confirmed on the FPV CamBuddy hardware-test s
 - REC-only while armed + recording, including flashing REC
 - First-arm **CLEAN LENS** behaviour
 - Configurator read, save, read-back verification and settings persistence after reconnect/power cycle
-- GoPro keepalive: camera stays connected while FreeCLinker is powered and returns to normal camera auto-power-off behaviour when FreeCLinker is removed
+- GoPro keepalive: camera stays connected while FPV CamBuddy is powered and returns to normal camera auto-power-off behaviour when FPV CamBuddy is removed
+- GoPro native saved-preset discovery, names, persistence and AUX profile switching
+- DJI Osmo Nano native BLE pairing/session, ARM-triggered recording and core recording/mode/battery/storage/remaining-time telemetry
 - Web flasher and post-flash configuration flow
 
 Camera-warning behaviour and priority have been validated in the integrated Preview/firmware logic; individual warning conditions have not all been forced on the installed flight-test camera.
@@ -124,7 +131,9 @@ Camera-warning behaviour and priority have been validated in the integrated Prev
 
 **Betaflight 2026.6+ Custom Messages 1–4** are implemented and exercised through the FPSteVe OSD Preview/firmware logic, but have **not yet been physically tested against a flight controller running that Betaflight generation**. The V1 hardware available for testing currently runs Betaflight 4.5, so this distinction is intentional.
 
-Camera-family support beyond the GoPro models listed above has not necessarily been physically validated by FPSteVe. Some telemetry fields also depend on what a particular camera/model reports over its protocol.
+The V1.0.2 profile-name OSD notification, its USB/AP on-off setting and Demo Mode profile simulation are implemented and are awaiting the staged test sequence: Demo Mode first, then a connected board/configurator, then the board installed in the quad.
+
+Insta360 is in active hardware investigation: BLE connection and configurator recording control have been observed, while richer telemetry and ARM-trigger behaviour still need validation. DJI Action 4 / 5 Pro / 6 retain the existing backend and expose verified camera modes, but native Custom Modes 1–5 are not claimed until the recall command is verified. DJI Action 2 dedicated support remains pending. Sony, Blackmagic and Caddx retain upstream support paths without FPSteVe hardware confirmation.
 
 ## Quick hardware connection
 

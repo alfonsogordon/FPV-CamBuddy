@@ -327,7 +327,7 @@
     <div class="config-card">
       <div class="card-header">
         <h2>Recording Control</h2>
-        <button id="readBtn" disabled>Read from device</button>
+        <div style="display:flex;gap:6px"><button id="diagBtn" disabled>AP Diagnostic Log</button><button id="readBtn" disabled>Read from device</button></div>
       </div>
 
       <!-- Camera type -->
@@ -337,7 +337,7 @@
           <div class="cfg-field-desc">Select the camera protocol. <strong>Reboot required to apply.</strong></div>
         </div>
         <select id="cameraType" disabled>
-          <option value="0">DJI Action</option>
+          <option value="0">DJI Action / Osmo Nano</option>
           <option value="1">GoPro</option>
           <option value="2">Caddx Orca</option>
           <option value="3">Sony Alpha</option>
@@ -426,8 +426,10 @@
     <!-- Camera Mode Switch card -->
     <div class="config-card" style="margin-top: 16px;">
       <div class="card-header">
-        <h2>Camera Mode Switch</h2>
+        <h2>AUX Switches</h2>
       </div>
+
+      <div class="cfg-field" style="flex-direction:column;align-items:flex-start;"><div class="cfg-field-name" style="font-weight:700;">Camera Mode Switch</div><div class="cfg-field-desc">Two-position AUX control: low returns to Video; high selects the camera shooting mode below. This is separate from saved camera profiles/presets.</div></div>
 
       <!-- Disarm delay: always available, including normal arm-switch mode -->
       <div class="cfg-field" style="flex-direction:column; align-items:flex-start;">
@@ -482,6 +484,38 @@
         <span class="saved-msg" id="auxSavedMsg"></span>
         <button id="auxApplyBtn" class="primary" disabled>Apply</button>
       </div>
+
+      <!-- Camera Profile Switch -->
+      <div class="cfg-field" style="flex-direction:column;align-items:flex-start;"><div class="cfg-field-name" style="font-weight:700;">Camera Profile Switch <span style="color:#f7c948;font-size:.72em;">V1.0.2 TEST</span></div><div class="cfg-field-desc">Independent three-position AUX control for saved camera profiles/presets. It can be used alongside Camera Mode Switch on a different AUX channel.</div></div>
+      <div class="cfg-field"><div class="cfg-field-text"><div class="cfg-field-name">Profile AUX Channel</div><div class="cfg-field-desc">Independent 3-position AUX switch. Low &lt;1300, middle 1300-1700, high &gt;1700 µs.</div></div>
+        <select id="profileAux" disabled><option value="0">Disabled</option><option value="1">AUX 1</option><option value="2">AUX 2</option><option value="3">AUX 3</option><option value="4">AUX 4</option><option value="5">AUX 5</option><option value="6">AUX 6</option><option value="7">AUX 7</option><option value="8">AUX 8</option><option value="9">AUX 9</option><option value="10">AUX 10</option><option value="11">AUX 11</option><option value="12">AUX 12</option></select>
+      </div>
+      <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">
+        <div class="cfg-field-name">Camera presets</div>
+        <div class="cfg-field-desc">GoPro: discover the presets currently available on the connected camera, then assign one to each switch position. CamBuddy stores the camera's native IDs internally.</div>
+        <div style="width:100%;margin-top:10px;"><button id="profileDiscoverBtn" type="button" disabled>Discover Camera Profiles</button> <span class="cfg-field-desc" id="profileDiscoverStatus">Connect the camera first.</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;width:100%;margin-top:10px;align-items:center;">
+          <label>LOW</label><select id="profileLow" disabled><option value="0">Unassigned</option></select>
+          <label>MIDDLE</label><select id="profileMid" disabled><option value="0">Unassigned</option></select>
+          <label>HIGH</label><select id="profileHigh" disabled><option value="0">Unassigned</option></select>
+        </div>
+        <div class="cfg-field"><div class="cfg-field-text"><div class="cfg-field-name">Show profile name in OSD</div><div class="cfg-field-desc">Show the selected profile name for about 2.5 seconds when the AUX profile changes.</div></div><label class="switch"><input type="checkbox" id="profileOsd" checked><span class="track"><span class="thumb"></span></span></label></div>
+        <div class="cfg-field"><div class="cfg-field-text"><div class="cfg-field-name">Display in</div><div class="cfg-field-desc">Choose which enabled OSD destination shows the temporary profile name.</div></div><select id="profileOsdDest"><option value="1">Custom Message 1</option><option value="2">Custom Message 2</option><option value="3">Custom Message 3</option><option value="4">Custom Message 4</option></select></div>
+        <div class="cfg-field-desc" style="margin-top:10px;">GoPro uses native saved presets. DJI Action 4 / 5 Pro / 6 safely exposes verified camera modes (Video, Slow Motion, Timelapse, Hyperlapse and Photo) as switchable profiles; arbitrary native DJI saved presets remain disabled until a verified command is available.</div>
+        <details style="width:100%;margin-top:12px;">
+          <summary style="cursor:pointer;font-weight:700;color:#d8b4fe;">More info — how profiles work &amp; camera testing status</summary>
+          <div class="cfg-field-desc" style="margin-top:10px;line-height:1.55;">
+            <b>How it works:</b> Profile switching uses its own independent 3-position AUX channel. LOW is below 1300 µs, MIDDLE is 1300–1700 µs and HIGH is above 1700 µs. Each position stores a camera-specific profile/preset ID. A value of 0 means unassigned.<br><br>            <b>OSD notification:</b> After CamBuddy accepts a profile switch it temporarily shows <b>only the profile name</b>, for example <b>POV</b> or <b>Custom</b>, in the selected profile OSD Display in destination for about 2.5 seconds, then automatically restores the normal OSD template. Critical camera warnings keep priority. If a profile ID was entered manually and has no saved name, the OSD safely falls back to LOW/MID/HIGH.<br><br>
+
+            <b>Discovery:</b> While a supported camera is connected, use <b>Discover Camera Profiles</b> above to ask the camera for the profiles CamBuddy can currently use. Assign the returned entries to LOW, MIDDLE and HIGH, then save/apply the settings. The Wi-Fi AP configurator cannot perform live discovery because camera BLE is deliberately stopped while AP mode is active, but it can view, edit and save the same persistent profile IDs.<br><br>
+            <b>GoPro:</b> Native saved preset discovery, named preset selection, LOW/MIDDLE/HIGH AUX switching and persistence have been tested on real hardware and are working. GoPro is currently the fully hardware-confirmed implementation.<br><br>
+            <b>DJI Action 4 / 5 Pro / 6:</b> V1.0.2 currently exposes the verified basic shooting modes (Video, Slow Motion, Timelapse, Hyperlapse and Photo) through the profile interface. Genuine DJI saved Custom Modes 1–5 have been identified in camera status, but their safe recall command is still under investigation, so native Custom Mode switching is <b>not yet implemented or hardware-confirmed</b>.<br><br>
+            <b>Osmo Nano:</b> Native BLE DUML pairing, ARM-triggered recording and core telemetry (including recording state, mode, battery, free storage and remaining time) are now hardware-confirmed working. Nano profile switching is not currently implemented/hardware-confirmed.<br><br>
+            <b>Other cameras:</b> Insta360 profile switching and DJI Action 2 profile switching are not currently implemented. Profile IDs are camera/model-specific and should not be copied between different cameras unless explicitly supported.
+          </div>
+        </details>
+      </div>
+      <div class="card-footer"><span class="saved-msg" id="profileSavedMsg"></span><button id="profileApplyBtn" class="primary" disabled>Apply</button></div>
     </div>
 
     <!-- OSD Templates card -->
@@ -691,6 +725,18 @@ const auxChannelSel  = document.getElementById('auxChannel');
 const auxModeSel     = document.getElementById('auxMode');
 const auxApplyBtn    = document.getElementById('auxApplyBtn');
 const auxSavedMsg    = document.getElementById('auxSavedMsg');
+const profileAuxSel = document.getElementById('profileAux');
+const profileLowInput = document.getElementById('profileLow');
+const profileMidInput = document.getElementById('profileMid');
+const profileHighInput = document.getElementById('profileHigh');
+const profileApplyBtn = document.getElementById('profileApplyBtn');
+const profileSavedMsg = document.getElementById('profileSavedMsg');
+const profileDiscoverBtn = document.getElementById('profileDiscoverBtn');
+const profileDiscoverStatus = document.getElementById('profileDiscoverStatus');
+const profileOsdToggle = document.getElementById('profileOsd');
+const profileOsdDestSel = document.getElementById('profileOsdDest');
+let lastProfileIds={low:'0',mid:'0',high:'0'};
+function ensureProfileOption(sel,id,name){id=String(id||'0');if(id==='0')return;let o=[...sel.options].find(x=>x.value===id);if(!o){o=new Option(name||('Preset '+id),id);sel.add(o)}else if(name)o.textContent=name;}
 const osd1Input      = document.getElementById('osd1');
 const osd2Input      = document.getElementById('osd2');
 const osd3Input      = document.getElementById('osd3');
@@ -745,6 +791,11 @@ let lineBuf     = '';
 let collectingCams = false;
 let camLines       = [];
 let camTimer       = null;
+
+// ── GoPro native preset discovery ─────────────────────────────────────────────
+let collectingProfiles = false;
+let discoveredProfiles = [];
+let profileTimer = null;
 
 // ── CLI history ───────────────────────────────────────────────────────────────
 const history = [];
@@ -813,6 +864,16 @@ function parseConfigLine(line) {
   } else if (key === 'aux_mode') {
     // "0x0A" — parseInt auto-detects 0x prefix
     auxModeSel.value = parseInt(val).toString();
+  } else if (key === 'profile_aux') {
+    if (val === 'disabled') profileAuxSel.value='0'; else { const ch=val.match(/AUX(\d+)/); if(ch) profileAuxSel.value=ch[1]; }
+  } else if (key === 'profile_osd') { profileOsdToggle.checked=(val === 'true');
+  } else if (key === 'profile_osd_dest') { profileOsdDestSel.value=String(Math.max(1,Math.min(4,parseInt(val)||1)));
+  } else if (key === 'profile_ids') {
+    const m=val.match(/low:(\d+)\s+mid:(\d+)\s+high:(\d+)/); if(m){lastProfileIds={low:m[1],mid:m[2],high:m[3]};ensureProfileOption(profileLowInput,m[1]);ensureProfileOption(profileMidInput,m[2]);ensureProfileOption(profileHighInput,m[3]);profileLowInput.value=m[1];profileMidInput.value=m[2];profileHighInput.value=m[3];}
+  } else if (key === 'profile_names') { const m=val.match(/low:(.*?)\s+\|\s+mid:(.*?)\s+\|\s+high:(.*)$/); if(m){ensureProfileOption(profileLowInput,lastProfileIds.low,m[1].trim());ensureProfileOption(profileMidInput,lastProfileIds.mid,m[2].trim());ensureProfileOption(profileHighInput,lastProfileIds.high,m[3].trim());profileLowInput.value=lastProfileIds.low;profileMidInput.value=lastProfileIds.mid;profileHighInput.value=lastProfileIds.high;}
+  } else if (key === 'profile_low') { const id=String(parseInt(val)||0);lastProfileIds.low=id;ensureProfileOption(profileLowInput,id);profileLowInput.value=id;
+  } else if (key === 'profile_mid') { const id=String(parseInt(val)||0);lastProfileIds.mid=id;ensureProfileOption(profileMidInput,id);profileMidInput.value=id;
+  } else if (key === 'profile_high') { const id=String(parseInt(val)||0);lastProfileIds.high=id;ensureProfileOption(profileHighInput,id);profileHighInput.value=id;
   } else if (key === 'camera_match') {
     const CAMERA_MATCH_VALUES = { fallback: '0', strict: '1', best_signal: '2' };
     cameraMatchSel.value = CAMERA_MATCH_VALUES[val] ?? '0';
@@ -922,6 +983,7 @@ async function startReading() {
         parseConfigLine(clean);
         collectCameraLine(clean);
         collectWifiScanLine(clean);
+        collectProfileLine(clean);
       }
     }
   } catch {
@@ -981,6 +1043,10 @@ cmdInput.addEventListener('keydown', e => {
 
 // ── Easy Config actions ───────────────────────────────────────────────────────
 readBtn.addEventListener('click', () => sendCommand('show'));
+diagBtn.addEventListener('click', async () => {
+  document.querySelector('.tab[data-tab="cli"]')?.click();
+  await sendCommand('diag');
+});
 
 applyBtn.addEventListener('click', async () => {
   const delay      = parseInt(delayInput.value) || 0;
@@ -1027,6 +1093,32 @@ auxApplyBtn.addEventListener('click', async () => {
   flashSaved(auxSavedMsg);
 });
 
+profileApplyBtn.addEventListener('click', async () => {
+  // Snapshot all values before sending anything. Each "set" response is parsed
+  // immediately and can update the controls while this async save sequence is
+  // still running; reading .value after an await could therefore save a later
+  // field as 0/Disabled instead of what the user selected.
+  const aux  = profileAuxSel.value;
+  const low  = parseInt(profileLowInput.value) || 0;
+  const mid  = parseInt(profileMidInput.value) || 0;
+  const high = parseInt(profileHighInput.value) || 0;
+  const label = sel => (sel.selectedOptions[0]?.textContent || '').trim().slice(0, 15);
+  const lowName = low ? label(profileLowInput) : '';
+  const midName = mid ? label(profileMidInput) : '';
+  const highName = high ? label(profileHighInput) : '';
+  await sendCommand(`set profile_aux ${aux}`);
+  await sendCommand(`set profile_low ${low}`);
+  await sendCommand(`set profile_mid ${mid}`);
+  await sendCommand(`set profile_high ${high}`);
+  await sendCommand(`set profile_osd ${profileOsdToggle.checked ? 1 : 0}`);
+  await sendCommand(`set profile_osd_dest ${profileOsdDestSel.value==='craft'?2:(parseInt(profileOsdDestSel.value)||1)}`);
+  if (low) await sendCommand(`set profile_low_name ${lowName}`);
+  if (mid) await sendCommand(`set profile_mid_name ${midName}`);
+  if (high) await sendCommand(`set profile_high_name ${highName}`);
+  // Read the board back after saving so the UI reflects persisted values.
+  await sendCommand('show');
+  flashSaved(profileSavedMsg);
+});
 osdApplyBtn.addEventListener('click', async () => {
   await sendCommand(`set osd1 ${osd1Input.value}`);
   await sendCommand(`set osd2 ${osd2Input.value}`);
@@ -1117,6 +1209,58 @@ function updateDelayEquiv() {
   const ms = parseInt(delayInput.value) || 0;
   delayEquiv.textContent = ms === 0 ? '(immediate)' : `= ${(ms / 1000).toFixed(ms % 1000 === 0 ? 0 : 1)} s`;
 }
+
+
+// ── GoPro preset discovery ────────────────────────────────────────────────────
+function startProfileCapture() {
+  collectingProfiles = true;
+  discoveredProfiles = [];
+  clearTimeout(profileTimer);
+  profileDiscoverStatus.textContent = 'Querying camera…';
+  profileDiscoverBtn.disabled = true;
+  profileTimer = setTimeout(finalizeProfileCapture, 5000);
+}
+
+function collectProfileLine(line) {
+  if (!collectingProfiles) return;
+  const m = line.match(/^\[(?:GP|DJI)-PRESET\]\s+id=(\d+)\s+name=(.*?)\s+title=(\d+)\s+number=(-?\d+)/);
+  if (m) {
+    discoveredProfiles.push({ id: m[1], name: m[2].trim() || ('Preset ' + m[1]) });
+    clearTimeout(profileTimer);
+    profileTimer = setTimeout(finalizeProfileCapture, 500);
+  }
+}
+
+function finalizeProfileCapture() {
+  if (!collectingProfiles) return;
+  collectingProfiles = false;
+  clearTimeout(profileTimer);
+  if (!discoveredProfiles.length) {
+    profileDiscoverStatus.textContent = 'No profiles returned. Make sure a supported GoPro or DJI Action camera is connected.';
+    profileDiscoverBtn.disabled = !port;
+    return;
+  }
+  const unique = [...new Map(discoveredProfiles.map(p => [p.id, p])).values()];
+  for (const sel of [profileLowInput, profileMidInput, profileHighInput]) {
+    const previous = sel.value;
+    sel.innerHTML = '<option value="0">Unassigned</option>';
+    for (const p of unique) {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name;
+      sel.appendChild(opt);
+    }
+    if ([...sel.options].some(o => o.value === previous)) sel.value = previous;
+  }
+  profileDiscoverStatus.textContent = unique.length + ' presets found.';
+  profileDiscoverBtn.disabled = !port;
+}
+
+profileDiscoverBtn.addEventListener('click', async () => {
+  if (!port) return;
+  startProfileCapture();
+  await sendCommand('profile query');
+});
 
 // ── Cameras ───────────────────────────────────────────────────────────────────
 function startCamCapture() {
@@ -1336,6 +1480,7 @@ function setConnected(connected) {
   cmdInput.disabled      = !connected;
   sendBtn.disabled       = !connected;
   readBtn.disabled       = !connected;
+  diagBtn.disabled       = !connected;
   applyBtn.disabled      = !connected;
   cameraTypeSel.disabled = !connected;
   caddxSsidInput.disabled = !connected;
@@ -1351,6 +1496,13 @@ function setConnected(connected) {
   delayInput.disabled    = !connected;
   auxChannelSel.disabled = !connected;
   auxApplyBtn.disabled   = !connected;
+  profileAuxSel.disabled = !connected;
+  profileLowInput.disabled = !connected;
+  profileMidInput.disabled = !connected;
+  profileHighInput.disabled = !connected;
+  profileDiscoverBtn.disabled = !connected;
+  if (!connected) profileDiscoverStatus.textContent = 'Connect the camera first.';
+  profileApplyBtn.disabled = !connected;
   osd1Input.disabled     = !connected;
   osd2Input.disabled     = !connected;
   osd3Input.disabled     = !connected;
