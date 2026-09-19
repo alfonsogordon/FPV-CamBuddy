@@ -49,6 +49,18 @@ When everything has been written and read back successfully you'll see:
 
 That's the C3 configuration done. You do not need to copy settings into a terminal or use Betaflight CLI commands.
 
+## Optional field / Wi-Fi AP configurator
+
+When the FPV CamBuddy configuration AP is active, connect your phone to the open Wi-Fi network **FPVCamBuddy**, then open:
+
+**http://cambuddy.local**
+
+If your phone/browser does not resolve `.local` names, use the fixed fallback address:
+
+**http://192.168.4.1**
+
+The BOOT-button force-AP recovery remains available if you need to bring the local configurator up manually.
+
 ## 3. Connect the C3 to your flight controller
 
 FreeCLinker needs one spare flight-controller UART.
