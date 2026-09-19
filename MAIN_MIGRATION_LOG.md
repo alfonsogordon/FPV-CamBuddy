@@ -120,3 +120,11 @@ For individual migration commits, prefer `git revert <migration-commit-sha>` so 
 - Ordinary V1.0.1-compatible controls remain governed only by connection state.
 - Rollback, newest first: `git revert c53020718d541f62658dfe775e476d7bd3cf7813`, then `git revert 3ad6d11898595e4457f0ee260d9d66cdafedecbc`.
 - Hardware verification is still pending; this is source/CI hardening only.
+
+### Final source/CI audit checkpoint
+- Exact main `ca7be6841b7609594ee956dccbf676255c889899` passed **Validate FPV CamBuddy** (run `35434146673`) and **Deploy GitHub Pages** (run `35434146665`). A later Pages deployment for the same SHA also succeeded (run `35434242045`).
+- Source audit confirms: firmware reports `1.0.2`; new FPV CamBuddy version reply is present; legacy FreeCLinker version replies remain accepted for old-firmware detection; autosync issues `version` before `show` for both read and post-save verification; the V1.0.2 capability gate remains in place.
+- Production flasher source contains the validated main-candidate option and metadata lookup.
+- Homepage source has no redundant `Original FreeCLinker` footer-nav link; the dedicated Original FreeCLinker credit panel and bottom `FreeCLinker by sheeprine` attribution remain intact; footer displays FPV CamBuddy V1.0.2.
+- Frozen `v1.0.2` remains untouched at `139d47de841ed7fe0c9198019926b5bb635e2285`.
+- Remaining acceptance work is Steve's browser/real-board testing. No release/tag and no old FreeCLinker relink has been performed.
