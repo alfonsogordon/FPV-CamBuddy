@@ -487,7 +487,7 @@
 
       <!-- Camera Profile Switch -->
       <div class="cfg-field" style="flex-direction:column;align-items:flex-start;"><div class="cfg-field-name" style="font-weight:700;">Camera Profile Switch <span style="color:#f7c948;font-size:.72em;">V1.0.2 TEST</span></div><div class="cfg-field-desc">Independent three-position AUX control for saved camera profiles/presets. It can be used alongside Camera Mode Switch on a different AUX channel.</div></div>
-      <div class="cfg-field"><div class="cfg-field-text"><div class="cfg-field-name">Profile AUX Channel</div><div class="cfg-field-desc">Independent 3-position AUX switch. Low &lt;1300, middle 1300-1700, high &gt;1700 µs.</div></div>
+      <div id="firmwareGateNotice" style="display:none;width:100%;margin:0 0 12px;padding:10px 12px;border:1px solid #f7c948;border-radius:6px;background:#2a2208;color:#f7d96b;font-size:12px;"></div>\n      <div class="cfg-field"><div class="cfg-field-text"><div class="cfg-field-name">Profile AUX Channel</div><div class="cfg-field-desc">Independent 3-position AUX switch. Low &lt;1300, middle 1300-1700, high &gt;1700 µs.</div></div>
         <select id="profileAux" disabled><option value="0">Disabled</option><option value="1">AUX 1</option><option value="2">AUX 2</option><option value="3">AUX 3</option><option value="4">AUX 4</option><option value="5">AUX 5</option><option value="6">AUX 6</option><option value="7">AUX 7</option><option value="8">AUX 8</option><option value="9">AUX 9</option><option value="10">AUX 10</option><option value="11">AUX 11</option><option value="12">AUX 12</option></select>
       </div>
       <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">
@@ -832,6 +832,40 @@ function log(text, cls = '') {
 }
 
 // ── Config line parser ────────────────────────────────────────────────────────
+let firmwareVersion = null;
+let firmwareVersionState = 'unknown';
+
+function parseSemver(v) {
+  const m = String(v || '').match(/(\d+)\.(\d+)\.(\d+)/);
+  return m ? [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])] : null;
+}
+function versionAtLeast(v, min) {
+  const a=parseSemver(v), b=parseSemver(min); if(!a||!b) return false;
+  for(let i=0;i<3;i++){ if(a[i]>b[i]) return true; if(a[i]<b[i]) return false; }
+  return true;
+}
+function updateFirmwareGate() {
+  const notice=document.getElementById('firmwareGateNotice');
+  const connectedNow=!!port;
+  const compatible=firmwareVersionState==='compatible';
+  const profileEls=[profileAuxSel,profileLowInput,profileMidInput,profileHighInput,profileDiscoverBtn,profileApplyBtn,profileOsdToggle,profileOsdDestSel];
+  profileEls.forEach(el=>{ if(el) el.disabled=!connectedNow || !compatible; });
+  if(!notice) return;
+  if(!connectedNow || compatible){ notice.style.display='none'; return; }
+  notice.style.display='block';
+  if(firmwareVersionState==='old') notice.innerHTML='Requires FPV CamBuddy firmware V1.0.2 or newer — <a href="flash.html" style="color:#ffe89a;text-decoration:underline;">update firmware</a> to enable Camera Profile Switch and Profile OSD.';
+  else if(firmwareVersionState==='development') notice.innerHTML='Development/test firmware detected ('+firmwareVersion+'). V1.0.2-only controls remain locked until a compatible semantic version is reported. <a href="flash.html" style="color:#ffe89a;text-decoration:underline;">Update firmware</a>.';
+  else notice.innerHTML='Firmware version not detected yet. V1.0.2-only controls remain locked until compatibility is confirmed. <a href="flash.html" style="color:#ffe89a;text-decoration:underline;">Update firmware</a>.';
+}
+function parseFirmwareVersionLine(line) {
+  const m=line.match(/\[cfg\]\s+(?:FPV CamBuddy|FreeCLinker) firmware v([^\s]+)/i);
+  if(!m) return;
+  firmwareVersion=m[1];
+  const sem=parseSemver(firmwareVersion);
+  firmwareVersionState=!sem?'development':(versionAtLeast(firmwareVersion,'1.0.2')?'compatible':'old');
+  updateFirmwareGate();
+}
+
 function parseConfigLine(line) {
   // "[cfg] disarm_delay    = 5000 ms"  or  "[cfg] stop_on_disarm  = true"
   // set-command responses append " (saved…)" — strip it before matching
@@ -980,7 +1014,7 @@ async function startReading() {
       for (const line of parts) {
         const clean = line.replace(/\r$/, '');
         log(clean);
-        parseConfigLine(clean);
+        parseFirmwareVersionLine(clean);\n        parseConfigLine(clean);
         collectCameraLine(clean);
         collectWifiScanLine(clean);
         collectProfileLine(clean);
@@ -1042,7 +1076,7 @@ cmdInput.addEventListener('keydown', e => {
 });
 
 // ── Easy Config actions ───────────────────────────────────────────────────────
-readBtn.addEventListener('click', () => sendCommand('show'));
+readBtn.addEventListener('click', async () => { firmwareVersion=null; firmwareVersionState='unknown'; updateFirmwareGate(); await sendCommand('version'); await sendCommand('show'); });
 diagBtn.addEventListener('click', async () => {
   document.querySelector('.tab[data-tab="cli"]')?.click();
   await sendCommand('diag');
