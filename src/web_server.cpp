@@ -5,6 +5,7 @@
 #include "diag_log.h"
 
 #include <WiFi.h>
+#include <ESPmDNS.h>
 #include <BLEDevice.h>
 #include <ArduinoJson.h>
 #include <cstring>
@@ -397,6 +398,18 @@ void WebConfigServer::begin(ConfigManager &cfg, CameraRegistry *reg, Stream *dbg
         _server.send(302, "text/plain", "");
     });
     _server.begin();
+
+    // Friendly local name for the field configurator. mDNS is optional:
+    // the fixed AP address remains available even on clients that do not
+    // resolve .local names.
+    const bool mdnsOk = MDNS.begin(WIFI_AP_HOSTNAME);
+    if (mdnsOk) {
+        MDNS.addService("http", "tcp", 80);
+        diagLog("AP mDNS ready host=%s.local", WIFI_AP_HOSTNAME);
+    } else {
+        diagLog("AP mDNS start failed host=%s.local; IP fallback remains available", WIFI_AP_HOSTNAME);
+    }
+
     _running = true;
     _lastStations = (int)WiFi.softAPgetStationNum();
     _apLostLogged = false;
@@ -423,6 +436,7 @@ void WebConfigServer::stop() {
     if (!_running) return;
 
     _server.stop();
+    MDNS.end();
     logRadioSnapshot("STOP-BEFORE");
     disablePromiscDiagnostics();
     WiFi.softAPdisconnect(true);
