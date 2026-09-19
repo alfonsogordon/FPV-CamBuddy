@@ -14,6 +14,7 @@ FPV CamBuddy builds on that foundation with a simplified configurator, GoPro-foc
 - **Web flasher:** https://alfonsogordon.github.io/FPV-CamBuddy/flash.html
 - **Quick start:** [QUICKSTART.md](QUICKSTART.md)
 - **Project website:** https://alfonsogordon.github.io/FPV-CamBuddy/
+- **V1.0.2 community test:** https://alfonsogordon.github.io/FPV-CamBuddy/community-test.html
 
 ## Supported cameras
 
