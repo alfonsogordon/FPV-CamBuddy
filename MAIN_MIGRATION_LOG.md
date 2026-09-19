@@ -144,3 +144,10 @@ For individual migration commits, prefer `git revert <migration-commit-sha>` so 
 - Planned implementation: start mDNS only after the FPVCamBuddy SoftAP is successfully configured; stop mDNS when AP mode stops; failure to start mDNS must not prevent the AP/IP configurator from working.
 - Documentation/UI references will advertise both `cambuddy.local` and the IP fallback.
 - Scope: main only. Frozen `v1.0.2` remains untouched. No release/tag.
+
+### AP local hostname implementation
+- `fa42623a63b8e381d497e6024db843bf231dc149`: defines AP hostname `cambuddy`.
+- `c7b45e9a3a3e64915c3c77755eb39e2d06aec3e0`: starts ESP32 mDNS as `cambuddy.local` after the AP/server starts, advertises HTTP on TCP/80, logs success/failure, and stops mDNS with AP mode. mDNS failure is non-fatal; `192.168.4.1` remains available.
+- `0cc8bd77322f7652ae34a5ad183e9b4319014c34`, `fe5a92afa4a6b7dfc0b3b38eed72dcfec0fbc1f6`, and `98adcf97b9540ca90fce2aee86af221b104a2f99` update README, Quick Start and homepage documentation respectively.
+- User-facing access while AP is active: join open SSID `FPVCamBuddy`, prefer `http://cambuddy.local`, fall back to `http://192.168.4.1` if the client/browser does not resolve mDNS.
+- Hardware verification of `cambuddy.local` is pending. No release/tag; frozen `v1.0.2` unchanged.
