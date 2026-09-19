@@ -87,7 +87,7 @@ You can exercise the same behaviour interactively in the **OSD Preview** inside 
 ### Flashing & board behaviour
 - Browser-based ESP32-C3 flashing
 - Clear post-flash power-cycle/configuration flow
-- Wi-Fi AP configuration remains available as an optional/fallback feature
+- Wi-Fi AP configuration remains available as an optional/fallback feature at **http://cambuddy.local** (with **http://192.168.4.1** as the fixed-IP fallback)
 - BOOT-button force-AP recovery
 - Status LED for scanning/connection/AP state
 
