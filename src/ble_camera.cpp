@@ -934,9 +934,8 @@ void BLECamera::handleConnectCommand(uint16_t camSeq, const uint8_t *payload,
 
     // The camera's hello carries its own device_id (bytes 0-3, LE) — per DJI's
     // published protocol_data_segment.md this identifies the model (e.g. 0xFF33
-    // Action 4, 0xFF44 Action 5 Pro, 0xFF55 Action 6, 0xFF66 Osmo 360). Older
-    // models like Action 2 aren't in that published table, so log it here to
-    // identify what an untested camera reports rather than guessing.
+    // Action 4, 0xFF44 Action 5 Pro, 0xFF55 Action 6, 0xFF66 Osmo 360).
+    // Log unknown device IDs rather than guessing model compatibility.
     if (len >= 4) {
         uint32_t camDeviceId = (uint32_t)payload[0] | ((uint32_t)payload[1] << 8) |
                                ((uint32_t)payload[2] << 16) | ((uint32_t)payload[3] << 24);
