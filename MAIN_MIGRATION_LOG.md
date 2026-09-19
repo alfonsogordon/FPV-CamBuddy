@@ -106,3 +106,10 @@ For individual migration commits, prefer `git revert <migration-commit-sha>` so 
 - CI therefore confirms that the production site generation and both ESP32-C3/ESP32 firmware builds succeed with the replacement, version gating, and candidate-flasher changes.
 - Live GitHub Pages content could not be independently fetched through the available GitHub connector during this check because that connector only accepts github.com instance URLs. Treat the successful Pages deployment as deployment verification, but Steve's browser check remains the final UI confirmation.
 - Hardware status remains unchanged: Profile OSD on a real FC is still pending Steve's test.
+
+### Pre-change: firmware detection/read-path hardening
+- Pre-change main: `1a93d34df8fc84a8f8bafe31e6ec80f50614c105`.
+- Review found that the visible configurator's autosync layer performs its own automatic `show` read after connection. The first firmware-gating implementation only requested `version` from the hidden legacy Read Settings button/connect path, so a normal autosync connection could leave V1.0.2-only controls in the unknown/locked state even on compatible firmware.
+- Planned affected path: `web/fps-autosync.js`.
+- Fix: every autosync board read/verification will request `version` before `show`, keeping unknown locked until a positive version response arrives.
+- Rollback: revert the hardening commit recorded below.
