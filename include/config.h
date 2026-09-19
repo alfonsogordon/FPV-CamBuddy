@@ -62,6 +62,7 @@
 // (see WIFI_FORCE_AP_PIN below) so the config UI always stays reachable.
 //
 #define WIFI_AP_SSID              "FPVCamBuddy"
+#define WIFI_AP_HOSTNAME          "cambuddy"       // http://cambuddy.local while AP is active
 #define WIFI_AP_PASSWORD          ""              // empty = open network
 #define WIFI_AP_CHANNEL           1
 
