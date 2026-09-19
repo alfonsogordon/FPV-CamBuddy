@@ -325,7 +325,7 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
     }
 
     if (strcmp(line, "version") == 0) {
-        out.printf("[cfg] FreeCLinker firmware v%s\n", FIRMWARE_VERSION);
+        out.printf("[cfg] FPV CamBuddy firmware v%s\n", FIRMWARE_VERSION);
         return;
     }
 
