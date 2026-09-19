@@ -83,3 +83,10 @@ For individual migration commits, prefer `git revert <migration-commit-sha>` so 
 - `cf5a81c909e2d97eb13dc4088d0d8b6e58cc98eb`: removed the inherited `TEST` suffix from the Camera Profile Switch label on main; the frozen V1.0.2 test branch is unchanged.
 - `ecc8ff23ae1e2b24babc1b7f3b3903b9c10f2a05`: updated the main homepage footer display from `FPV CamBuddy V1.0` to `FPV CamBuddy V1.0.2`.
 - Rollback, newest first: `git revert ecc8ff23ae1e2b24babc1b7f3b3903b9c10f2a05`, then `git revert cf5a81c909e2d97eb13dc4088d0d8b6e58cc98eb`.
+
+### Pre-change: main candidate flashing support
+- Pre-change main: `dfad101f489354107cd80dd2316018d44b921b3e` was validated/deployed successfully; later label/log commits are administrative/UI cleanup.
+- Goal: allow Steve to test the unreleased V1.0.2 firmware directly from the polished production-shaped main flasher before creating a GitHub release.
+- Planned affected paths: `.github/workflows/pages.yml` and `web/flash.html`.
+- Safety: official release assets/dropdown remain intact; the new entry is clearly labelled as an unreleased main candidate and uses firmware artifacts from the exact validated current main source.
+- Rollback: revert the candidate-flasher commits recorded below.
