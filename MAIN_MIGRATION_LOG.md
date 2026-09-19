@@ -78,3 +78,8 @@ For individual migration commits, prefer `git revert <migration-commit-sha>` so 
 - CI/Pages were still processing the sequence of main commits when this checkpoint was written. Do not call the candidate validated until the exact current main HEAD validation and deployment complete successfully.
 - Real C3 -> FC -> Betaflight Profile OSD remains **NEEDS HARDWARE TEST**. No hardware-confirmed claim has been added.
 - Frozen `v1.0.2` must remain at `139d47de841ed7fe0c9198019926b5bb635e2285`.
+
+### Production-label cleanup
+- `cf5a81c909e2d97eb13dc4088d0d8b6e58cc98eb`: removed the inherited `TEST` suffix from the Camera Profile Switch label on main; the frozen V1.0.2 test branch is unchanged.
+- `ecc8ff23ae1e2b24babc1b7f3b3903b9c10f2a05`: updated the main homepage footer display from `FPV CamBuddy V1.0` to `FPV CamBuddy V1.0.2`.
+- Rollback, newest first: `git revert ecc8ff23ae1e2b24babc1b7f3b3903b9c10f2a05`, then `git revert cf5a81c909e2d97eb13dc4088d0d8b6e58cc98eb`.
