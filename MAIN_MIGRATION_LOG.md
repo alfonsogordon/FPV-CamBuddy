@@ -134,3 +134,7 @@ For individual migration commits, prefer `git revert <migration-commit-sha>` so 
 - That validation produced both expected non-expired firmware artifacts: `freeclinker-stage3-esp32c3` and `freeclinker-stage3-esp32`.
 - Exact current main also completed **Deploy GitHub Pages** successfully (run `35434332227`), followed by another successful workflow-run Pages deployment (run `35434402641`). This is the final CI/Pages checkpoint before Steve's browser and hardware acceptance testing.
 - No release/tag has been created and no old FreeCLinker repository/site changes have been made.
+
+### Pre-change: mobile UI polish requested during acceptance testing
+- Requested from live mobile screenshots: add more vertical separation above the blue Original FreeCLinker credit panel, and hide/remove the AP Diagnostic Log button from the normal Easy Config UI.
+- Scope is presentation only on main; no firmware behavior, camera protocol, configurator save logic, release/tag, or frozen `v1.0.2` branch changes.
