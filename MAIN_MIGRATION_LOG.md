@@ -90,3 +90,11 @@ For individual migration commits, prefer `git revert <migration-commit-sha>` so 
 - Planned affected paths: `.github/workflows/pages.yml` and `web/flash.html`.
 - Safety: official release assets/dropdown remain intact; the new entry is clearly labelled as an unreleased main candidate and uses firmware artifacts from the exact validated current main source.
 - Rollback: revert the candidate-flasher commits recorded below.
+
+### Main candidate flashing support
+- `d235e30f74c93f883e7b6255921677aa220f896a`: Pages now copies firmware artifacts from the latest successful **Validate FPV CamBuddy** run on main into `web/firmware/main-candidate/`, together with `meta.json` containing the validated commit SHA/run ID. The existing release firmware downloads remain unchanged.
+- `4023de95f9d30fe3af8c301e641fc6b1d9eb46f6`: the polished production `web/flash.html` now prepends a clearly labelled `V1.0.2 main candidate — TEST BEFORE RELEASE` option when validated main-candidate artifacts are present. Existing published releases remain selectable and unchanged.
+- This lets Steve test the production-shaped main flasher before publishing/tagging V1.0.2.
+- Frozen `v1.0.2` remains unchanged at `139d47de841ed7fe0c9198019926b5bb635e2285`.
+- Rollback, newest first: `git revert 4023de95f9d30fe3af8c301e641fc6b1d9eb46f6`, then `git revert d235e30f74c93f883e7b6255921677aa220f896a`.
+- Exact-head validation/Pages status for `4023de95...` was still queued/pending when this log entry was written; do not call the flasher candidate ready until both complete successfully.
