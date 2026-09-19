@@ -128,3 +128,9 @@ For individual migration commits, prefer `git revert <migration-commit-sha>` so 
 - Homepage source has no redundant `Original FreeCLinker` footer-nav link; the dedicated Original FreeCLinker credit panel and bottom `FreeCLinker by sheeprine` attribution remain intact; footer displays FPV CamBuddy V1.0.2.
 - Frozen `v1.0.2` remains untouched at `139d47de841ed7fe0c9198019926b5bb635e2285`.
 - Remaining acceptance work is Steve's browser/real-board testing. No release/tag and no old FreeCLinker relink has been performed.
+
+### Final exact-head validation before hardware handoff
+- Exact current main `e51c26ecbef6b73dd58081da04b628c236f5f860` completed **Validate FPV CamBuddy** successfully (run `35434332232`).
+- That validation produced both expected non-expired firmware artifacts: `freeclinker-stage3-esp32c3` and `freeclinker-stage3-esp32`.
+- Exact current main also completed **Deploy GitHub Pages** successfully (run `35434332227`), followed by another successful workflow-run Pages deployment (run `35434402641`). This is the final CI/Pages checkpoint before Steve's browser and hardware acceptance testing.
+- No release/tag has been created and no old FreeCLinker repository/site changes have been made.
