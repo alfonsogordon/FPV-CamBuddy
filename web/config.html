@@ -411,6 +411,41 @@
           <input type="checkbox" id="goproGpsTime" checked disabled>
           <span class="track"><span class="thumb"></span></span>
         </label>
+        <div style="width:100%;margin-top:12px;">
+          <label for="goproTimezone" style="display:block;font-weight:700;margin-bottom:6px;">Camera timezone</label>
+          <select id="goproTimezone" disabled style="width:100%;max-width:420px;">
+            <optgroup label="Automatic daylight-saving regions">
+              <option value="1:0">Europe/London — GMT / BST (automatic)</option>
+              <option value="2:60">Central Europe — CET / CEST (automatic)</option>
+              <option value="3:120">Eastern Europe — EET / EEST (automatic)</option>
+              <option value="4:-300">US/Canada Eastern — EST / EDT (automatic)</option>
+              <option value="5:-360">US/Canada Central — CST / CDT (automatic)</option>
+              <option value="6:-420">US/Canada Mountain — MST / MDT (automatic)</option>
+              <option value="7:-480">US/Canada Pacific — PST / PDT (automatic)</option>
+              <option value="8:-540">Alaska — AKST / AKDT (automatic)</option>
+              <option value="9:600">Australia Eastern — AEST / AEDT (automatic)</option>
+              <option value="10:570">Australia Adelaide — ACST / ACDT (automatic)</option>
+              <option value="11:720">New Zealand — NZST / NZDT (automatic)</option>
+            </optgroup>
+            <optgroup label="Fixed UTC offsets — no automatic DST">
+              <option value="0:-720">UTC−12:00</option><option value="0:-660">UTC−11:00</option>
+              <option value="0:-600">UTC−10:00</option><option value="0:-570">UTC−09:30</option><option value="0:-540">UTC−09:00</option>
+              <option value="0:-480">UTC−08:00</option><option value="0:-420">UTC−07:00</option><option value="0:-360">UTC−06:00</option>
+              <option value="0:-300">UTC−05:00</option><option value="0:-240">UTC−04:00</option><option value="0:-210">UTC−03:30</option>
+              <option value="0:-180">UTC−03:00</option><option value="0:-120">UTC−02:00</option><option value="0:-60">UTC−01:00</option>
+              <option value="0:0" selected>UTC±00:00</option>
+              <option value="0:60">UTC+01:00</option><option value="0:120">UTC+02:00</option><option value="0:180">UTC+03:00</option>
+              <option value="0:210">UTC+03:30</option><option value="0:240">UTC+04:00</option><option value="0:270">UTC+04:30</option>
+              <option value="0:300">UTC+05:00</option><option value="0:330">UTC+05:30</option><option value="0:345">UTC+05:45</option>
+              <option value="0:360">UTC+06:00</option><option value="0:390">UTC+06:30</option><option value="0:420">UTC+07:00</option>
+              <option value="0:480">UTC+08:00</option><option value="0:525">UTC+08:45</option><option value="0:540">UTC+09:00</option>
+              <option value="0:570">UTC+09:30</option><option value="0:600">UTC+10:00</option><option value="0:630">UTC+10:30</option>
+              <option value="0:660">UTC+11:00</option><option value="0:720">UTC+12:00</option><option value="0:765">UTC+12:45</option>
+              <option value="0:780">UTC+13:00</option><option value="0:825">UTC+13:45</option><option value="0:840">UTC+14:00</option>
+            </optgroup>
+          </select>
+          <div class="cfg-field-desc" style="margin-top:6px;">GPS time arrives as UTC. Automatic regions apply their normal daylight-saving rule; fixed offsets are available for every currently used civil UTC offset and for places with different local DST rules.</div>
+        </div>
       </div>
 
       <!-- WiFi config AP -->
@@ -707,6 +742,8 @@ const debugBleToggle      = document.getElementById('debugBle');
 const lowPowerToggle      = document.getElementById('lowPower');
 const goproGpsTimeToggle   = document.getElementById('goproGpsTime');
 const goproGpsTimeRow      = document.getElementById('goproGpsTimeRow');
+const goproTimezoneSel      = document.getElementById('goproTimezone');
+let goproTimezoneModeRead = 0, goproTimezoneOffsetRead = 0;
 const wifiApEnabledToggle = document.getElementById('wifiApEnabled');
 const wifiApDelayInput    = document.getElementById('wifiApDelay');
 const delayInput     = document.getElementById('disarmDelay');
@@ -913,6 +950,12 @@ function parseConfigLine(line) {
     lowPowerToggle.checked = (val === 'true');
   } else if (key === 'gopro_gps_time') {
     goproGpsTimeToggle.checked = (val === 'true');
+  } else if (key === 'gopro_tz_mode') {
+    goproTimezoneModeRead = parseInt(val) || 0;
+    updateTimezoneFromBoard();
+  } else if (key === 'gopro_tz_offset') {
+    goproTimezoneOffsetRead = parseInt(val) || 0;
+    updateTimezoneFromBoard();
   } else if (key === 'wifi_ap_enabled') {
     wifiApEnabledToggle.checked = (val === 'true');
     updateWifiApState();
@@ -1091,11 +1134,26 @@ applyBtn.addEventListener('click', async () => {
   await sendCommand(`set debug_ble ${debugBle}`);
   await sendCommand(`set low_power ${lowPower}`);
   await sendCommand(`set gopro_gps_time ${goproGpsTimeToggle.checked ? 1 : 0}`);
+  const [tzMode,tzOffset] = goproTimezoneSel.value.split(':').map(Number);
+  await sendCommand(`set gopro_tz_mode ${tzMode}`);
+  await sendCommand(`set gopro_tz_offset ${tzOffset}`);
   await sendCommand(`set wifi_ap_enabled ${wifiApEnabledToggle.checked ? 1 : 0}`);
   await sendCommand(`set wifi_ap_delay ${parseInt(wifiApDelayInput.value) || 0}`);
   await sendCommand(`set disarm_delay ${delay}`);
   await sendCommand(`set stop_on_disarm ${stop}`);
   flashSaved(savedMsg);
+});
+
+function updateTimezoneFromBoard() {
+  const exact = goproTimezoneSel.querySelector(`option[value="${goproTimezoneModeRead}:${goproTimezoneOffsetRead}"]`);
+  if (exact) goproTimezoneSel.value = exact.value;
+  else if (goproTimezoneModeRead !== 0) {
+    const regional = goproTimezoneSel.querySelector(`option[value^="${goproTimezoneModeRead}:"]`);
+    if (regional) goproTimezoneSel.value = regional.value;
+  }
+}
+goproGpsTimeToggle.addEventListener('change', () => {
+  goproTimezoneSel.disabled = !port || !goproGpsTimeToggle.checked;
 });
 
 cameraTypeSel.addEventListener('change', updateCameraTypeState);
@@ -1526,6 +1584,7 @@ function setConnected(connected) {
   debugBleToggle.disabled     = !connected;
   lowPowerToggle.disabled     = !connected;
   goproGpsTimeToggle.disabled  = !connected;
+  goproTimezoneSel.disabled     = !connected || !goproGpsTimeToggle.checked;
   wifiApEnabledToggle.disabled = !connected;
   delayInput.disabled    = !connected;
   auxChannelSel.disabled = !connected;
