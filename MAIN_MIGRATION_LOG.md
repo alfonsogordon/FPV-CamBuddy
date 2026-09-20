@@ -175,3 +175,7 @@ For individual migration commits, prefer `git revert <migration-commit-sha>` so 
 - Nano discovery presents stable CamBuddy selection IDs above zero (`100 + mode`) because profile ID `0` is reserved for Unassigned in Easy Config. `loadProfile()` maps those IDs back to the exact verified DUML mode bytes.
 - Existing Nano BLE pairing/recording/telemetry path is unchanged. No arbitrary or guessed DUML values are sent.
 - This new Nano Camera Switch path is implemented/CI-testable but must remain labelled **not hardware-confirmed** until a real Osmo Nano tester validates mode changes.
+
+### GoPro MAX2 full V1.0.2 hardware confirmation
+- Steve confirmed GoPro MAX2 across the current V1.0.2 GoPro feature set: connection/reconnect, recording control, live OSD/telemetry, native saved-preset Camera Switch and selection-name OSD.
+- The public support matrix may therefore mark all current GoPro MAX2 feature columns as hardware-confirmed.
