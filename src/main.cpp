@@ -347,6 +347,10 @@ void loop() {
             if (goProCamera.setDateTime(gpsRtc.year, gpsRtc.month, gpsRtc.day,
                                         gpsRtc.hour, gpsRtc.minute, gpsRtc.second)) {
                 goproTimeSynced = true;
+                // Positive confirmation only: do not clutter the OSD while waiting
+                // for GPS. Use the same transient MSP text path as profile feedback.
+                mspSerial.showTransientMessage(1, "GOPRO TIME SET", 2000);
+                DBG_SERIAL.println("[GPS-TIME] GoPro clock command sent; OSD confirmation shown");
             }
         }
     }
