@@ -31,6 +31,7 @@ static constexpr const char *KEY_CMM  = "cam_match";
 static constexpr const char *KEY_WAKE = "wake_guard";
 static constexpr const char *KEY_DBG  = "debug_ble";
 static constexpr const char *KEY_LPM  = "low_power";
+static constexpr const char *KEY_GPST = "gopro_gps_time";
 static constexpr const char *KEY_WAP_DELAY = "wifi_ap_delay";
 static constexpr const char *KEY_WAP_EN    = "wifi_ap_en";
 static constexpr const char *KEY_BF45  = "bf45_compat";
@@ -106,6 +107,7 @@ void ConfigManager::load() {
     _cfg.cameraWakeGuard   = _prefs.getBool(KEY_WAKE, DEFAULT_CAMERA_WAKE_GUARD);
     _cfg.debugBle          = _prefs.getBool(KEY_DBG, DEFAULT_DEBUG_BLE);
     _cfg.lowPowerMode      = _prefs.getBool(KEY_LPM, DEFAULT_LOW_POWER_MODE);
+    _cfg.goproGpsTimeSync  = _prefs.getBool(KEY_GPST, DEFAULT_GOPRO_GPS_TIME_SYNC);
     _cfg.wifiApStartDelaySec = _prefs.getUInt(KEY_WAP_DELAY, DEFAULT_WIFI_AP_START_DELAY_SEC);
     _cfg.wifiApEnabled       = _prefs.getBool(KEY_WAP_EN, DEFAULT_WIFI_AP_ENABLED);
     loadStr(_prefs, KEY_OSD1, _cfg.osd1Tpl, sizeof(_cfg.osd1Tpl), DEFAULT_OSD1_TPL);
@@ -194,6 +196,7 @@ void ConfigManager::save() {
     _prefs.putBool(KEY_WAKE, _cfg.cameraWakeGuard);
     _prefs.putBool(KEY_DBG, _cfg.debugBle);
     _prefs.putBool(KEY_LPM, _cfg.lowPowerMode);
+    _prefs.putBool(KEY_GPST, _cfg.goproGpsTimeSync);
     _prefs.putUInt(KEY_WAP_DELAY, _cfg.wifiApStartDelaySec);
     _prefs.putBool(KEY_WAP_EN, _cfg.wifiApEnabled);
     _prefs.putString(KEY_OSD1, _cfg.osd1Tpl);
@@ -267,6 +270,7 @@ void ConfigManager::printAll(Stream &out) {
     out.printf("[cfg] profile_osd_dest = %u\n", _cfg.profileOsdTarget);
     out.printf("[cfg] debug_ble       = %s\n", _cfg.debugBle ? "true" : "false");
     out.printf("[cfg] low_power       = %s\n", _cfg.lowPowerMode ? "true" : "false");
+    out.printf("[cfg] gopro_gps_time  = %s\n", _cfg.goproGpsTimeSync ? "true" : "false");
     out.printf("[cfg] wifi_ap_enabled = %s\n", _cfg.wifiApEnabled ? "true" : "false");
     out.printf("[cfg] wifi_ap_delay   = %u s\n", _cfg.wifiApStartDelaySec);
     out.printf("[cfg] osd1            = %s\n", _cfg.osd1Tpl);
@@ -621,6 +625,14 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
             while (*val == ' ') val++;
             setLowPowerMode(strtoul(val, nullptr, 10) != 0);
             out.printf("[cfg] low_power = %s (saved — reboot to apply)\n", _cfg.lowPowerMode ? "true" : "false");
+            return;
+        }
+
+        if (strncmp(rest, "gopro_gps_time ", 15) == 0) {
+            const char *val = rest + 15;
+            while (*val == ' ') val++;
+            setGoProGpsTimeSync(strtoul(val, nullptr, 10) != 0);
+            out.printf("[cfg] gopro_gps_time = %s (saved)\n", _cfg.goproGpsTimeSync ? "true" : "false");
             return;
         }
 
@@ -995,6 +1007,11 @@ void ConfigManager::setDebugBle(bool v) {
 void ConfigManager::setLowPowerMode(bool v) {
     _cfg.lowPowerMode = v;
     _prefs.putBool(KEY_LPM, v);
+}
+
+void ConfigManager::setGoProGpsTimeSync(bool v) {
+    _cfg.goproGpsTimeSync = v;
+    _prefs.putBool(KEY_GPST, v);
 }
 
 void ConfigManager::setWifiApStartDelay(uint32_t sec) {
