@@ -168,3 +168,10 @@ For individual migration commits, prefer `git revert <migration-commit-sha>` so 
 - The legacy two-position Camera Mode Switch has been removed from the visible Easy Config UI; compatibility internals remain hidden.
 - New REC-only UI now retains an enable toggle and adds a mode choice: Recording only, or Armed + Recording. USB and AP implementations are present; this newest mode-selector behaviour still requires Steve's hardware/UI acceptance test before being marked hardware-confirmed.
 - No release/tag has been created. Frozen `v1.0.2` remains unchanged at `139d47de841ed7fe0c9198019926b5bb635e2285`.
+
+### Osmo Nano Camera Switch implementation
+- Added Osmo Nano LOW / MIDDLE / HIGH Camera Switch support using the hardware-captured native DUML shooting-mode command `0x02/0xE1`.
+- Exposed only known sparse mode values: Slow Motion `0x00`, Video `0x01`, Timelapse `0x02`, Photo `0x05`, Hyperlapse `0x0A`, Panorama `0x0C`, SuperNight `0x28`.
+- Nano discovery presents stable CamBuddy selection IDs above zero (`100 + mode`) because profile ID `0` is reserved for Unassigned in Easy Config. `loadProfile()` maps those IDs back to the exact verified DUML mode bytes.
+- Existing Nano BLE pairing/recording/telemetry path is unchanged. No arbitrary or guessed DUML values are sent.
+- This new Nano Camera Switch path is implemented/CI-testable but must remain labelled **not hardware-confirmed** until a real Osmo Nano tester validates mode changes.
