@@ -374,8 +374,8 @@
       <!-- Stop on disarm -->
       <div class="cfg-field">
         <div class="cfg-field-text">
-          <div class="cfg-field-name">Stop recording on disarm</div>
-          <div class="cfg-field-desc">When off, the camera keeps recording regardless of FC arm state.</div>
+          <div class="cfg-field-name">Stop recording when trigger turns off</div>
+          <div class="cfg-field-desc">ARM trigger: stop on DISARM. AUX trigger: stop when the selected AUX goes low. Turn this off to keep recording after the trigger turns off.</div>
         </div>
         <label class="switch" title="Stop on disarm">
           <input type="checkbox" id="stopOnDisarm" checked disabled>
@@ -431,8 +431,8 @@
 
       <!-- Disarm delay: always available, including normal arm-switch mode -->
       <div class="cfg-field" style="flex-direction:column; align-items:flex-start;">
-        <div class="cfg-field-name">Disarm delay</div>
-        <div class="cfg-field-desc">Delay between FC disarm and stopping the recording. This applies even when AUX Camera Controls is off. 0 = stop immediately.</div>
+        <div class="cfg-field-name">Stop delay</div>
+        <div class="cfg-field-desc">Delay between the recording trigger turning off and stopping the camera. ARM: after DISARM. AUX: after the selected AUX goes low. 0 = stop immediately.</div>
         <div class="num-wrap">
           <input type="number" id="disarmDelay" min="0" max="60000" step="500" value="5000" disabled>
           <span class="num-unit">ms</span>
