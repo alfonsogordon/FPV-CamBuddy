@@ -74,7 +74,7 @@ You can exercise the same behaviour interactively in the **OSD Preview** inside 
 - Automatic arm-state polling over MSP
 - Configurable UART/AUX integration
 
-### FPSteVe Easy Config
+### Easy Config
 - Browser-based configuration over USB
 - Automatic settings read when connected
 - One **SAVE / APPLY SETTINGS** action for the complete configuration
@@ -133,7 +133,7 @@ Camera-warning behaviour and priority have been validated in the integrated Prev
 
 ## Implemented, but not yet hardware-tested
 
-**Betaflight 2026.6+ Custom Messages 1–4** are implemented and exercised through the FPSteVe OSD Preview/firmware logic, but have **not yet been physically tested against a flight controller running that Betaflight generation**. The V1 hardware available for testing currently runs Betaflight 4.5, so this distinction is intentional.
+**Betaflight 2026.6+ Custom Messages 1–4** are implemented and exercised through the integrated OSD Preview/firmware logic, but have **not yet been physically tested against a flight controller running that Betaflight generation**. The V1 hardware available for testing currently runs Betaflight 4.5, so this distinction is intentional.
 
 The V1.0.2 profile-name OSD notification has now been physically confirmed from the C3 through the flight controller into Betaflight OSD. Its USB/AP setting and saved Camera Switch configuration are part of the current V1.0.2 candidate.
 
