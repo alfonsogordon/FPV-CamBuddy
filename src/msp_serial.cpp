@@ -197,6 +197,11 @@ void MSPSerial::update() {
         _lastPollMs = millis();
         sendRequest(MSP_STATUS);
         if (_auxChannel > 0 || _profileAuxChannel > 0 || _recordAuxChannel > 0) sendRequest(MSP_RC);
+        // GPS time experiment: Betaflight fills its RTC from GPS and exposes it as MSP_RTC.
+        if (millis() - _lastRtcPollMs >= 1000) {
+            _lastRtcPollMs = millis();
+            sendRequest(MSP_RTC);
+        }
     }
     while (_serial->available()) feedByte(static_cast<uint8_t>(_serial->read()));
 }
@@ -249,6 +254,7 @@ void MSPSerial::processResponse() {
     switch (_rxCmd) {
         case MSP_STATUS: handleStatusResponse(); break;
         case MSP_RC: handleRcResponse(); break;
+        case MSP_RTC: handleRtcResponse(); break;
     }
 }
 
@@ -262,6 +268,26 @@ void MSPSerial::handleStatusResponse() {
         _armed = armed;
         if (_armCb) _armCb(_armed);
     }
+}
+
+
+void MSPSerial::handleRtcResponse() {
+    // Betaflight MSP_RTC payload: year U16 LE, month, day, hours, minutes,
+    // seconds, millis U16 LE. Empty payload means RTC is not set yet.
+    if (_rxSize < 9) return;
+    MspRtcDateTime dt{};
+    memcpy(&dt.year, _rxBuf, sizeof(dt.year));
+    dt.month = _rxBuf[2]; dt.day = _rxBuf[3]; dt.hour = _rxBuf[4];
+    dt.minute = _rxBuf[5]; dt.second = _rxBuf[6];
+    memcpy(&dt.millis, _rxBuf + 7, sizeof(dt.millis));
+    dt.valid = dt.year >= 2024 && dt.year <= 2099 && dt.month >= 1 && dt.month <= 12 &&
+               dt.day >= 1 && dt.day <= 31 && dt.hour <= 23 && dt.minute <= 59 && dt.second <= 60;
+    if (!dt.valid) return;
+    const bool changed = !_rtc.valid || dt.year != _rtc.year || dt.month != _rtc.month ||
+                         dt.day != _rtc.day || dt.hour != _rtc.hour || dt.minute != _rtc.minute ||
+                         dt.second != _rtc.second;
+    _rtc = dt;
+    if (changed && _rtcCb) _rtcCb(_rtc);
 }
 
 void MSPSerial::handleRcResponse() {
