@@ -401,6 +401,18 @@
         </label>
       </div>
 
+      <!-- GoPro GPS time sync experimental -->
+      <div class="cfg-field" id="goproGpsTimeRow" style="border:1px solid #8b5f00;background:#2a2208;border-radius:6px;margin:10px 0;padding:12px;">
+        <div class="cfg-field-text">
+          <div class="cfg-field-name">GPS → GoPro Date/Time <span style="color:#f7c948;font-size:.72em;">EXPERIMENTAL</span></div>
+          <div class="cfg-field-desc">GoPro only. Automatically sets the camera clock once per connection after Betaflight reports a valid GPS-derived RTC time. Intended for naked GoPro cameras that lose date/time when power is removed.</div>
+        </div>
+        <label class="switch" title="Automatic GPS to GoPro time sync">
+          <input type="checkbox" id="goproGpsTime" checked disabled>
+          <span class="track"><span class="thumb"></span></span>
+        </label>
+      </div>
+
       <!-- WiFi config AP -->
       <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">
         <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
@@ -693,6 +705,8 @@ const cameraMatchSel      = document.getElementById('cameraMatch');
 const wakeGuardToggle     = document.getElementById('wakeGuard');
 const debugBleToggle      = document.getElementById('debugBle');
 const lowPowerToggle      = document.getElementById('lowPower');
+const goproGpsTimeToggle   = document.getElementById('goproGpsTime');
+const goproGpsTimeRow      = document.getElementById('goproGpsTimeRow');
 const wifiApEnabledToggle = document.getElementById('wifiApEnabled');
 const wifiApDelayInput    = document.getElementById('wifiApDelay');
 const delayInput     = document.getElementById('disarmDelay');
@@ -897,6 +911,8 @@ function parseConfigLine(line) {
     debugBleToggle.checked = (val === 'true');
   } else if (key === 'low_power') {
     lowPowerToggle.checked = (val === 'true');
+  } else if (key === 'gopro_gps_time') {
+    goproGpsTimeToggle.checked = (val === 'true');
   } else if (key === 'wifi_ap_enabled') {
     wifiApEnabledToggle.checked = (val === 'true');
     updateWifiApState();
@@ -1074,6 +1090,7 @@ applyBtn.addEventListener('click', async () => {
   await sendCommand(`set wake_guard ${wakeGuard}`);
   await sendCommand(`set debug_ble ${debugBle}`);
   await sendCommand(`set low_power ${lowPower}`);
+  await sendCommand(`set gopro_gps_time ${goproGpsTimeToggle.checked ? 1 : 0}`);
   await sendCommand(`set wifi_ap_enabled ${wifiApEnabledToggle.checked ? 1 : 0}`);
   await sendCommand(`set wifi_ap_delay ${parseInt(wifiApDelayInput.value) || 0}`);
   await sendCommand(`set disarm_delay ${delay}`);
@@ -1084,6 +1101,7 @@ applyBtn.addEventListener('click', async () => {
 cameraTypeSel.addEventListener('change', updateCameraTypeState);
 function updateCameraTypeState() {
   caddxWifiCard.style.display = parseInt(cameraTypeSel.value) === 2 ? 'block' : 'none';
+  if (goproGpsTimeRow) goproGpsTimeRow.style.display = parseInt(cameraTypeSel.value) === 1 ? 'flex' : 'none';
 }
 
 caddxApplyBtn.addEventListener('click', async () => {
@@ -1507,6 +1525,7 @@ function setConnected(connected) {
   wakeGuardToggle.disabled    = !connected;
   debugBleToggle.disabled     = !connected;
   lowPowerToggle.disabled     = !connected;
+  goproGpsTimeToggle.disabled  = !connected;
   wifiApEnabledToggle.disabled = !connected;
   delayInput.disabled    = !connected;
   auxChannelSel.disabled = !connected;
