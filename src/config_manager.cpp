@@ -261,7 +261,6 @@ void ConfigManager::printAll(Stream &out) {
     else out.println("[cfg] profile_aux     = disabled");
     if (_cfg.recordAuxChannel) out.printf("[cfg] record_trigger  = AUX%u\n", _cfg.recordAuxChannel);
     else out.println("[cfg] record_trigger  = ARM");
-    else out.println("[cfg] profile_aux     = disabled");
     out.printf("[cfg] profile_ids     = low:%lu mid:%lu high:%lu\n", (unsigned long)_cfg.profileLow, (unsigned long)_cfg.profileMid, (unsigned long)_cfg.profileHigh);
     out.printf("[cfg] profile_names   = low:%s | mid:%s | high:%s\n", _cfg.profileLowName, _cfg.profileMidName, _cfg.profileHighName);
     out.printf("[cfg] profile_osd     = %s\n", _cfg.profileOsdEnabled ? "true" : "false");
