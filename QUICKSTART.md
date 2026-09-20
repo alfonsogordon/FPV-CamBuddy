@@ -61,6 +61,10 @@ If your phone/browser does not resolve `.local` names, use the fixed fallback ad
 
 The BOOT-button force-AP recovery remains available if you need to bring the local configurator up manually.
 
+## Recording Trigger
+
+By default, FPV CamBuddy starts recording when Betaflight reports **ARM** and stops after the configured delay on DISARM. In **Easy Config → AUX Switches → Recording Trigger**, you can instead choose **AUX 1–12**. With an AUX trigger selected, **high starts recording** and **low stops recording** using the same stop-delay setting. ARM remains the default and existing behaviour.
+
 ## 3. Connect the C3 to your flight controller
 
 FreeCLinker needs one spare flight-controller UART.
