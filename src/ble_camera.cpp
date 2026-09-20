@@ -759,6 +759,8 @@ bool BLECamera::switchCameraMode(uint8_t mode) {
             case DJI_MODE_TIMELAPSE:
             case DJI_MODE_PHOTO:
             case DJI_MODE_HYPERLAPSE:
+            case DJI_MODE_PANORAMA:
+            case DJI_MODE_SUPERNIGHT:
                 break;
             default:
                 DBG_SERIAL.printf("[Nano] Unsupported shooting mode 0x%02X\n", mode);
@@ -784,25 +786,67 @@ bool BLECamera::switchCameraMode(uint8_t mode) {
 // deliberately limited to known camera modes instead of sending guessed DUML.
 // IDs are stable CamBuddy values and can therefore be assigned to AUX LOW/MID/HIGH.
 bool BLECamera::loadProfile(uint32_t profileId) {
-    if (!_djiConnected || _isOsmoNano) return false;
-    uint8_t mode;
-    switch (profileId) {
-        case DJI_MODE_VIDEO:       mode = DJI_MODE_VIDEO; break;
-        case DJI_MODE_SLOW_MOTION: mode = DJI_MODE_SLOW_MOTION; break;
-        case DJI_MODE_TIMELAPSE:   mode = DJI_MODE_TIMELAPSE; break;
-        case DJI_MODE_PHOTO:       mode = DJI_MODE_PHOTO; break;
-        case DJI_MODE_HYPERLAPSE:  mode = DJI_MODE_HYPERLAPSE; break;
-        default:
-            DBG_SERIAL.printf("[DJI-PROFILE] unsupported safe profile id=%lu\n", (unsigned long)profileId);
-            return false;
+    if (!_djiConnected) return false;
+
+    uint8_t mode = 0xFF;
+
+    if (_isOsmoNano) {
+        // CamBuddy Nano IDs are 100 + the verified sparse DUML shooting-mode value.
+        // This keeps 0 free for "Unassigned" in the UI while preserving the real
+        // mode value exactly. Values come from real-hardware DUML captures; never guess.
+        switch (profileId) {
+            case 100 + DJI_MODE_SLOW_MOTION: mode = DJI_MODE_SLOW_MOTION; break;
+            case 100 + DJI_MODE_VIDEO:       mode = DJI_MODE_VIDEO; break;
+            case 100 + DJI_MODE_TIMELAPSE:   mode = DJI_MODE_TIMELAPSE; break;
+            case 100 + DJI_MODE_PHOTO:       mode = DJI_MODE_PHOTO; break;
+            case 100 + DJI_MODE_HYPERLAPSE:  mode = DJI_MODE_HYPERLAPSE; break;
+            case 100 + DJI_MODE_PANORAMA:    mode = DJI_MODE_PANORAMA; break;
+            case 100 + DJI_MODE_SUPERNIGHT:  mode = DJI_MODE_SUPERNIGHT; break;
+            // Also accept the non-zero raw values for manual/backwards-compatible edits.
+            case DJI_MODE_VIDEO:       mode = DJI_MODE_VIDEO; break;
+            case DJI_MODE_TIMELAPSE:   mode = DJI_MODE_TIMELAPSE; break;
+            case DJI_MODE_PHOTO:       mode = DJI_MODE_PHOTO; break;
+            case DJI_MODE_HYPERLAPSE:  mode = DJI_MODE_HYPERLAPSE; break;
+            case DJI_MODE_PANORAMA:    mode = DJI_MODE_PANORAMA; break;
+            case DJI_MODE_SUPERNIGHT:  mode = DJI_MODE_SUPERNIGHT; break;
+            default:
+                DBG_SERIAL.printf("[NANO-PROFILE] unsupported safe selection id=%lu\n", (unsigned long)profileId);
+                return false;
+        }
+    } else {
+        switch (profileId) {
+            case DJI_MODE_VIDEO:       mode = DJI_MODE_VIDEO; break;
+            case DJI_MODE_SLOW_MOTION: mode = DJI_MODE_SLOW_MOTION; break;
+            case DJI_MODE_TIMELAPSE:   mode = DJI_MODE_TIMELAPSE; break;
+            case DJI_MODE_PHOTO:       mode = DJI_MODE_PHOTO; break;
+            case DJI_MODE_HYPERLAPSE:  mode = DJI_MODE_HYPERLAPSE; break;
+            default:
+                DBG_SERIAL.printf("[DJI-PROFILE] unsupported safe profile id=%lu\n", (unsigned long)profileId);
+                return false;
+        }
     }
+
     const bool ok = switchCameraMode(mode);
     if (ok) _activeProfile = profileId;
     return ok;
 }
 
 bool BLECamera::queryProfiles() {
-    if (!_djiConnected || _isOsmoNano) return false;
+    if (!_djiConnected) return false;
+
+    if (_isOsmoNano) {
+        // Verified Osmo Nano DUML shooting-mode enum (02/E1).
+        // Use CamBuddy IDs > 0 because profile ID 0 means Unassigned in Easy Config.
+        DBG_SERIAL.println("[DJI-PRESET] id=101 name=Video title=0 number=0");
+        DBG_SERIAL.println("[DJI-PRESET] id=100 name=Slow Motion title=0 number=0");
+        DBG_SERIAL.println("[DJI-PRESET] id=102 name=Timelapse title=0 number=0");
+        DBG_SERIAL.println("[DJI-PRESET] id=110 name=Hyperlapse title=0 number=0");
+        DBG_SERIAL.println("[DJI-PRESET] id=105 name=Photo title=0 number=0");
+        DBG_SERIAL.println("[DJI-PRESET] id=112 name=Panorama title=0 number=0");
+        DBG_SERIAL.println("[DJI-PRESET] id=140 name=SuperNight title=0 number=0");
+        return true;
+    }
+
     DBG_SERIAL.println("[DJI-PRESET] id=1 name=Video title=0 number=0");
     DBG_SERIAL.println("[DJI-PRESET] id=0 name=Slow Motion title=0 number=0");
     DBG_SERIAL.println("[DJI-PRESET] id=2 name=Timelapse title=0 number=0");
