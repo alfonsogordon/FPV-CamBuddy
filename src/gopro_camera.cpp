@@ -674,6 +674,23 @@ void GoProCamera::parsePresetStatusProto(const uint8_t *data,size_t len){
 
 // ─── Recording & mode commands ────────────────────────────────────────────────
 
+bool GoProCamera::setDateTime(uint16_t year, uint8_t month, uint8_t day,
+                                uint8_t hour, uint8_t minute, uint8_t second) {
+    if (!_gpConnected || !_cmdChar) return false;
+    // Open GoPro SET_DATE_TIME (0x0D): one 7-byte parameter containing
+    // year (UInt16 BE), month, day, hour, minute, second.
+    const uint8_t p[] = {
+        0x07,
+        static_cast<uint8_t>((year >> 8) & 0xFF),
+        static_cast<uint8_t>(year & 0xFF),
+        month, day, hour, minute, second
+    };
+    sendCmd(GP_CMD_SET_DATE_TIME, p, sizeof(p));
+    DBG_SERIAL.printf("[GPS-TIME] GoPro set time sent: %04u-%02u-%02u %02u:%02u:%02u UTC\\n",
+                      year, month, day, hour, minute, second);
+    return true;
+}
+
 bool GoProCamera::startRecording() {
     // Shutter on: cmd=0x01, TLV=[len=1, val=1]
     const uint8_t p[] = {0x01, 0x01};
@@ -814,6 +831,11 @@ void GoProCamera::handleCmdMessage(const uint8_t *msg, size_t len) {
             DBG_SERIAL.printf("[GP] Hardware info failed (status=0x%02X) — retrying\n", status);
             _pendingHwInfo = true;
         }
+    } else if (cmd_id == GP_CMD_SET_DATE_TIME) {
+        if (status == 0)
+            DBG_SERIAL.println("[GPS-TIME] GoPro accepted date/time");
+        else
+            DBG_SERIAL.printf("[GPS-TIME] GoPro rejected date/time: 0x%02X\\n", status);
     } else if (cmd_id == GP_CMD_SET_SHUTTER) {
         if (status == 0)
             DBG_SERIAL.println("[GP] Shutter OK");
