@@ -48,6 +48,7 @@ You can exercise the same behaviour interactively in the **OSD Preview** inside 
 - Start recording automatically when Betaflight arms
 - Configurable delayed stop after disarm — **5 seconds by default**
 - GoPro Burst Slo-Mo support through AUX while recording
+- Configurable recording trigger: ARM by default, or AUX 1–12 (high=start, low=stop)
 - Unified LOW / MIDDLE / HIGH Camera Switch: GoPro native saved presets; supported DJI shooting modes
 - Optional name-only profile-change OSD notification for about 2.5 seconds
 - GoPro BLE keepalive while connected
