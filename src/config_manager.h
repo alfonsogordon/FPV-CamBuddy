@@ -32,6 +32,7 @@ public:
         bool cameraWakeGuard;
         bool debugBle;
         bool lowPowerMode;
+        bool goproGpsTimeSync;
         uint32_t wifiApStartDelaySec;
         bool wifiApEnabled;
         char osd1Tpl[OSD_TPL_LEN];
@@ -84,6 +85,7 @@ public:
     static constexpr bool DEFAULT_CAMERA_WAKE_GUARD = true;
     static constexpr bool DEFAULT_DEBUG_BLE = false;
     static constexpr bool DEFAULT_LOW_POWER_MODE = true;
+    static constexpr bool DEFAULT_GOPRO_GPS_TIME_SYNC = true;
     static constexpr uint32_t DEFAULT_WIFI_AP_START_DELAY_SEC = 30;
     static constexpr bool DEFAULT_WIFI_AP_ENABLED = false;
 
@@ -151,6 +153,7 @@ public:
     void setCameraWakeGuard(bool v);
     void setDebugBle(bool v);
     void setLowPowerMode(bool v);
+    void setGoProGpsTimeSync(bool v);
     void setWifiApStartDelay(uint32_t sec);
     void setWifiApEnabled(bool v);
     void setOsdTemplate(uint8_t n, const char *tpl);
