@@ -47,9 +47,8 @@ You can exercise the same behaviour interactively in the **OSD Preview** inside 
 - GoPro BLE control with wake/sleep-aware connection behaviour
 - Start recording automatically when Betaflight arms
 - Configurable delayed stop after disarm — **5 seconds by default**
-- Optional AUX camera-mode control
 - GoPro Burst Slo-Mo support through AUX while recording
-- GoPro native saved-preset discovery and LOW / MIDDLE / HIGH AUX profile switching
+- Unified LOW / MIDDLE / HIGH Camera Switch: GoPro native saved presets; supported DJI shooting modes
 - Optional name-only profile-change OSD notification for about 2.5 seconds
 - GoPro BLE keepalive while connected
 - Camera matching for multi-camera setups
@@ -122,7 +121,7 @@ The following have been physically confirmed on the FPV CamBuddy hardware-test s
 - First-arm **CLEAN LENS** behaviour
 - Configurator read, save, read-back verification and settings persistence after reconnect/power cycle
 - GoPro keepalive: camera stays connected while FPV CamBuddy is powered and returns to normal camera auto-power-off behaviour when FPV CamBuddy is removed
-- GoPro native saved-preset discovery, names, persistence and AUX profile switching
+- GoPro native saved-preset discovery, names, persistence and LOW / MIDDLE / HIGH Camera Switch
 - DJI Osmo Nano native BLE pairing/session, ARM-triggered recording and core recording/mode/battery/storage/remaining-time telemetry
 - Web flasher and post-flash configuration flow
 
