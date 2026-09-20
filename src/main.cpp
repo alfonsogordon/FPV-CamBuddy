@@ -126,27 +126,47 @@ static void onCameraData(const CameraData &data) {
 }
 
 // Called from mspSerial.update() whenever the FC arm state changes.
+static void scheduleRecordingStop(const char *reason) {
+    if (!configManager.config().stopOnDisarm) {
+        DBG_SERIAL.printf("[main] %s — stop disabled, keeping recording\n", reason);
+        return;
+    }
+    const uint32_t delay = configManager.config().disarmStopDelayMs;
+    if (delay == 0) {
+        DBG_SERIAL.printf("[main] %s — stopping recording\n", reason);
+        activeCamera->stopRecording();
+    } else {
+        DBG_SERIAL.printf("[main] %s — stopping recording in %u ms\n", reason, delay);
+        pendingStop = true;
+        disarmMs = millis();
+    }
+}
+
+static void onRecordAuxSwitch(bool high) {
+    if (configMode || !activeCamera || configManager.config().recordAuxChannel == 0) return;
+    if (high) {
+        pendingStop = false;
+        DBG_SERIAL.println("[main] Recording AUX high — starting recording");
+        activeCamera->startRecording();
+    } else {
+        scheduleRecordingStop("Recording AUX low");
+    }
+}
+
+// Called from mspSerial.update() whenever the FC arm state changes.
 static void onArmStateChange(bool armed) {
     if (configMode || !activeCamera) return;
+    // record_aux=0 means the original/default ARM-triggered behaviour.
+    // When an AUX recording trigger is selected, arm state remains available
+    // to OSD/status logic but no longer starts/stops the camera.
+    if (configManager.config().recordAuxChannel != 0) return;
     if (armed) {
         pendingStop = false;
         DBG_SERIAL.println("[main] FC armed — starting recording");
         activeCamera->startRecording();
     } else {
         DBG_SERIAL.println("[main] FC disarmed");
-        if (!configManager.config().stopOnDisarm) {
-            DBG_SERIAL.println("[main] stop_on_disarm disabled — keeping recording");
-        } else {
-            const uint32_t delay = configManager.config().disarmStopDelayMs;
-            if (delay == 0) {
-                DBG_SERIAL.println("[main] stopping recording");
-                activeCamera->stopRecording();
-            } else {
-                DBG_SERIAL.printf("[main] stopping recording in %u ms\n", delay);
-                pendingStop = true;
-                disarmMs   = millis();
-            }
-        }
+        scheduleRecordingStop("FC disarmed");
     }
 }
 
@@ -221,6 +241,7 @@ void setup() {
     mspSerial.setArmCallback(onArmStateChange);
     mspSerial.setAuxSwitchCallback(onAuxSwitch);
     mspSerial.setProfileSwitchCallback(onProfileSwitch);
+    mspSerial.setRecordSwitchCallback(onRecordAuxSwitch);
 
     // Caddx has no BLE scan/pairing flow or camera-match-mode fallback logic —
     // it just joins a Wi-Fi network directly — but it does still use the
@@ -279,6 +300,7 @@ void loop() {
     configManager.update();
     mspSerial.setAuxChannel(configManager.config().auxChannel);
     mspSerial.setProfileAuxChannel(configManager.config().profileAuxChannel);
+    mspSerial.setRecordAuxChannel(configManager.config().recordAuxChannel);
 
     // Configuration mode owns the C3 radio until reboot. Do not let any camera
     // backend scan, reconnect, keep alive, or send commands after the AP starts.
