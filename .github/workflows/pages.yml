@@ -15,6 +15,7 @@ on:
       - main
       - experimental
       - v1.0.3
+      - gopro-gps-time-test
   workflow_dispatch:
 
 permissions:
@@ -48,6 +49,10 @@ jobs:
         with:
           ref: v1.0.3
           path: candidate
+      - uses: actions/checkout@v4
+        with:
+          ref: gopro-gps-time-test
+          path: gpstime
       - uses: actions/configure-pages@v5
 
       - name: Generate stable V1 site
@@ -183,6 +188,73 @@ jobs:
           cp "$esp/firmware.bin" stable/web/v1.0.3/firmware/firmware-esp32dev.bin
         env:
           GH_TOKEN: ${{ github.token }}
+
+      - name: Generate GoPro GPS Time test site
+        working-directory: gpstime
+        run: python3 tools/build_fps_site.py
+
+      - name: Build GoPro GPS Time test firmware
+        working-directory: gpstime
+        run: |
+          python3 -m pip install --user platformio
+          ~/.local/bin/pio run -e esp32c3supermini -e esp32dev
+
+      - name: Stage isolated GoPro GPS Time test environment
+        run: |
+          rm -rf stable/web/gopro-gps-time
+          mkdir -p stable/web/gopro-gps-time/firmware/gps-time-test
+          cp -a gpstime/web/. stable/web/gopro-gps-time/
+
+          cp gpstime/.pio/build/esp32c3supermini/bootloader.bin stable/web/gopro-gps-time/firmware/gps-time-test/bootloader-esp32c3supermini.bin
+          cp gpstime/.pio/build/esp32c3supermini/partitions.bin stable/web/gopro-gps-time/firmware/gps-time-test/partitions-esp32c3supermini.bin
+          cp gpstime/.pio/build/esp32c3supermini/firmware.bin stable/web/gopro-gps-time/firmware/gps-time-test/firmware-esp32c3supermini.bin
+          cp gpstime/.pio/build/esp32dev/bootloader.bin stable/web/gopro-gps-time/firmware/gps-time-test/bootloader-esp32dev.bin
+          cp gpstime/.pio/build/esp32dev/partitions.bin stable/web/gopro-gps-time/firmware/gps-time-test/partitions-esp32dev.bin
+          cp gpstime/.pio/build/esp32dev/firmware.bin stable/web/gopro-gps-time/firmware/gps-time-test/firmware-esp32dev.bin
+
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('stable/web/gopro-gps-time')
+
+          banner='''<style>
+          .gps-time-banner{position:sticky;top:0;z-index:999999;background:#ffb000;color:#17110a;text-align:center;font:800 12px/1.3 system-ui,sans-serif;padding:8px 12px;border-bottom:1px solid #8b5f00}
+          </style><div class="gps-time-banner">GOPRO GPS TIME SYNC TEST — isolated experimental build for naked GoPro HERO11 clock recovery</div>'''
+          for p in root.glob('*.html'):
+              x=p.read_text()
+              if 'GOPRO GPS TIME SYNC TEST' not in x:
+                  x=x.replace('<body>', '<body>'+banner, 1)
+              x=x.replace('href="https://github.com/alfonsogordon/FPV-CamBuddy"', 'href="https://github.com/alfonsogordon/FPV-CamBuddy/tree/gopro-gps-time-test"')
+              p.write_text(x)
+
+          p=root/'index.html'
+          x=p.read_text()
+          x=x.replace('<title>FPV CamBuddy · by FPSteVe</title>', '<title>FPV CamBuddy — GoPro GPS Time Sync Test</title>')
+          x=x.replace("Never forget to hit record again.<br><span>FPV CamBuddy's got the camera.</span>",
+                      "Naked GoPro lost its clock?<br><span>Let the flight controller set it.</span>")
+          x=x.replace('Automatic action-camera recording, live camera status in the Betaflight OSD and a simple browser configurator — built around the way an FPV quad is actually used.',
+                      'Experimental side build based on V1.0.2 main. It reads Betaflight RTC over MSP after GPS has supplied a valid date/time, then sets the connected GoPro clock over BLE.')
+          x=x.replace('Flash FPV CamBuddy →','Flash GPS Time Test →')
+          x=x.replace('Open Easy Config','Open Test Config')
+          p.write_text(x)
+
+          p=root/'flash.html'
+          x=p.read_text()
+          x=x.replace('<title>FPV CamBuddy · by FPSteVe — Flash Firmware</title>',
+                      '<title>FPV CamBuddy — GoPro GPS Time Sync Test Flasher</title>')
+          x=x.replace('<h1>Flash Firmware</h1>','<h1>Flash GoPro GPS Time Sync Test</h1>')
+          x=x.replace('All releases ↗','Test branch ↗')
+          x=x.replace('https://github.com/alfonsogordon/FPV-CamBuddy/releases',
+                      'https://github.com/alfonsogordon/FPV-CamBuddy/tree/gopro-gps-time-test')
+          start=x.index("Promise.all([fetch(GH_API)")
+          end=x.index("function showPostFlash", start)
+          replacement="""releases=[{tag_name:'gps-time-test',display_name:'GoPro GPS Time Sync Test',published_at:new Date().toISOString(),html_url:'https://github.com/alfonsogordon/FPV-CamBuddy/tree/gopro-gps-time-test',is_candidate:true,sha:'branch'}];
+          versionSelect.innerHTML='<option value="gps-time-test">GoPro GPS Time Sync Test — isolated branch build</option>';
+          versionSelect.disabled=true;
+          selectRelease(releases[0]);
+          """
+          x=x[:start]+replacement+x[end:]
+          p.write_text(x)
+          PY
 
       - uses: actions/upload-pages-artifact@v3
         with:
