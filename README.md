@@ -27,7 +27,7 @@ FreeCLinker includes camera backends/support paths for:
 - **Insta360**
 - **Caddx**
 
-**FPV CamBuddy hardware-tested:** GoPro HERO11 Black Mini, GoPro MAX2, and core DJI Osmo Nano BLE/recording/telemetry behaviour.
+**FPV CamBuddy hardware-tested:** GoPro HERO11 Black Mini, GoPro MAX2, and core DJI Osmo Nano BLE/recording/telemetry behaviour. Osmo Nano Camera Switch mode selection is implemented separately and remains awaiting real-camera validation.
 
 **V1.0.2 Camera Switch work:** GoPro native saved-preset discovery, naming, persistence and AUX switching are hardware-confirmed. DJI Action 4 / 5 Pro / 6 expose verified basic camera modes. Osmo Nano now exposes hardware-captured DUML shooting modes (Video, Slow Motion, Timelapse, Hyperlapse, Photo, Panorama and SuperNight) through the same LOW / MIDDLE / HIGH Camera Switch; this newest Nano switching path still needs real-camera validation. Genuine DJI Custom Modes 1–5 remain under investigation. Insta360 telemetry/ARM behaviour remains in active testing.
 
@@ -49,7 +49,7 @@ You can exercise the same behaviour interactively in the **OSD Preview** inside 
 - Configurable delayed stop after disarm — **5 seconds by default**
 - GoPro Burst Slo-Mo support through AUX while recording
 - Configurable recording trigger: ARM by default, or AUX 1–12 (high=start, low=stop)
-- Unified LOW / MIDDLE / HIGH Camera Switch: GoPro native saved presets; supported DJI shooting modes
+- Unified LOW / MIDDLE / HIGH Camera Switch: GoPro native saved presets; DJI Action supported shooting modes; Osmo Nano Video / Slow Motion / Timelapse / Hyperlapse / Photo / Panorama / SuperNight (Nano switching awaiting hardware validation)
 - Optional name-only profile-change OSD notification for about 2.5 seconds
 - GoPro BLE keepalive while connected
 - Camera matching for multi-camera setups
