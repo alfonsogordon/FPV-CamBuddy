@@ -4,6 +4,7 @@
 
 #define MSP_STATUS 101
 #define MSP_RC 105
+#define MSP_RAW_GPS 106
 #define MSP_RTC 247
 #define MSP2_SET_TEXT 0x3007
 #define MSP_TEXT_PILOT_NAME 1
@@ -119,6 +120,9 @@ public:
     void setRecordSwitchCallback(RecordSwitchCallback cb) { _recordSwitchCb = cb; }
     void setRtcCallback(RtcCallback cb) { _rtcCb = cb; }
     const MspRtcDateTime &rtc() const { return _rtc; }
+    bool gpsTimeReady() const { return _gpsFix && _gpsSatellites > 0 && _rtc.valid; }
+    bool gpsFix() const { return _gpsFix; }
+    uint8_t gpsSatellites() const { return _gpsSatellites; }
     void showTransientMessage(uint8_t target, const char *text, uint16_t durationMs);
 
 private:
@@ -130,6 +134,7 @@ private:
     void processResponse();
     void handleStatusResponse();
     void handleRcResponse();
+    void handleGpsResponse();
     void handleRtcResponse();
     enum class RxState : uint8_t { IDLE, HDR_X, HDR_DIR, FLAG, CMD_LO, CMD_HI, SZ_LO, SZ_HI, PAYLOAD, CRC };
     static constexpr uint8_t RX_BUF_SIZE = 32;
@@ -188,4 +193,7 @@ private:
     MspRtcDateTime _rtc{};
     RtcCallback _rtcCb = nullptr;
     uint32_t _lastRtcPollMs = 0;
+    bool _gpsFix = false;
+    uint8_t _gpsSatellites = 0;
+    uint32_t _lastGpsPollMs = 0;
 };
