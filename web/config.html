@@ -423,7 +423,7 @@
       </div>
     </div>
 
-    <!-- Camera Mode Switch card -->
+    <!-- Unified Camera Switch card -->
     <div class="config-card" style="margin-top: 16px;">
       <div class="card-header">
         <h2>AUX Switches</h2>
@@ -809,7 +809,7 @@ function updateFirmwareGate() {
   if(!notice) return;
   if(!connectedNow || compatible){ notice.style.display='none'; return; }
   notice.style.display='block';
-  if(firmwareVersionState==='old') notice.innerHTML='Requires FPV CamBuddy firmware V1.0.2 or newer — <a href="flash.html" style="color:#ffe89a;text-decoration:underline;">update firmware</a> to enable Camera Profile Switch and Profile OSD.';
+  if(firmwareVersionState==='old') notice.innerHTML='Requires FPV CamBuddy firmware V1.0.2 or newer — <a href="flash.html" style="color:#ffe89a;text-decoration:underline;">update firmware</a> to enable Camera Switch and Camera Switch OSD.';
   else if(firmwareVersionState==='development') notice.innerHTML='Development/test firmware detected ('+firmwareVersion+'). V1.0.2-only controls remain locked until a compatible semantic version is reported. <a href="flash.html" style="color:#ffe89a;text-decoration:underline;">Update firmware</a>.';
   else notice.innerHTML='Firmware version not detected yet. V1.0.2-only controls remain locked until compatibility is confirmed. <a href="flash.html" style="color:#ffe89a;text-decoration:underline;">Update firmware</a>.';
 }
