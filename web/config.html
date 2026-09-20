@@ -429,8 +429,6 @@
         <h2>AUX Switches</h2>
       </div>
 
-      <div class="cfg-field" style="flex-direction:column;align-items:flex-start;"><div class="cfg-field-name" style="font-weight:700;">Camera Mode Switch</div><div class="cfg-field-desc">Two-position AUX control: low returns to Video; high selects the camera shooting mode below. This is separate from saved camera profiles/presets.</div></div>
-
       <!-- Disarm delay: always available, including normal arm-switch mode -->
       <div class="cfg-field" style="flex-direction:column; align-items:flex-start;">
         <div class="cfg-field-name">Disarm delay</div>
@@ -442,70 +440,28 @@
         </div>
       </div>
 
-      <!-- AUX Channel -->
-      <div class="cfg-field">
-        <div class="cfg-field-text">
-          <div class="cfg-field-name">AUX Channel</div>
-          <div class="cfg-field-desc">RC channel monitored for camera mode switching. Set to Disabled if not used.</div>
-        </div>
-        <select id="auxChannel" disabled>
-          <option value="0">Disabled</option>
-          <option value="1">AUX 1</option>
-          <option value="2">AUX 2</option>
-          <option value="3">AUX 3</option>
-          <option value="4">AUX 4</option>
-          <option value="5">AUX 5</option>
-          <option value="6">AUX 6</option>
-          <option value="7">AUX 7</option>
-          <option value="8">AUX 8</option>
-          <option value="9">AUX 9</option>
-          <option value="10">AUX 10</option>
-          <option value="11">AUX 11</option>
-          <option value="12">AUX 12</option>
-        </select>
-      </div>
-
-      <!-- AUX Mode -->
-      <div class="cfg-field">
-        <div class="cfg-field-text">
-          <div class="cfg-field-name">Mode when high (&gt; 1500 µs)</div>
-          <div class="cfg-field-desc">Camera mode to activate when the AUX channel goes high. Returns to Video when low.</div>
-        </div>
-        <select id="auxMode" disabled>
-          <option value="0">Slow Motion</option>
-          <option value="1">Video</option>
-          <option value="2">Timelapse</option>
-          <option value="5">Photo</option>
-          <option value="10" selected>Hyperlapse</option>
-        </select>
-      </div>
-
-      <div class="card-footer">
-        <span class="saved-msg" id="auxSavedMsg"></span>
-        <button id="auxApplyBtn" class="primary" disabled>Apply</button>
-      </div>
-
-      <!-- Camera Profile Switch -->
-      <div class="cfg-field" style="flex-direction:column;align-items:flex-start;"><div class="cfg-field-name" style="font-weight:700;">Camera Profile Switch <span style="color:#f7c948;font-size:.72em;">V1.0.2</span></div><div class="cfg-field-desc">Independent three-position AUX control for saved camera profiles/presets. It can be used alongside Camera Mode Switch on a different AUX channel.</div></div>
-      <div id="firmwareGateNotice" style="display:none;width:100%;margin:0 0 12px;padding:10px 12px;border:1px solid #f7c948;border-radius:6px;background:#2a2208;color:#f7d96b;font-size:12px;"></div>\n      <div class="cfg-field"><div class="cfg-field-text"><div class="cfg-field-name">Profile AUX Channel</div><div class="cfg-field-desc">Independent 3-position AUX switch. Low &lt;1300, middle 1300-1700, high &gt;1700 µs.</div></div>
+      <!-- Unified Camera Switch -->
+      <div class="cfg-field" style="flex-direction:column;align-items:flex-start;"><div class="cfg-field-name" style="font-weight:700;">Camera Switch <span style="color:#f7c948;font-size:.72em;">V1.0.2</span></div><div class="cfg-field-desc">One simple three-position AUX control. GoPro uses native saved presets; supported DJI cameras use shooting modes such as Video, Slow Motion, Timelapse, Hyperlapse and Photo.</div></div>
+      <div id="firmwareGateNotice" style="display:none;width:100%;margin:0 0 12px;padding:10px 12px;border:1px solid #f7c948;border-radius:6px;background:#2a2208;color:#f7d96b;font-size:12px;"></div>
+      <div class="cfg-field"><div class="cfg-field-text"><div class="cfg-field-name">Camera Switch AUX Channel</div><div class="cfg-field-desc">Choose the 3-position AUX switch to use. LOW &lt;1300, MIDDLE 1300-1700, HIGH &gt;1700 µs.</div></div>
         <select id="profileAux" disabled><option value="0">Disabled</option><option value="1">AUX 1</option><option value="2">AUX 2</option><option value="3">AUX 3</option><option value="4">AUX 4</option><option value="5">AUX 5</option><option value="6">AUX 6</option><option value="7">AUX 7</option><option value="8">AUX 8</option><option value="9">AUX 9</option><option value="10">AUX 10</option><option value="11">AUX 11</option><option value="12">AUX 12</option></select>
       </div>
       <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">
-        <div class="cfg-field-name">Camera presets</div>
-        <div class="cfg-field-desc">GoPro: discover the presets currently available on the connected camera, then assign one to each switch position. CamBuddy stores the camera's native IDs internally.</div>
-        <div style="width:100%;margin-top:10px;"><button id="profileDiscoverBtn" type="button" disabled>Discover Camera Profiles</button> <span class="cfg-field-desc" id="profileDiscoverStatus">Connect the camera first.</span></div>
+        <div class="cfg-field-name">LOW / MIDDLE / HIGH</div>
+        <div class="cfg-field-desc">Assign what each switch position should select. GoPro: discover and choose native saved presets. Supported DJI cameras: choose the exposed shooting modes.</div>
+        <div style="width:100%;margin-top:10px;"><button id="profileDiscoverBtn" type="button" disabled>Discover Camera Options</button> <span class="cfg-field-desc" id="profileDiscoverStatus">Connect the camera first.</span></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;width:100%;margin-top:10px;align-items:center;">
           <label>LOW</label><select id="profileLow" disabled><option value="0">Unassigned</option></select>
           <label>MIDDLE</label><select id="profileMid" disabled><option value="0">Unassigned</option></select>
           <label>HIGH</label><select id="profileHigh" disabled><option value="0">Unassigned</option></select>
         </div>
-        <div class="cfg-field"><div class="cfg-field-text"><div class="cfg-field-name">Show profile name in OSD</div><div class="cfg-field-desc">Show the selected profile name for about 2.5 seconds when the AUX profile changes.</div></div><label class="switch"><input type="checkbox" id="profileOsd" checked><span class="track"><span class="thumb"></span></span></label></div>
-        <div class="cfg-field"><div class="cfg-field-text"><div class="cfg-field-name">Display in</div><div class="cfg-field-desc">Choose which enabled OSD destination shows the temporary profile name.</div></div><select id="profileOsdDest"><option value="1">Custom Message 1</option><option value="2">Custom Message 2</option><option value="3">Custom Message 3</option><option value="4">Custom Message 4</option></select></div>
-        <div class="cfg-field-desc" style="margin-top:10px;">GoPro uses native saved presets. DJI Action 4 / 5 Pro / 6 safely exposes verified camera modes (Video, Slow Motion, Timelapse, Hyperlapse and Photo) as switchable profiles; arbitrary native DJI saved presets remain disabled until a verified command is available.</div>
+        <div class="cfg-field"><div class="cfg-field-text"><div class="cfg-field-name">Show selection name in OSD</div><div class="cfg-field-desc">Show the selected preset or mode name for about 2.5 seconds when the Camera Switch changes.</div></div><label class="switch"><input type="checkbox" id="profileOsd" checked><span class="track"><span class="thumb"></span></span></label></div>
+        <div class="cfg-field"><div class="cfg-field-text"><div class="cfg-field-name">Display in</div><div class="cfg-field-desc">Choose which enabled OSD destination shows the temporary Camera Switch selection.</div></div><select id="profileOsdDest"><option value="1">Custom Message 1</option><option value="2">Custom Message 2</option><option value="3">Custom Message 3</option><option value="4">Custom Message 4</option></select></div>
+        <div class="cfg-field-desc" style="margin-top:10px;">GoPro uses native saved presets. DJI Action 4 / 5 Pro / 6 uses the verified shooting modes (Video, Slow Motion, Timelapse, Hyperlapse and Photo). Native DJI saved Custom Modes remain disabled until a verified recall command is available.</div>
         <details style="width:100%;margin-top:12px;">
-          <summary style="cursor:pointer;font-weight:700;color:#d8b4fe;">More info — how profiles work &amp; camera testing status</summary>
+          <summary style="cursor:pointer;font-weight:700;color:#d8b4fe;">More info — how Camera Switch works &amp; camera testing status</summary>
           <div class="cfg-field-desc" style="margin-top:10px;line-height:1.55;">
-            <b>How it works:</b> Profile switching uses its own independent 3-position AUX channel. LOW is below 1300 µs, MIDDLE is 1300–1700 µs and HIGH is above 1700 µs. Each position stores a camera-specific profile/preset ID. A value of 0 means unassigned.<br><br>            <b>OSD notification:</b> After CamBuddy accepts a profile switch it temporarily shows <b>only the profile name</b>, for example <b>POV</b> or <b>Custom</b>, in the selected profile OSD Display in destination for about 2.5 seconds, then automatically restores the normal OSD template. Critical camera warnings keep priority. If a profile ID was entered manually and has no saved name, the OSD safely falls back to LOW/MID/HIGH.<br><br>
+            <b>How it works:</b> Camera Switch uses one 3-position AUX channel. LOW is below 1300 µs, MIDDLE is 1300–1700 µs and HIGH is above 1700 µs. Each position stores a camera-specific profile/preset ID. A value of 0 means unassigned.<br><br>            <b>OSD notification:</b> After CamBuddy accepts a profile switch it temporarily shows <b>only the profile name</b>, for example <b>POV</b> or <b>Custom</b>, in the selected profile OSD Display in destination for about 2.5 seconds, then automatically restores the normal OSD template. Critical camera warnings keep priority. If a profile ID was entered manually and has no saved name, the OSD safely falls back to LOW/MID/HIGH.<br><br>
 
             <b>Discovery:</b> While a supported camera is connected, use <b>Discover Camera Profiles</b> above to ask the camera for the profiles CamBuddy can currently use. Assign the returned entries to LOW, MIDDLE and HIGH, then save/apply the settings. The Wi-Fi AP configurator cannot perform live discovery because camera BLE is deliberately stopped while AP mode is active, but it can view, edit and save the same persistent profile IDs.<br><br>
             <b>GoPro:</b> Native saved preset discovery, named preset selection, LOW/MIDDLE/HIGH AUX switching and persistence have been tested on real hardware and are working. GoPro is currently the fully hardware-confirmed implementation.<br><br>
