@@ -31,6 +31,12 @@ static volatile bool hasCamera = false;
 static CameraData    currentCamera{};
 static uint32_t      lastBattMs = 0;
 
+// GPS -> GoPro clock experiment. Betaflight's RTC is populated from GPS;
+// sync once per GoPro connection/power cycle after both sides are ready.
+static MspRtcDateTime gpsRtc{};
+static bool goproTimeSynced = false;
+static bool goproWasConnectedForTime = false;
+
 static bool     pendingStop = false;
 static uint32_t disarmMs   = 0;
 
@@ -116,6 +122,17 @@ static void onProfileSwitch(uint8_t position) {
     mspSerial.showTransientMessage(cfg.profileOsdTarget, msg, 2500);
     DBG_SERIAL.printf("[main] Profile OSD -> %s (%u ms, target %u)\n",
                       msg, 2500U, cfg.profileOsdTarget);
+}
+
+
+static void onRtcUpdate(const MspRtcDateTime &dt) {
+    gpsRtc = dt;
+    static uint8_t lastLoggedMinute = 255;
+    if (dt.minute != lastLoggedMinute) {
+        lastLoggedMinute = dt.minute;
+        DBG_SERIAL.printf("[GPS-TIME] FC RTC valid: %04u-%02u-%02u %02u:%02u:%02u UTC\\n",
+                          dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second);
+    }
 }
 
 // Called from the BLE stack task — copy + flag only; MSP output on main task.
@@ -242,6 +259,7 @@ void setup() {
     mspSerial.setAuxSwitchCallback(onAuxSwitch);
     mspSerial.setProfileSwitchCallback(onProfileSwitch);
     mspSerial.setRecordSwitchCallback(onRecordAuxSwitch);
+    mspSerial.setRtcCallback(onRtcUpdate);
 
     // Caddx has no BLE scan/pairing flow or camera-match-mode fallback logic —
     // it just joins a Wi-Fi network directly — but it does still use the
@@ -312,6 +330,26 @@ void loop() {
 
     const uint32_t now          = millis();
     const bool     camConnected = !configMode && activeCamera->isConnected();
+
+    // HERO11 naked-camera clock recovery: once Betaflight has a GPS-derived RTC
+    // and the GoPro session is ready, set the camera clock once. A reconnect is
+    // treated as a new camera power/session and permits another sync.
+    const bool isGoPro = configManager.config().cameraType == 1;
+    if (!isGoPro || !camConnected) {
+        if (goproWasConnectedForTime && !camConnected) {
+            goproTimeSynced = false;
+            DBG_SERIAL.println("[GPS-TIME] GoPro disconnected; next connection will resync");
+        }
+        goproWasConnectedForTime = false;
+    } else {
+        goproWasConnectedForTime = true;
+        if (!goproTimeSynced && gpsRtc.valid) {
+            if (goProCamera.setDateTime(gpsRtc.year, gpsRtc.month, gpsRtc.day,
+                                        gpsRtc.hour, gpsRtc.minute, gpsRtc.second)) {
+                goproTimeSynced = true;
+            }
+        }
+    }
 
     // ── BOOT button → force AP ─────────────────────────────────────────────────
     if (!configMode && !forceAP) {
