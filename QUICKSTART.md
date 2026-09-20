@@ -35,7 +35,7 @@ For most GoPro FPV setups, the fresh defaults are already sensible. They include
 - GoPro auto-connect/reconnect
 - low-power BLE
 - camera status in the OSD
-- REC-only while armed and recording
+- configurable REC-only behaviour: **Recording only** or **Armed + Recording**
 - flashing REC
 - first-arm **CLEAN LENS** reminder
 - camera warnings
@@ -63,7 +63,9 @@ The BOOT-button force-AP recovery remains available if you need to bring the loc
 
 ## Recording Trigger
 
-By default, FPV CamBuddy starts recording when Betaflight reports **ARM** and stops after the configured delay on DISARM. In **Easy Config → AUX Switches → Recording Trigger**, you can instead choose **AUX 1–12**. With an AUX trigger selected, **high starts recording** and **low stops recording** using the same stop-delay setting. ARM remains the default and existing behaviour.
+By default, FPV CamBuddy starts recording when Betaflight reports **ARM** and stops after the configured delay on DISARM. In **Easy Config → AUX Switches → Recording Trigger**, you can instead choose **AUX 1–12**. With an AUX trigger selected, **high starts recording** and **low stops recording** using the same stop-delay setting. ARM remains the default and existing behaviour. This AUX recording-trigger path has been hardware-confirmed on the V1.0.2 test setup.
+
+The Recording Trigger is independent of the 3-position **Camera Switch**, so one AUX can control recording while another selects LOW / MIDDLE / HIGH camera presets or modes.
 
 ## 3. Connect the C3 to your flight controller
 
@@ -143,7 +145,9 @@ If that works, the normal setup is complete. 🤘
 
 Use **FPSteVe Easy Config**. It contains the camera, recording, OSD, warnings, AUX and connection settings in one place, plus the integrated **OSD Preview** so you can see most OSD changes before trying them on the quad.
 
-In V1.0.2, GoPro saved presets can be discovered and assigned to LOW / MIDDLE / HIGH AUX positions. **Show profile name in OSD** can display only the selected profile name for about 2.5 seconds after a change. Demo Mode includes built-in **CINEMATIC / ACTION / SLOW MOTION** example profiles, so this behaviour can be tested without ever connecting a camera.
+In V1.0.2, GoPro saved presets can be discovered and assigned to LOW / MIDDLE / HIGH AUX positions. Native GoPro preset discovery, saved names, persistence and AUX switching have been hardware-confirmed. **Show profile name in OSD** can display only the selected profile name for about 2.5 seconds after a change, and this C3 → FC → Betaflight OSD path has also been hardware-confirmed. Demo Mode includes built-in **CINEMATIC / ACTION / SLOW MOTION** example profiles, so this behaviour can be tested without ever connecting a camera.
+
+Under **OSD Templates → Status Behaviour**, **REC-only behaviour** can be enabled and its display mode selected as **Recording only** (REC follows actual camera recording, including AUX-triggered recording while disarmed) or **Armed + Recording** (REC requires both conditions). **Flash REC at 1 Hz** remains a separate option.
 
 You shouldn't need to edit CLI values for normal use.
 
