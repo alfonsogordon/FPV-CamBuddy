@@ -30,6 +30,7 @@
 // ─── Command IDs (sent to GP_CHAR_CMD_WRITE, ack on GP_CHAR_CMD_NOTIFY) ──────
 
 #define GP_CMD_SET_SHUTTER       0x01
+#define GP_CMD_SET_DATE_TIME      0x0D  // Open GoPro Set Date Time
 #define GP_CMD_GET_HARDWARE_INFO 0x3C
 #define GP_CMD_LOAD_PRESET_GROUP 0x3E
 #define GP_CMD_LOAD_PRESET       0x40  // uint32 big-endian runtime preset ID (Open GoPro)
