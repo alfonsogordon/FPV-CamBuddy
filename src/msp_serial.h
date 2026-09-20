@@ -28,6 +28,7 @@ static_assert(sizeof(MSP2CameraPayload) == 15, "Camera payload size mismatch");
 using ArmCallback = void (*)(bool armed);
 using AuxSwitchCallback = void (*)(bool high);
 using ProfileSwitchCallback = void (*)(uint8_t position); // 0=low,1=mid,2=high
+using RecordSwitchCallback = void (*)(bool high);
 
 class MSPSerial {
 public:
@@ -105,6 +106,8 @@ public:
     void setAuxSwitchCallback(AuxSwitchCallback cb) { _auxSwitchCb = cb; }
     void setProfileAuxChannel(uint8_t channel);
     void setProfileSwitchCallback(ProfileSwitchCallback cb) { _profileSwitchCb = cb; }
+    void setRecordAuxChannel(uint8_t channel);
+    void setRecordSwitchCallback(RecordSwitchCallback cb) { _recordSwitchCb = cb; }
     void showTransientMessage(uint8_t target, const char *text, uint16_t durationMs);
 
 private:
@@ -134,6 +137,9 @@ private:
     bool _auxHigh = false;
     AuxSwitchCallback _auxSwitchCb = nullptr;
     uint8_t _profileAuxChannel = 0;
+    uint8_t _recordAuxChannel = 0;
+    bool _recordAuxHigh = false;
+    RecordSwitchCallback _recordSwitchCb = nullptr;
     uint8_t _profilePosition = 0xFF;
     ProfileSwitchCallback _profileSwitchCb = nullptr;
     bool _fpvStateMode = true;
