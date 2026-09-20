@@ -623,6 +623,9 @@ void WebConfigServer::handleGetConfig() {
     d["low_power"] = c.lowPowerMode;
     d["wifi_ap_enabled"] = c.wifiApEnabled;
     d["wifi_ap_delay"] = c.wifiApStartDelaySec;
+    d["gopro_gps_time"] = c.goproGpsTimeSync;
+    d["gopro_tz_mode"] = c.goproTimezoneMode;
+    d["gopro_tz_offset"] = c.goproTimezoneOffsetMin;
     d["osd1"] = c.osd1Tpl;
     d["osd2"] = c.osd2Tpl;
     d["osd3"] = c.osd3Tpl;
