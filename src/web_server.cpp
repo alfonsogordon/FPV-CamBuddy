@@ -611,6 +611,7 @@ void WebConfigServer::handleGetConfig() {
     d["aux_channel"] = c.auxChannel;
     d["aux_mode"] = c.auxMode;
     d["profile_aux"] = c.profileAuxChannel;
+    d["record_aux"] = c.recordAuxChannel;
     d["profile_low"] = c.profileLow;
     d["profile_mid"] = c.profileMid;
     d["profile_high"] = c.profileHigh;
@@ -686,6 +687,7 @@ void WebConfigServer::handlePostConfig() {
     if (d["aux_channel"].is<int>()) _cfg->setAuxChannel(d["aux_channel"].as<uint8_t>());
     if (d["aux_mode"].is<int>()) _cfg->setAuxMode(d["aux_mode"].as<uint8_t>());
     if (d["profile_aux"].is<int>()) _cfg->setProfileAuxChannel(d["profile_aux"].as<uint8_t>());
+    if (d["record_aux"].is<int>()) _cfg->setRecordAuxChannel(d["record_aux"].as<uint8_t>());
     if (d["profile_low"].is<uint32_t>()) _cfg->setProfileId(0, d["profile_low"].as<uint32_t>());
     if (d["profile_mid"].is<uint32_t>()) _cfg->setProfileId(1, d["profile_mid"].as<uint32_t>());
     if (d["profile_high"].is<uint32_t>()) _cfg->setProfileId(2, d["profile_high"].as<uint32_t>());
