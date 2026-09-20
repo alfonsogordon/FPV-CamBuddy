@@ -162,3 +162,7 @@ When asking for help, the most useful details are your **camera model, Betafligh
 ---
 
 **FPV CamBuddy V1.0** 🤘
+
+### GoPro MAX2 V1.0.2 validation
+
+GoPro MAX2 is hardware-confirmed across the current V1.0.2 GoPro feature set, including connection/reconnect, recording control, live camera OSD/telemetry, native saved-preset Camera Switch and selection-name OSD.
