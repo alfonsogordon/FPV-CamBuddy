@@ -1014,7 +1014,8 @@ async function startReading() {
       for (const line of parts) {
         const clean = line.replace(/\r$/, '');
         log(clean);
-        parseFirmwareVersionLine(clean);\n        parseConfigLine(clean);
+        parseFirmwareVersionLine(clean);
+        parseConfigLine(clean);
         collectCameraLine(clean);
         collectWifiScanLine(clean);
         collectProfileLine(clean);
