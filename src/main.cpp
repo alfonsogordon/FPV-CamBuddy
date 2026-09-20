@@ -349,8 +349,13 @@ void loop() {
                 goproTimeSynced = true;
                 // Positive confirmation only: do not clutter the OSD while waiting
                 // for GPS. Use the same transient MSP text path as profile feedback.
-                mspSerial.showTransientMessage(1, "GOPRO TIME SET", 2000);
-                DBG_SERIAL.println("[GPS-TIME] GoPro clock command sent; OSD confirmation shown");
+                // Reuse the user's existing transient/profile OSD destination rather than
+                // assuming Custom Message 1. This follows the destination already
+                // selected in the configurator (1-4).
+                const uint8_t timeOsdTarget = configManager.config().profileOsdTarget;
+                mspSerial.showTransientMessage(timeOsdTarget, "GOPRO TIME SET", 2000);
+                DBG_SERIAL.printf("[GPS-TIME] GoPro clock command sent; OSD confirmation shown on target %u\n",
+                                  timeOsdTarget);
             }
         }
     }
