@@ -453,6 +453,14 @@
         </select>
       </div>
 
+      <!-- Legacy two-position camera-mode controls are retained hidden for
+           backwards-compatible reads/CLI handling, but are no longer part of Easy Config. -->
+      <div style="display:none" aria-hidden="true">
+        <select id="auxChannel"><option value="0">Disabled</option></select>
+        <select id="auxMode"><option value="0">Slow Motion</option><option value="1">Video</option><option value="2">Timelapse</option><option value="5">Photo</option><option value="10">Hyperlapse</option></select>
+        <button id="auxApplyBtn" type="button"></button><span id="auxSavedMsg"></span>
+      </div>
+
       <!-- Unified Camera Switch -->
       <div class="cfg-field" style="flex-direction:column;align-items:flex-start;"><div class="cfg-field-name" style="font-weight:700;">Camera Switch <span style="color:#f7c948;font-size:.72em;">V1.0.2</span></div><div class="cfg-field-desc">One simple three-position AUX control. GoPro uses native saved presets; supported DJI cameras use shooting modes such as Video, Slow Motion, Timelapse, Hyperlapse and Photo.</div></div>
       <div id="firmwareGateNotice" style="display:none;width:100%;margin:0 0 12px;padding:10px 12px;border:1px solid #f7c948;border-radius:6px;background:#2a2208;color:#f7d96b;font-size:12px;"></div>
@@ -818,7 +826,7 @@ function updateFirmwareGate() {
   const notice=document.getElementById('firmwareGateNotice');
   const connectedNow=!!port;
   const compatible=firmwareVersionState==='compatible';
-  const profileEls=[profileAuxSel,profileLowInput,profileMidInput,profileHighInput,profileDiscoverBtn,profileApplyBtn,profileOsdToggle,profileOsdDestSel];
+  const profileEls=[recordAuxSel,profileAuxSel,profileLowInput,profileMidInput,profileHighInput,profileDiscoverBtn,profileApplyBtn,profileOsdToggle,profileOsdDestSel];
   profileEls.forEach(el=>{ if(el) el.disabled=!connectedNow || !compatible; });
   if(!notice) return;
   if(!connectedNow || compatible){ notice.style.display='none'; return; }
