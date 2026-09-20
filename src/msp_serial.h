@@ -4,6 +4,7 @@
 
 #define MSP_STATUS 101
 #define MSP_RC 105
+#define MSP_RTC 247
 #define MSP2_SET_TEXT 0x3007
 #define MSP_TEXT_PILOT_NAME 1
 #define MSP_TEXT_CRAFT_NAME 2
@@ -29,6 +30,14 @@ using ArmCallback = void (*)(bool armed);
 using AuxSwitchCallback = void (*)(bool high);
 using ProfileSwitchCallback = void (*)(uint8_t position); // 0=low,1=mid,2=high
 using RecordSwitchCallback = void (*)(bool high);
+
+struct MspRtcDateTime {
+    uint16_t year = 0;
+    uint8_t month = 0, day = 0, hour = 0, minute = 0, second = 0;
+    uint16_t millis = 0;
+    bool valid = false;
+};
+using RtcCallback = void (*)(const MspRtcDateTime &dt);
 
 class MSPSerial {
 public:
@@ -108,6 +117,8 @@ public:
     void setProfileSwitchCallback(ProfileSwitchCallback cb) { _profileSwitchCb = cb; }
     void setRecordAuxChannel(uint8_t channel);
     void setRecordSwitchCallback(RecordSwitchCallback cb) { _recordSwitchCb = cb; }
+    void setRtcCallback(RtcCallback cb) { _rtcCb = cb; }
+    const MspRtcDateTime &rtc() const { return _rtc; }
     void showTransientMessage(uint8_t target, const char *text, uint16_t durationMs);
 
 private:
@@ -119,6 +130,7 @@ private:
     void processResponse();
     void handleStatusResponse();
     void handleRcResponse();
+    void handleRtcResponse();
     enum class RxState : uint8_t { IDLE, HDR_X, HDR_DIR, FLAG, CMD_LO, CMD_HI, SZ_LO, SZ_HI, PAYLOAD, CRC };
     static constexpr uint8_t RX_BUF_SIZE = 32;
     RxState _rxState = RxState::IDLE;
@@ -173,4 +185,7 @@ private:
     uint8_t _transientTarget = 1;
     uint32_t _transientUntilMs = 0;
     bool _hasArmedSinceBoot = false;
+    MspRtcDateTime _rtc{};
+    RtcCallback _rtcCb = nullptr;
+    uint32_t _lastRtcPollMs = 0;
 };
