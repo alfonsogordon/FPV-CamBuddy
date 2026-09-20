@@ -30,6 +30,13 @@
 <li>Turn Camera Switch OSD OFF; switching should still work without the message.<details class="more"><summary>More info</summary><div><strong>Where:</strong> <strong>Easy Config → AUX Switches → Camera Switch → Show profile name in OSD</strong>.<br><strong>What it does:</strong> this switch controls only the 2.5-second OSD message.<br><strong>What should happen:</strong> turn it OFF and move LOW/MIDDLE/HIGH again. The camera should still change profile/mode normally, but no temporary profile name should appear.</div></details></li>
 <li>Reboot and confirm assignments are retained.<details class="more"><summary>More info</summary><div><strong>How:</strong> after saving your Camera Switch setup, completely power CamBuddy off and back on, reconnect with Easy Config and read the board.<br><strong>What should happen:</strong> the Camera Switch AUX channel, LOW/MIDDLE/HIGH assignments, saved names, Camera Switch OSD toggle and Display in choice should all still be there and switching should still work.</div></details></li></ul></section>
 
+<section class="card"><h2>New V1.0.2 controls to test</h2><ul class="checks">
+<li><strong>Recording Trigger:</strong> leave it on ARM first, then assign an AUX channel and confirm AUX high starts recording and AUX low stops recording.<details class="more"><summary>More info</summary><div><strong>Where:</strong> Easy Config → AUX Switches → Recording Trigger.<br><strong>Already confirmed:</strong> ARM and separate-AUX recording control are working on the FPSteVe GoPro test setup. Community results on other cameras are wanted.<br><strong>Also check:</strong> with Recording Trigger on AUX, arming the quad should not itself start/stop recording.</div></details></li>
+<li><strong>Independent Camera Switch:</strong> use a different 3-position AUX and confirm LOW / MIDDLE / HIGH select the expected GoPro presets or supported DJI modes.<details class="more"><summary>More info</summary><div>For GoPro, native saved-preset discovery, names, persistence and LOW/MIDDLE/HIGH switching are already hardware-confirmed. The selected preset name should briefly appear in Betaflight OSD when that option is enabled.</div></details></li>
+<li><strong>REC-only behaviour:</strong> enable it and test both REC display modes.<details class="more"><summary>More info</summary><div><strong>Recording only:</strong> REC should follow the camera's actual recording state, including AUX-triggered recording while the quad is disarmed.<br><strong>Armed + Recording:</strong> REC should appear only when the quad is armed and the camera confirms recording.<br><strong>Flash REC at 1 Hz</strong> remains a separate setting.</div></details></li>
+<li>Re-read/reconnect and confirm Recording Trigger, Camera Switch assignments, REC-only toggle/mode and OSD options persist.</li>
+</ul></section>
+
 <section class="card"><h2>AP / Field Configurator</h2><ul class="checks">
 <li>Enable/open the CamBuddy AP and connect your phone to <strong>FPVCamBuddy</strong>.<details class="more"><summary>More info</summary><div><strong>Where:</strong> AP behaviour is configured under <strong>Easy Config → Recording Control → WiFi Config AP</strong>. Enable it if you want automatic field-config access. Holding the CamBuddy board's <strong>BOOT</strong> button can also force the AP for recovery/configuration.<br><strong>How:</strong> when the AP is active, open your phone's Wi-Fi settings and join <strong>FPVCamBuddy</strong>.<br><strong>Note:</strong> camera BLE is deliberately stopped while the field AP is active, so live camera discovery is not expected from the AP page.</div></details></li>
 <li>Open <strong>http://cambuddy.local</strong> and confirm the configurator loads.<details class="more"><summary>More info</summary><div><strong>Where:</strong> after joining the <strong>FPVCamBuddy</strong> Wi-Fi network, open your normal browser and type <strong>http://cambuddy.local</strong> into the address bar.<br><strong>What should happen:</strong> the onboard FPV CamBuddy configurator should load without needing to remember an IP address.<br><strong>If it fails:</strong> that may be a hostname-resolution issue rather than an AP failure. Please report your phone model/browser, then try the 192.168.4.1 fallback below.</div></details></li>
@@ -47,6 +54,9 @@ CamBuddy board:
 Betaflight version:
 Connect: PASS / FAIL
 ARM Record: PASS / FAIL
+AUX Record Trigger: PASS / FAIL / N/A
+AUX Low Stop: PASS / FAIL / N/A
+REC display mode: Recording only PASS / FAIL / N/A; Armed + Recording PASS / FAIL / N/A
 DISARM Stop: PASS / FAIL
 LOW / MID / HIGH: PASS / FAIL / N/A
 Camera Switch OSD: PASS / FAIL / N/A
