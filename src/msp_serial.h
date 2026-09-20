@@ -124,6 +124,7 @@ public:
     bool gpsFix() const { return _gpsFix; }
     uint8_t gpsSatellites() const { return _gpsSatellites; }
     void showTransientMessage(uint8_t target, const char *text, uint16_t durationMs);
+    void showTransientTextType(uint8_t textType, const char *text, uint16_t durationMs);
 
 private:
     void sendFrame(uint16_t cmd, const uint8_t *payload, uint16_t length, char dir = '>');
@@ -188,6 +189,7 @@ private:
     uint16_t _fpvPreArmIntervalMs = 3000;
     char _transientText[32] = "";
     uint8_t _transientTarget = 1;
+    uint8_t _transientTextType = 0;
     uint32_t _transientUntilMs = 0;
     bool _hasArmedSinceBoot = false;
     MspRtcDateTime _rtc{};
