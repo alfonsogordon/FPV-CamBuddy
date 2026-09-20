@@ -37,6 +37,115 @@ static MspRtcDateTime gpsRtc{};
 static bool goproTimeSynced = false;
 static bool goproWasConnectedForTime = false;
 
+
+struct GoProLocalDateTime {
+    uint16_t year;
+    uint8_t month, day, hour, minute, second;
+    int16_t offsetMin;
+};
+
+static int64_t daysFromCivil(int y, unsigned m, unsigned d) {
+    y -= m <= 2;
+    const int era = (y >= 0 ? y : y - 399) / 400;
+    const unsigned yoe = static_cast<unsigned>(y - era * 400);
+    const unsigned doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
+    const unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    return static_cast<int64_t>(era) * 146097 + static_cast<int>(doe) - 719468;
+}
+
+static void civilFromDays(int64_t z, int &y, unsigned &m, unsigned &d) {
+    z += 719468;
+    const int era = static_cast<int>((z >= 0 ? z : z - 146096) / 146097);
+    const unsigned doe = static_cast<unsigned>(z - static_cast<int64_t>(era) * 146097);
+    const unsigned yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    y = static_cast<int>(yoe) + era * 400;
+    const unsigned doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    const unsigned mp = (5 * doy + 2) / 153;
+    d = doy - (153 * mp + 2) / 5 + 1;
+    m = mp + (mp < 10 ? 3 : -9);
+    y += (m <= 2);
+}
+
+static int weekday(int y, unsigned m, unsigned d) {
+    int w = static_cast<int>((daysFromCivil(y, m, d) + 4) % 7); // 1970-01-01 Thursday
+    return w < 0 ? w + 7 : w; // 0=Sunday
+}
+
+static unsigned nthSunday(int y, unsigned m, unsigned nth) {
+    return 1 + ((7 - weekday(y, m, 1)) % 7) + (nth - 1) * 7;
+}
+
+static unsigned lastSunday(int y, unsigned m) {
+    static const uint8_t mdays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
+    unsigned last = mdays[m];
+    if (m == 2 && ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0)) last = 29;
+    return last - weekday(y, m, last);
+}
+
+static int64_t utcSeconds(int y, unsigned m, unsigned d, unsigned hh, unsigned mm, unsigned ss) {
+    return daysFromCivil(y, m, d) * 86400LL + hh * 3600LL + mm * 60LL + ss;
+}
+
+static int16_t timezoneOffsetMinutes(const MspRtcDateTime &utc, uint8_t mode, int16_t fixedOffset) {
+    const int y = utc.year;
+    const int64_t now = utcSeconds(y, utc.month, utc.day, utc.hour, utc.minute, utc.second);
+    if (mode == 0) return fixedOffset;
+
+    if (mode >= 1 && mode <= 3) { // UK / Central Europe / Eastern Europe
+        const int16_t base = mode == 1 ? 0 : (mode == 2 ? 60 : 120);
+        const int64_t start = utcSeconds(y, 3, lastSunday(y, 3), 1, 0, 0);
+        const int64_t end = utcSeconds(y, 10, lastSunday(y, 10), 1, 0, 0);
+        return base + ((now >= start && now < end) ? 60 : 0);
+    }
+
+    if (mode >= 4 && mode <= 8) { // North America: US/Canada DST rule
+        static const int16_t baseOffsets[] = {-300, -360, -420, -480, -540};
+        const int16_t base = baseOffsets[mode - 4];
+        const unsigned startDay = nthSunday(y, 3, 2);
+        const unsigned endDay = nthSunday(y, 11, 1);
+        // 02:00 local standard -> UTC; end is 02:00 local daylight -> UTC.
+        const int64_t start = utcSeconds(y, 3, startDay, 2, 0, 0) - static_cast<int64_t>(base) * 60LL;
+        const int64_t end = utcSeconds(y, 11, endDay, 2, 0, 0) - static_cast<int64_t>(base + 60) * 60LL;
+        return base + ((now >= start && now < end) ? 60 : 0);
+    }
+
+    if (mode == 9 || mode == 10) { // Sydney/Melbourne/Hobart and Adelaide
+        const int16_t base = mode == 9 ? 600 : 570;
+        const int64_t end = utcSeconds(y, 4, nthSunday(y, 4, 1), 3, 0, 0) - static_cast<int64_t>(base + 60) * 60LL;
+        const int64_t start = utcSeconds(y, 10, nthSunday(y, 10, 1), 2, 0, 0) - static_cast<int64_t>(base) * 60LL;
+        const bool dst = now < end || now >= start;
+        return base + (dst ? 60 : 0);
+    }
+
+    if (mode == 11) { // New Zealand
+        const int16_t base = 720;
+        const int64_t end = utcSeconds(y, 4, nthSunday(y, 4, 1), 3, 0, 0) - static_cast<int64_t>(base + 60) * 60LL;
+        const int64_t start = utcSeconds(y, 9, lastSunday(y, 9), 2, 0, 0) - static_cast<int64_t>(base) * 60LL;
+        const bool dst = now < end || now >= start;
+        return base + (dst ? 60 : 0);
+    }
+    return fixedOffset;
+}
+
+static GoProLocalDateTime localizeGoProTime(const MspRtcDateTime &utc, const ConfigManager::Config &cfg) {
+    GoProLocalDateTime out{};
+    out.offsetMin = timezoneOffsetMinutes(utc, cfg.goproTimezoneMode, cfg.goproTimezoneOffsetMin);
+    int64_t sec = utcSeconds(utc.year, utc.month, utc.day, utc.hour, utc.minute, utc.second)
+                + static_cast<int64_t>(out.offsetMin) * 60LL;
+    int64_t days = sec / 86400LL;
+    int64_t sod = sec % 86400LL;
+    if (sod < 0) { sod += 86400LL; --days; }
+    int y; unsigned m, d;
+    civilFromDays(days, y, m, d);
+    out.year = static_cast<uint16_t>(y);
+    out.month = static_cast<uint8_t>(m);
+    out.day = static_cast<uint8_t>(d);
+    out.hour = static_cast<uint8_t>(sod / 3600LL);
+    out.minute = static_cast<uint8_t>((sod % 3600LL) / 60LL);
+    out.second = static_cast<uint8_t>(sod % 60LL);
+    return out;
+}
+
 static bool     pendingStop = false;
 static uint32_t disarmMs   = 0;
 
@@ -130,7 +239,7 @@ static void onRtcUpdate(const MspRtcDateTime &dt) {
     static uint8_t lastLoggedMinute = 255;
     if (dt.minute != lastLoggedMinute) {
         lastLoggedMinute = dt.minute;
-        DBG_SERIAL.printf("[GPS-TIME] FC RTC valid: %04u-%02u-%02u %02u:%02u:%02u UTC\\n",
+        DBG_SERIAL.printf("[GPS-TIME] FC RTC valid: %04u-%02u-%02u %02u:%02u:%02u UTC\n",
                           dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second);
     }
 }
@@ -344,8 +453,12 @@ void loop() {
     } else {
         goproWasConnectedForTime = true;
         if (configManager.config().goproGpsTimeSync && !goproTimeSynced && mspSerial.gpsTimeReady()) {
-            if (goProCamera.setDateTime(gpsRtc.year, gpsRtc.month, gpsRtc.day,
-                                        gpsRtc.hour, gpsRtc.minute, gpsRtc.second)) {
+            const auto local = localizeGoProTime(gpsRtc, configManager.config());
+            DBG_SERIAL.printf("[GPS-TIME] Local camera time: %04u-%02u-%02u %02u:%02u:%02u (UTC%+d:%02d)\n",
+                              local.year, local.month, local.day, local.hour, local.minute, local.second,
+                              local.offsetMin / 60, abs(local.offsetMin % 60));
+            if (goProCamera.setDateTime(local.year, local.month, local.day,
+                                        local.hour, local.minute, local.second)) {
                 goproTimeSynced = true;
                 // Positive confirmation only: do not clutter the OSD while waiting.
                 // Follow the OSD mode already configured by the user. BF4.5 compatibility
