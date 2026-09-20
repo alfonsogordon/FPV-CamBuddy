@@ -193,3 +193,5 @@ jobs:
         id: deploy
 
 # V1.0.2 staging refresh: exact candidate dafd798c 2026-09-19
+
+# Emergency Pages refresh after configurator connect fix 8f7c9f7
