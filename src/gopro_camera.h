@@ -54,6 +54,7 @@ public:
     uint32_t activeProfileId() const override { return _activePresetId; }
     bool queryProfiles() override;
     bool triggerBurstSloMo() override;
+    bool setDateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t minute, uint8_t second);
     bool exitBurstSloMo() override;
 
 private:
