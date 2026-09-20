@@ -478,7 +478,7 @@
         </div>
         <div class="cfg-field"><div class="cfg-field-text"><div class="cfg-field-name">Show selection name in OSD</div><div class="cfg-field-desc">Show the selected preset or mode name for about 2.5 seconds when the Camera Switch changes.</div></div><label class="switch"><input type="checkbox" id="profileOsd" checked><span class="track"><span class="thumb"></span></span></label></div>
         <div class="cfg-field"><div class="cfg-field-text"><div class="cfg-field-name">Display in</div><div class="cfg-field-desc">Choose which enabled OSD destination shows the temporary Camera Switch selection.</div></div><select id="profileOsdDest"><option value="1">Custom Message 1</option><option value="2">Custom Message 2</option><option value="3">Custom Message 3</option><option value="4">Custom Message 4</option></select></div>
-        <div class="cfg-field-desc" style="margin-top:10px;">GoPro uses native saved presets. DJI Action 4 / 5 Pro / 6 uses the verified shooting modes (Video, Slow Motion, Timelapse, Hyperlapse and Photo). Native DJI saved Custom Modes remain disabled until a verified recall command is available.</div>
+        <div class="cfg-field-desc" style="margin-top:10px;">GoPro uses native saved presets. DJI Action 4 / 5 Pro / 6 uses verified shooting modes. Osmo Nano now exposes its hardware-captured DUML shooting modes (Video, Slow Motion, Timelapse, Hyperlapse, Photo, Panorama and SuperNight). Native DJI saved Custom Modes remain disabled until a verified recall command is available.</div>
         <details style="width:100%;margin-top:12px;">
           <summary style="cursor:pointer;font-weight:700;color:#d8b4fe;">More info — how Camera Switch works &amp; camera testing status</summary>
           <div class="cfg-field-desc" style="margin-top:10px;line-height:1.55;">
@@ -487,7 +487,7 @@
             <b>Discovery:</b> While a supported camera is connected, use <b>Discover Camera Options</b> above to ask the camera for the presets or modes CamBuddy can currently use. Assign the returned entries to LOW, MIDDLE and HIGH, then save/apply the settings. The Wi-Fi AP configurator cannot perform live discovery because camera BLE is deliberately stopped while AP mode is active, but it can view, edit and save the same persistent profile IDs.<br><br>
             <b>GoPro:</b> Native saved preset discovery, named preset selection, LOW/MIDDLE/HIGH AUX switching and persistence have been tested on real hardware and are working. GoPro is currently the fully hardware-confirmed implementation.<br><br>
             <b>DJI Action 4 / 5 Pro / 6:</b> V1.0.2 currently exposes the verified basic shooting modes (Video, Slow Motion, Timelapse, Hyperlapse and Photo) through the same Camera Switch. Genuine DJI saved Custom Modes 1–5 have been identified in camera status, but their safe recall command is still under investigation, so native Custom Mode switching is <b>not yet implemented or hardware-confirmed</b>.<br><br>
-            <b>Osmo Nano:</b> Native BLE DUML pairing, ARM-triggered recording and core telemetry (including recording state, mode, battery, free storage and remaining time) are now hardware-confirmed working. Nano Camera Switch selections are not currently implemented/hardware-confirmed.<br><br>
+            <b>Osmo Nano:</b> Native BLE DUML pairing, ARM-triggered recording and core telemetry are hardware-confirmed. Camera Switch now exposes the hardware-captured Nano shooting modes Video, Slow Motion, Timelapse, Hyperlapse, Photo, Panorama and SuperNight through native DUML 0x02/0xE1. The implementation is ready for real Nano hardware validation; it is not yet claimed hardware-confirmed.<br><br>
             <b>Other cameras:</b> Insta360 Camera Switch selections are not currently implemented. Profile IDs are camera/model-specific and should not be copied between different cameras unless explicitly supported.
           </div>
         </details>
@@ -1251,7 +1251,7 @@ function finalizeProfileCapture() {
   collectingProfiles = false;
   clearTimeout(profileTimer);
   if (!discoveredProfiles.length) {
-    profileDiscoverStatus.textContent = 'No profiles returned. Make sure a supported GoPro or DJI Action camera is connected.';
+    profileDiscoverStatus.textContent = 'No camera options returned. Make sure a supported GoPro or DJI/Osmo camera is connected.';
     profileDiscoverBtn.disabled = !port;
     return;
   }
@@ -1267,7 +1267,7 @@ function finalizeProfileCapture() {
     }
     if ([...sel.options].some(o => o.value === previous)) sel.value = previous;
   }
-  profileDiscoverStatus.textContent = unique.length + ' presets found.';
+  profileDiscoverStatus.textContent = unique.length + ' camera options found.';
   profileDiscoverBtn.disabled = !port;
 }
 
