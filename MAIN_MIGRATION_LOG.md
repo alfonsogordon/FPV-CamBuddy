@@ -158,3 +158,13 @@ For individual migration commits, prefer `git revert <migration-commit-sha>` so 
 - Added USB Easy Config, field/AP configurator, persistent NVS/CLI (`record_aux`), AP JSON API, MSP polling/callback handling, and documentation.
 - Legacy two-position camera-mode controls remain hidden for backwards compatibility only.
 - Hardware testing still required before release.
+
+
+### Hardware acceptance update - GoPro / AUX / OSD
+- Steve physically confirmed the configurable Recording Trigger works on the current GoPro test setup: ARM remains usable as the default trigger, and a selected AUX channel can independently start recording high / stop recording low.
+- Steve physically reconfirmed the unified Camera Switch behaviour and confirmed Camera Switch preset-name messages appear through the real C3 -> FC -> Betaflight OSD path.
+- Native GoPro saved-preset discovery, names, persistence and LOW / MIDDLE / HIGH switching remain hardware-confirmed.
+- Recording Trigger and Camera Switch can use separate AUX channels.
+- The legacy two-position Camera Mode Switch has been removed from the visible Easy Config UI; compatibility internals remain hidden.
+- New REC-only UI now retains an enable toggle and adds a mode choice: Recording only, or Armed + Recording. USB and AP implementations are present; this newest mode-selector behaviour still requires Steve's hardware/UI acceptance test before being marked hardware-confirmed.
+- No release/tag has been created. Frozen `v1.0.2` remains unchanged at `139d47de841ed7fe0c9198019926b5bb635e2285`.
