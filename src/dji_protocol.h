@@ -50,6 +50,8 @@
 #define DJI_MODE_TIMELAPSE      0x02
 #define DJI_MODE_PHOTO          0x05
 #define DJI_MODE_HYPERLAPSE     0x0A
+#define DJI_MODE_PANORAMA       0x0C   // Osmo Nano DUML hardware-captured mode
+#define DJI_MODE_SUPERNIGHT     0x28   // Osmo Nano DUML hardware-captured mode
 
 // Record control actions (CmdSet 0x1D, CmdID 0x03)
 #define DJI_RECORD_START            0x00
