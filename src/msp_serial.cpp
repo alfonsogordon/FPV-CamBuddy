@@ -280,15 +280,25 @@ void MSPSerial::handleGpsResponse() {
     // MSP_RAW_GPS begins with fix type and satellite count. We deliberately
     // gate camera clock sync on a live FC GPS fix, not merely a plausible RTC,
     // so a retained/default RTC cannot overwrite the GoPro after cold power-up.
+    static uint32_t lastDiagMs = 0;
+    const bool periodicDiag = millis() - lastDiagMs >= 5000;
+
     if (_rxSize < 2) {
+        if (periodicDiag) {
+            lastDiagMs = millis();
+            DBG_SERIAL.printf("[GPS-TIME] MSP_RAW_GPS response too short: %u bytes; waiting for GPS data\n", _rxSize);
+        }
         _gpsFix = false;
         _gpsSatellites = 0;
         return;
     }
+
     const bool fix = _rxBuf[0] > 0;
     const uint8_t sats = _rxBuf[1];
-    if (fix != _gpsFix || sats != _gpsSatellites) {
-        DBG_SERIAL.printf("[GPS-TIME] GPS %s, satellites=%u\n", fix ? "fix" : "waiting", sats);
+    if (fix != _gpsFix || sats != _gpsSatellites || periodicDiag) {
+        lastDiagMs = millis();
+        DBG_SERIAL.printf("[GPS-TIME] MSP_RAW_GPS response: fix=%u sats=%u -> %s\n",
+                          fix ? 1 : 0, sats, fix ? "GPS FIX" : "WAITING FOR GPS FIX");
     }
     _gpsFix = fix;
     _gpsSatellites = sats;
@@ -298,7 +308,14 @@ void MSPSerial::handleGpsResponse() {
 void MSPSerial::handleRtcResponse() {
     // Betaflight MSP_RTC payload: year U16 LE, month, day, hours, minutes,
     // seconds, millis U16 LE. Empty payload means RTC is not set yet.
-    if (_rxSize < 9) return;
+    static uint32_t lastRtcDiagMs = 0;
+    if (_rxSize < 9) {
+        if (millis() - lastRtcDiagMs >= 5000) {
+            lastRtcDiagMs = millis();
+            DBG_SERIAL.printf("[GPS-TIME] MSP_RTC response: %u bytes -> RTC NOT SET / WAITING FOR GPS TIME\n", _rxSize);
+        }
+        return;
+    }
     MspRtcDateTime dt{};
     memcpy(&dt.year, _rxBuf, sizeof(dt.year));
     dt.month = _rxBuf[2]; dt.day = _rxBuf[3]; dt.hour = _rxBuf[4];
@@ -306,7 +323,19 @@ void MSPSerial::handleRtcResponse() {
     memcpy(&dt.millis, _rxBuf + 7, sizeof(dt.millis));
     dt.valid = dt.year >= 2024 && dt.year <= 2099 && dt.month >= 1 && dt.month <= 12 &&
                dt.day >= 1 && dt.day <= 31 && dt.hour <= 23 && dt.minute <= 59 && dt.second <= 60;
-    if (!dt.valid) return;
+    if (!dt.valid) {
+        if (millis() - lastRtcDiagMs >= 5000) {
+            lastRtcDiagMs = millis();
+            DBG_SERIAL.printf("[GPS-TIME] MSP_RTC invalid: %04u-%02u-%02u %02u:%02u:%02u\n",
+                              dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second);
+        }
+        return;
+    }
+    if (millis() - lastRtcDiagMs >= 5000) {
+        lastRtcDiagMs = millis();
+        DBG_SERIAL.printf("[GPS-TIME] MSP_RTC valid: %04u-%02u-%02u %02u:%02u:%02u UTC\n",
+                          dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second);
+    }
     const bool changed = !_rtc.valid || dt.year != _rtc.year || dt.month != _rtc.month ||
                          dt.day != _rtc.day || dt.hour != _rtc.hour || dt.minute != _rtc.minute ||
                          dt.second != _rtc.second;
