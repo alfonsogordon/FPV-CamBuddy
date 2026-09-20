@@ -151,3 +151,10 @@ For individual migration commits, prefer `git revert <migration-commit-sha>` so 
 - `0cc8bd77322f7652ae34a5ad183e9b4319014c34`, `fe5a92afa4a6b7dfc0b3b38eed72dcfec0fbc1f6`, and `98adcf97b9540ca90fce2aee86af221b104a2f99` update README, Quick Start and homepage documentation respectively.
 - User-facing access while AP is active: join open SSID `FPVCamBuddy`, prefer `http://cambuddy.local`, fall back to `http://192.168.4.1` if the client/browser does not resolve mDNS.
 - Hardware verification of `cambuddy.local` is pending. No release/tag; frozen `v1.0.2` unchanged.
+
+### Configurable recording trigger
+- Added a new Recording Trigger setting under AUX Switches on main. Default is ARM, preserving existing behaviour. AUX 1–12 can be selected instead; AUX high starts recording and AUX low stops recording using the existing stop-delay/stop-enable behaviour.
+- Implemented as a separate MSP RC channel from the unified Camera Switch so recording and camera selection can use different AUX controls.
+- Added USB Easy Config, field/AP configurator, persistent NVS/CLI (`record_aux`), AP JSON API, MSP polling/callback handling, and documentation.
+- Legacy two-position camera-mode controls remain hidden for backwards compatibility only.
+- Hardware testing still required before release.
