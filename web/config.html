@@ -440,6 +440,19 @@
         </div>
       </div>
 
+      <div class="cfg-field">
+        <div class="cfg-field-text">
+          <div class="cfg-field-name">Recording Trigger</div>
+          <div class="cfg-field-desc">Choose what starts/stops camera recording. ARM is the default. With an AUX channel, high starts recording and low stops it using the same stop delay below.</div>
+        </div>
+        <select id="recordAux" disabled>
+          <option value="0">ARM (default)</option>
+          <option value="1">AUX 1</option><option value="2">AUX 2</option><option value="3">AUX 3</option><option value="4">AUX 4</option>
+          <option value="5">AUX 5</option><option value="6">AUX 6</option><option value="7">AUX 7</option><option value="8">AUX 8</option>
+          <option value="9">AUX 9</option><option value="10">AUX 10</option><option value="11">AUX 11</option><option value="12">AUX 12</option>
+        </select>
+      </div>
+
       <!-- Unified Camera Switch -->
       <div class="cfg-field" style="flex-direction:column;align-items:flex-start;"><div class="cfg-field-name" style="font-weight:700;">Camera Switch <span style="color:#f7c948;font-size:.72em;">V1.0.2</span></div><div class="cfg-field-desc">One simple three-position AUX control. GoPro uses native saved presets; supported DJI cameras use shooting modes such as Video, Slow Motion, Timelapse, Hyperlapse and Photo.</div></div>
       <div id="firmwareGateNotice" style="display:none;width:100%;margin:0 0 12px;padding:10px 12px;border:1px solid #f7c948;border-radius:6px;background:#2a2208;color:#f7d96b;font-size:12px;"></div>
@@ -682,6 +695,7 @@ const auxModeSel     = document.getElementById('auxMode');
 const auxApplyBtn    = document.getElementById('auxApplyBtn');
 const auxSavedMsg    = document.getElementById('auxSavedMsg');
 const profileAuxSel = document.getElementById('profileAux');
+const recordAuxSel = document.getElementById('recordAux');
 const profileLowInput = document.getElementById('profileLow');
 const profileMidInput = document.getElementById('profileMid');
 const profileHighInput = document.getElementById('profileHigh');
@@ -854,6 +868,8 @@ function parseConfigLine(line) {
   } else if (key === 'aux_mode') {
     // "0x0A" — parseInt auto-detects 0x prefix
     auxModeSel.value = parseInt(val).toString();
+  } else if (key === 'record_trigger') {
+    if (val === 'ARM') recordAuxSel.value='0'; else { const ch=val.match(/AUX(\d+)/); if(ch) recordAuxSel.value=ch[1]; }
   } else if (key === 'profile_aux') {
     if (val === 'disabled') profileAuxSel.value='0'; else { const ch=val.match(/AUX(\d+)/); if(ch) profileAuxSel.value=ch[1]; }
   } else if (key === 'profile_osd') { profileOsdToggle.checked=(val === 'true');
@@ -1487,6 +1503,7 @@ function setConnected(connected) {
   delayInput.disabled    = !connected;
   auxChannelSel.disabled = !connected;
   auxApplyBtn.disabled   = !connected;
+  recordAuxSel.disabled = !connected;
   profileAuxSel.disabled = !connected;
   profileLowInput.disabled = !connected;
   profileMidInput.disabled = !connected;
