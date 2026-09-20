@@ -29,7 +29,7 @@ FreeCLinker includes camera backends/support paths for:
 
 **FPV CamBuddy hardware-tested:** GoPro HERO11 Black Mini, GoPro MAX2, and core DJI Osmo Nano BLE/recording/telemetry behaviour.
 
-**V1.0.2 profile work:** GoPro native saved-preset discovery, naming, persistence and AUX switching are hardware-confirmed. DJI Action 4 / 5 Pro / 6 expose verified basic camera modes through the same profile UI, but genuine DJI Custom Modes 1–5 are still under investigation. Insta360 telemetry/ARM behaviour remains in active testing.
+**V1.0.2 Camera Switch work:** GoPro native saved-preset discovery, naming, persistence and AUX switching are hardware-confirmed. DJI Action 4 / 5 Pro / 6 expose verified basic camera modes. Osmo Nano now exposes hardware-captured DUML shooting modes (Video, Slow Motion, Timelapse, Hyperlapse, Photo, Panorama and SuperNight) through the same LOW / MIDDLE / HIGH Camera Switch; this newest Nano switching path still needs real-camera validation. Genuine DJI Custom Modes 1–5 remain under investigation. Insta360 telemetry/ARM behaviour remains in active testing.
 
 The other camera families are supported by the FreeCLinker firmware foundations/backends but have **not necessarily been physically validated by FPSteVe**. Protocol capabilities and available OSD telemetry can vary by camera family and model.
 
@@ -137,7 +137,7 @@ Camera-warning behaviour and priority have been validated in the integrated Prev
 
 The V1.0.2 profile-name OSD notification has now been physically confirmed from the C3 through the flight controller into Betaflight OSD. Its USB/AP setting and saved Camera Switch configuration are part of the current V1.0.2 candidate.
 
-Insta360 is in active hardware investigation: BLE connection and configurator recording control have been observed, while richer telemetry and ARM-trigger behaviour still need validation. DJI Action 4 / 5 Pro / 6 retain the existing backend and expose verified camera modes, but native Custom Modes 1–5 are not claimed until the recall command is verified. Sony, Blackmagic and Caddx retain upstream support paths without FPSteVe hardware confirmation.
+Insta360 is in active hardware investigation: BLE connection and configurator recording control have been observed, while richer telemetry and ARM-trigger behaviour still need validation. DJI Action 4 / 5 Pro / 6 retain the existing backend and expose verified camera modes, but native Custom Modes 1–5 are not claimed until the recall command is verified. Osmo Nano Camera Switch mode selection is implemented from hardware-captured DUML 0x02/0xE1 mode values and is awaiting real Nano validation. Sony, Blackmagic and Caddx retain upstream support paths without FPSteVe hardware confirmation.
 
 ## Quick hardware connection
 
