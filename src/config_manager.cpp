@@ -13,6 +13,7 @@ static constexpr const char *KEY_SOD  = "stop_on_disarm";
 static constexpr const char *KEY_ACH  = "aux_channel";
 static constexpr const char *KEY_AMD  = "aux_mode";
 static constexpr const char *KEY_PACH = "profile_aux";
+static constexpr const char *KEY_RACH = "record_aux";
 static constexpr const char *KEY_PLOW = "profile_low";
 static constexpr const char *KEY_PMID = "profile_mid";
 static constexpr const char *KEY_PHIGH = "profile_high";
@@ -90,6 +91,7 @@ void ConfigManager::load() {
     _cfg.auxChannel        = static_cast<uint8_t>(_prefs.getUInt(KEY_ACH, DEFAULT_AUX_CHANNEL));
     _cfg.auxMode           = static_cast<uint8_t>(_prefs.getUInt(KEY_AMD, DEFAULT_AUX_MODE));
     _cfg.profileAuxChannel = static_cast<uint8_t>(_prefs.getUInt(KEY_PACH, DEFAULT_PROFILE_AUX_CHANNEL));
+    _cfg.recordAuxChannel  = static_cast<uint8_t>(_prefs.getUInt(KEY_RACH, DEFAULT_RECORD_AUX_CHANNEL));
     _cfg.profileLow = _prefs.getUInt(KEY_PLOW, DEFAULT_PROFILE_ID);
     _cfg.profileMid = _prefs.getUInt(KEY_PMID, DEFAULT_PROFILE_ID);
     _cfg.profileHigh = _prefs.getUInt(KEY_PHIGH, DEFAULT_PROFILE_ID);
@@ -178,6 +180,7 @@ void ConfigManager::save() {
     _prefs.putUInt(KEY_ACH, _cfg.auxChannel);
     _prefs.putUInt(KEY_AMD, _cfg.auxMode);
     _prefs.putUInt(KEY_PACH, _cfg.profileAuxChannel);
+    _prefs.putUInt(KEY_RACH, _cfg.recordAuxChannel);
     _prefs.putUInt(KEY_PLOW, _cfg.profileLow);
     _prefs.putUInt(KEY_PMID, _cfg.profileMid);
     _prefs.putUInt(KEY_PHIGH, _cfg.profileHigh);
@@ -255,6 +258,9 @@ void ConfigManager::printAll(Stream &out) {
         out.printf("[cfg] aux_channel     = AUX%u\n", _cfg.auxChannel);
     out.printf("[cfg] aux_mode        = 0x%02X\n", _cfg.auxMode);
     if (_cfg.profileAuxChannel) out.printf("[cfg] profile_aux     = AUX%u\n", _cfg.profileAuxChannel);
+    else out.println("[cfg] profile_aux     = disabled");
+    if (_cfg.recordAuxChannel) out.printf("[cfg] record_trigger  = AUX%u\n", _cfg.recordAuxChannel);
+    else out.println("[cfg] record_trigger  = ARM");
     else out.println("[cfg] profile_aux     = disabled");
     out.printf("[cfg] profile_ids     = low:%lu mid:%lu high:%lu\n", (unsigned long)_cfg.profileLow, (unsigned long)_cfg.profileMid, (unsigned long)_cfg.profileHigh);
     out.printf("[cfg] profile_names   = low:%s | mid:%s | high:%s\n", _cfg.profileLowName, _cfg.profileMidName, _cfg.profileHighName);
@@ -342,7 +348,8 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
         out.println("  set stop_on_disarm <0|1>   - disable (0) or enable (1) stop on disarm");
         out.println("  set aux_channel <0-12>     - AUX channel for camera mode switch (0=off)");
         out.println("  set aux_mode <0x00-0xFF>   - camera mode when AUX high (0x00=slow_motion 0x01=video 0x0A=hyperlapse)");
-        out.println("  set profile_aux <0-12>     - independent 3-position AUX for camera profiles (0=off)");
+        out.println("  set profile_aux <0-12>     - 3-position AUX for Camera Switch (0=off)");
+        out.println("  set record_aux <0-12>      - recording trigger: 0=ARM (default), 1-12=AUX channel");
         out.println("  set profile_low <id>       - native camera preset/profile ID for AUX low");
         out.println("  set profile_mid <id>       - native camera preset/profile ID for AUX middle");
         out.println("  set profile_high <id>      - native camera preset/profile ID for AUX high");
@@ -576,6 +583,15 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
             return;
         }
 
+        if (strncmp(rest, "record_aux ", 11) == 0) {
+            const char *val = rest + 11; while (*val == ' ') ++val;
+            const unsigned long ch = strtoul(val, nullptr, 10);
+            if (ch > 12) { out.println("[cfg] record_aux must be 0-12"); return; }
+            setRecordAuxChannel(static_cast<uint8_t>(ch));
+            if (ch == 0) out.println("[cfg] record_trigger = ARM (saved)");
+            else out.printf("[cfg] record_trigger = AUX%lu (saved)\n", ch);
+            return;
+        }
         if (strncmp(rest, "profile_aux ", 12) == 0) {
             uint8_t ch = static_cast<uint8_t>(strtoul(rest + 12, nullptr, 10));
             if (ch > 12) { out.println("[cfg] profile_aux must be 0-12"); return; }
@@ -942,6 +958,11 @@ void ConfigManager::setAuxMode(uint8_t mode) {
 void ConfigManager::setProfileAuxChannel(uint8_t ch) {
     _cfg.profileAuxChannel = ch;
     _prefs.putUInt(KEY_PACH, ch);
+}
+
+void ConfigManager::setRecordAuxChannel(uint8_t ch) {
+    _cfg.recordAuxChannel = ch;
+    _prefs.putUInt(KEY_RACH, ch);
 }
 
 void ConfigManager::setProfileId(uint8_t position, uint32_t id) {
