@@ -347,15 +347,21 @@ void loop() {
             if (goProCamera.setDateTime(gpsRtc.year, gpsRtc.month, gpsRtc.day,
                                         gpsRtc.hour, gpsRtc.minute, gpsRtc.second)) {
                 goproTimeSynced = true;
-                // Positive confirmation only: do not clutter the OSD while waiting
-                // for GPS. Use the same transient MSP text path as profile feedback.
-                // Reuse the user's existing transient/profile OSD destination rather than
-                // assuming Custom Message 1. This follows the destination already
-                // selected in the configurator (1-4).
-                const uint8_t timeOsdTarget = configManager.config().profileOsdTarget;
-                mspSerial.showTransientMessage(timeOsdTarget, "GOPRO TIME SET", 2000);
-                DBG_SERIAL.printf("[GPS-TIME] GoPro clock command sent; OSD confirmation shown on target %u\n",
-                                  timeOsdTarget);
+                // Positive confirmation only: do not clutter the OSD while waiting.
+                // Follow the OSD mode already configured by the user. BF4.5 compatibility
+                // uses Pilot/Craft Name; newer BF uses the selected Custom Message target.
+                const auto &timeCfg = configManager.config();
+                if (timeCfg.bf45Compat && timeCfg.pilotNameEnabled) {
+                    mspSerial.showTransientTextType(MSP_TEXT_PILOT_NAME, "GOPRO TIME SET", 2000);
+                    DBG_SERIAL.println("[GPS-TIME] OSD confirmation -> Pilot Name");
+                } else if (timeCfg.bf45Compat && timeCfg.craftNameEnabled) {
+                    mspSerial.showTransientTextType(MSP_TEXT_CRAFT_NAME, "GOPRO TIME SET", 2000);
+                    DBG_SERIAL.println("[GPS-TIME] OSD confirmation -> Craft Name");
+                } else if (!timeCfg.bf45Compat) {
+                    mspSerial.showTransientMessage(timeCfg.profileOsdTarget, "GOPRO TIME SET", 2000);
+                    DBG_SERIAL.printf("[GPS-TIME] OSD confirmation -> Custom Message %u\n",
+                                      timeCfg.profileOsdTarget);
+                }
             }
         }
     }
