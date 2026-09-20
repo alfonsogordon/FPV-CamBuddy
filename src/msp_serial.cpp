@@ -196,7 +196,7 @@ void MSPSerial::update() {
     if (millis() - _lastPollMs >= 100) {
         _lastPollMs = millis();
         sendRequest(MSP_STATUS);
-        if (_auxChannel > 0 || _profileAuxChannel > 0) sendRequest(MSP_RC);
+        if (_auxChannel > 0 || _profileAuxChannel > 0 || _recordAuxChannel > 0) sendRequest(MSP_RC);
     }
     while (_serial->available()) feedByte(static_cast<uint8_t>(_serial->read()));
 }
@@ -289,6 +289,18 @@ void MSPSerial::handleRcResponse() {
             }
         }
     }
+    if (_recordAuxChannel > 0) {
+        const uint8_t rcIdx = 3 + _recordAuxChannel;
+        if (_rxSize >= static_cast<uint16_t>(rcIdx + 1) * 2) {
+            uint16_t value = 0;
+            memcpy(&value, _rxBuf + rcIdx * 2, sizeof(value));
+            const bool high = value > 1500;
+            if (high != _recordAuxHigh) {
+                _recordAuxHigh = high;
+                if (_recordSwitchCb) _recordSwitchCb(high);
+            }
+        }
+    }
 }
 
 void MSPSerial::setAuxChannel(uint8_t channel) {
@@ -302,6 +314,13 @@ void MSPSerial::setProfileAuxChannel(uint8_t channel) {
     if (channel != _profileAuxChannel) {
         _profileAuxChannel = channel;
         _profilePosition = 0xFF;
+    }
+}
+
+void MSPSerial::setRecordAuxChannel(uint8_t channel) {
+    if (channel != _recordAuxChannel) {
+        _recordAuxChannel = channel;
+        _recordAuxHigh = false;
     }
 }
 
