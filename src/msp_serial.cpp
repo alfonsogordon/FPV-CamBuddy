@@ -405,6 +405,14 @@ void MSPSerial::sendCustomText(uint8_t textType, const char *text) {
 
 void MSPSerial::showTransientMessage(uint8_t target, const char *text, uint16_t durationMs) {
     _transientTarget = (target >= 1 && target <= 4) ? target : 1;
+    _transientTextType = 0;
+    strlcpy(_transientText, text ? text : "", sizeof(_transientText));
+    _transientUntilMs = millis() + (durationMs < 100 ? 100 : durationMs);
+}
+
+void MSPSerial::showTransientTextType(uint8_t textType, const char *text, uint16_t durationMs) {
+    _transientTextType = textType;
+    _transientTarget = 0;
     strlcpy(_transientText, text ? text : "", sizeof(_transientText));
     _transientUntilMs = millis() + (durationMs < 100 ? 100 : durationMs);
 }
@@ -463,7 +471,9 @@ void MSPSerial::sendCustomOSD(uint8_t textType, const CameraData &data, const ch
     // returns automatically. Critical camera warnings retain priority.
     const bool transientActive = _transientText[0] &&
                                  static_cast<int32_t>(_transientUntilMs - millis()) > 0;
-    if (transientActive && destination == _transientTarget) {
+    if (transientActive &&
+        ((_transientTextType != 0 && textType == _transientTextType) ||
+         (_transientTextType == 0 && destination == _transientTarget))) {
         sendCustomText(textType, _transientText);
         return;
     }
