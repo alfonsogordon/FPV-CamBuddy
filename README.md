@@ -62,7 +62,7 @@ You can exercise the same behaviour interactively in the **OSD Preview** inside 
 - Remaining recording time/capacity where reported by the camera
 - Camera mode, resolution, frame rate and stabilisation telemetry where available
 - Configurable OSD templates/tokens
-- **REC-only while armed + recording** for a clean flight display
+- Configurable **REC-only behaviour**: Recording only, or Armed + Recording
 - Optional **1 Hz flashing REC**
 - First-arm temporary reminder — default **CLEAN LENS**
 - Camera warnings: **BATT LOW / REC LOW / CAM HOT**
@@ -107,7 +107,7 @@ On **BF 2026.6+**, the four Custom Message defaults are:
 | 3 | `{mode} {res} {fps} {eis}` |
 | 4 | `{rectf} {rcap}` |
 
-REC-only, flashing REC, CLEAN LENS and camera warnings are enabled by default on a fresh FPV CamBuddy configuration.
+REC-only behaviour, flashing REC, CLEAN LENS and camera warnings are enabled by default on a fresh FPV CamBuddy configuration. REC display behaviour can be set to **Recording only** or **Armed + Recording**.
 
 ## Tested for V1 🤘
 
@@ -118,7 +118,10 @@ The following have been physically confirmed on the FPV CamBuddy hardware-test s
 - ARM → automatic recording
 - DISARM → immediate normal OSD restoration → 5-second delayed recording stop → RDY
 - BF 4.5 Pilot/Craft OSD output and live **ERR / RDY / REC** state
-- REC-only while armed + recording, including flashing REC
+- REC-only OSD behaviour and flashing REC
+- Configurable Recording Trigger hardware-tested with ARM or a separate AUX channel; AUX high starts recording and AUX low stops recording
+- Recording Trigger and Camera Switch can use separate AUX channels
+- Camera Switch profile-name OSD messages physically confirmed in Betaflight OSD
 - First-arm **CLEAN LENS** behaviour
 - Configurator read, save, read-back verification and settings persistence after reconnect/power cycle
 - GoPro keepalive: camera stays connected while FPV CamBuddy is powered and returns to normal camera auto-power-off behaviour when FPV CamBuddy is removed
@@ -132,7 +135,7 @@ Camera-warning behaviour and priority have been validated in the integrated Prev
 
 **Betaflight 2026.6+ Custom Messages 1–4** are implemented and exercised through the FPSteVe OSD Preview/firmware logic, but have **not yet been physically tested against a flight controller running that Betaflight generation**. The V1 hardware available for testing currently runs Betaflight 4.5, so this distinction is intentional.
 
-The V1.0.2 profile-name OSD notification, its USB/AP on-off setting and Demo Mode profile simulation are implemented and are awaiting the staged test sequence: Demo Mode first, then a connected board/configurator, then the board installed in the quad.
+The V1.0.2 profile-name OSD notification has now been physically confirmed from the C3 through the flight controller into Betaflight OSD. Its USB/AP setting and saved Camera Switch configuration are part of the current V1.0.2 candidate.
 
 Insta360 is in active hardware investigation: BLE connection and configurator recording control have been observed, while richer telemetry and ARM-trigger behaviour still need validation. DJI Action 4 / 5 Pro / 6 retain the existing backend and expose verified camera modes, but native Custom Modes 1–5 are not claimed until the recall command is verified. Sony, Blackmagic and Caddx retain upstream support paths without FPSteVe hardware confirmation.
 
