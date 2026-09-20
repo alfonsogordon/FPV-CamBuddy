@@ -33,6 +33,8 @@ public:
         bool debugBle;
         bool lowPowerMode;
         bool goproGpsTimeSync;
+        uint8_t goproTimezoneMode;       // 0=UTC, 1=fixed offset, 2=Europe/London auto DST
+        int16_t goproTimezoneOffsetMin; // used when mode=1
         uint32_t wifiApStartDelaySec;
         bool wifiApEnabled;
         char osd1Tpl[OSD_TPL_LEN];
@@ -86,6 +88,8 @@ public:
     static constexpr bool DEFAULT_DEBUG_BLE = false;
     static constexpr bool DEFAULT_LOW_POWER_MODE = true;
     static constexpr bool DEFAULT_GOPRO_GPS_TIME_SYNC = true;
+    static constexpr uint8_t DEFAULT_GOPRO_TIMEZONE_MODE = 2; // Europe/London auto DST for this test build
+    static constexpr int16_t DEFAULT_GOPRO_TIMEZONE_OFFSET_MIN = 0;
     static constexpr uint32_t DEFAULT_WIFI_AP_START_DELAY_SEC = 30;
     static constexpr bool DEFAULT_WIFI_AP_ENABLED = false;
 
@@ -154,6 +158,8 @@ public:
     void setDebugBle(bool v);
     void setLowPowerMode(bool v);
     void setGoProGpsTimeSync(bool v);
+    void setGoProTimezoneMode(uint8_t v);
+    void setGoProTimezoneOffsetMin(int16_t v);
     void setWifiApStartDelay(uint32_t sec);
     void setWifiApEnabled(bool v);
     void setOsdTemplate(uint8_t n, const char *tpl);
