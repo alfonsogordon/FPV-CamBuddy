@@ -27,7 +27,7 @@ FreeCLinker includes camera backends/support paths for:
 - **Insta360**
 - **Caddx**
 
-**FPV CamBuddy hardware-tested:** GoPro HERO11 Black Mini, GoPro MAX2, and core DJI Osmo Nano BLE/recording/telemetry behaviour. Osmo Nano Camera Switch mode selection is implemented separately and remains awaiting real-camera validation.
+**FPV CamBuddy hardware-tested:** GoPro HERO11 Black Mini and GoPro MAX2 are confirmed across the current V1.0.2 GoPro feature set; core DJI Osmo Nano BLE/recording/telemetry behaviour is also hardware-confirmed. Osmo Nano Camera Switch mode selection is implemented separately and remains awaiting real-camera validation.
 
 **V1.0.2 Camera Switch work:** GoPro native saved-preset discovery, naming, persistence and AUX switching are hardware-confirmed. DJI Action 4 / 5 Pro / 6 expose verified basic camera modes. Osmo Nano now exposes hardware-captured DUML shooting modes (Video, Slow Motion, Timelapse, Hyperlapse, Photo, Panorama and SuperNight) through the same LOW / MIDDLE / HIGH Camera Switch; this newest Nano switching path still needs real-camera validation. Genuine DJI Custom Modes 1–5 remain under investigation. Insta360 telemetry/ARM behaviour remains in active testing.
 
@@ -125,7 +125,7 @@ The following have been physically confirmed on the FPV CamBuddy hardware-test s
 - First-arm **CLEAN LENS** behaviour
 - Configurator read, save, read-back verification and settings persistence after reconnect/power cycle
 - GoPro keepalive: camera stays connected while FPV CamBuddy is powered and returns to normal camera auto-power-off behaviour when FPV CamBuddy is removed
-- GoPro native saved-preset discovery, names, persistence and LOW / MIDDLE / HIGH Camera Switch
+- GoPro HERO11 Black Mini and GoPro MAX2: current V1.0.2 GoPro workflow, including connection/reconnect, recording control, live OSD/telemetry, native saved-preset Camera Switch, persistence and selection-name OSD
 - DJI Osmo Nano native BLE pairing/session, ARM-triggered recording and core recording/mode/battery/storage/remaining-time telemetry
 - Web flasher and post-flash configuration flow
 
