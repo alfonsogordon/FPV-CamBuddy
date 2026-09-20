@@ -67,6 +67,8 @@ By default, FPV CamBuddy starts recording when Betaflight reports **ARM** and st
 
 The Recording Trigger is independent of the 3-position **Camera Switch**, so one AUX can control recording while another selects LOW / MIDDLE / HIGH camera presets or modes.
 
+For **Osmo Nano**, Camera Switch uses the Nano's native DUML shooting-mode command and offers **Video, Slow Motion, Timelapse, Hyperlapse, Photo, Panorama and SuperNight**. This Nano switching path is implemented from hardware-captured protocol values but still needs community real-camera confirmation.
+
 ## 3. Connect the C3 to your flight controller
 
 FreeCLinker needs one spare flight-controller UART.
