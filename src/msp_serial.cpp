@@ -198,6 +198,10 @@ void MSPSerial::update() {
         sendRequest(MSP_STATUS);
         if (_auxChannel > 0 || _profileAuxChannel > 0 || _recordAuxChannel > 0) sendRequest(MSP_RC);
         // GPS time experiment: Betaflight fills its RTC from GPS and exposes it as MSP_RTC.
+        if (millis() - _lastGpsPollMs >= 1000) {
+            _lastGpsPollMs = millis();
+            sendRequest(MSP_RAW_GPS);
+        }
         if (millis() - _lastRtcPollMs >= 1000) {
             _lastRtcPollMs = millis();
             sendRequest(MSP_RTC);
@@ -254,6 +258,7 @@ void MSPSerial::processResponse() {
     switch (_rxCmd) {
         case MSP_STATUS: handleStatusResponse(); break;
         case MSP_RC: handleRcResponse(); break;
+        case MSP_RAW_GPS: handleGpsResponse(); break;
         case MSP_RTC: handleRtcResponse(); break;
     }
 }
@@ -268,6 +273,25 @@ void MSPSerial::handleStatusResponse() {
         _armed = armed;
         if (_armCb) _armCb(_armed);
     }
+}
+
+
+void MSPSerial::handleGpsResponse() {
+    // MSP_RAW_GPS begins with fix type and satellite count. We deliberately
+    // gate camera clock sync on a live FC GPS fix, not merely a plausible RTC,
+    // so a retained/default RTC cannot overwrite the GoPro after cold power-up.
+    if (_rxSize < 2) {
+        _gpsFix = false;
+        _gpsSatellites = 0;
+        return;
+    }
+    const bool fix = _rxBuf[0] > 0;
+    const uint8_t sats = _rxBuf[1];
+    if (fix != _gpsFix || sats != _gpsSatellites) {
+        DBG_SERIAL.printf("[GPS-TIME] GPS %s, satellites=%u\n", fix ? "fix" : "waiting", sats);
+    }
+    _gpsFix = fix;
+    _gpsSatellites = sats;
 }
 
 
