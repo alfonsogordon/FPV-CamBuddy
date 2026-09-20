@@ -1,6 +1,9 @@
 (()=>{
 'use strict';
-const MODE='freeclinkerDemoMode', CFG='freeclinkerDemoConfig', STORE='fpsUiV2State';
+const MODE='freeclinkerDemoMode', CFG='freeclinkerDemoConfig', STORE='fpsUiV2State', GPS_TEST='fpsGpsTimeTestDemoResetV1';
+// This isolated hardware-test page must always start in real-device mode once per browser.
+// Demo remains available only after the user explicitly clicks Demo Mode.
+if(localStorage.getItem(GPS_TEST)!=='1'){localStorage.removeItem(MODE);localStorage.setItem(GPS_TEST,'1')}
 const demo=()=>localStorage.getItem(MODE)==='1';
 function parse(k){try{return JSON.parse(localStorage.getItem(k)||'{}')}catch{return{}}}
 function enter(){const current=parse(STORE);if(Object.keys(current).length)localStorage.setItem(CFG,JSON.stringify(current));localStorage.setItem(MODE,'1');location.reload()}
