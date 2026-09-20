@@ -18,6 +18,7 @@ public:
         uint8_t auxChannel;
         uint8_t auxMode;
         uint8_t profileAuxChannel;
+        uint8_t recordAuxChannel;  // 0=ARM state (default), 1-12=AUX trigger
         uint32_t profileLow;
         uint32_t profileMid;
         uint32_t profileHigh;
@@ -75,6 +76,7 @@ public:
     static constexpr uint8_t DEFAULT_AUX_CHANNEL = 0;
     static constexpr uint8_t DEFAULT_AUX_MODE = 0x00;
     static constexpr uint8_t DEFAULT_PROFILE_AUX_CHANNEL = 0;
+    static constexpr uint8_t DEFAULT_RECORD_AUX_CHANNEL = 0;
     static constexpr uint8_t DEFAULT_PROFILE_OSD_TARGET = 1;
     static constexpr uint32_t DEFAULT_PROFILE_ID = 0;
     static constexpr uint8_t DEFAULT_CAMERA_TYPE = 1;
@@ -140,6 +142,7 @@ public:
     void setAuxChannel(uint8_t ch);
     void setAuxMode(uint8_t mode);
     void setProfileAuxChannel(uint8_t ch);
+    void setRecordAuxChannel(uint8_t ch);
     void setProfileId(uint8_t position, uint32_t id);
     void setProfileName(uint8_t position, const char *name);
     void setProfileOsdEnabled(bool enabled);
