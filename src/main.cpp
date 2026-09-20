@@ -343,7 +343,7 @@ void loop() {
         goproWasConnectedForTime = false;
     } else {
         goproWasConnectedForTime = true;
-        if (!goproTimeSynced && gpsRtc.valid) {
+        if (configManager.config().goproGpsTimeSync && !goproTimeSynced && gpsRtc.valid) {
             if (goProCamera.setDateTime(gpsRtc.year, gpsRtc.month, gpsRtc.day,
                                         gpsRtc.hour, gpsRtc.minute, gpsRtc.second)) {
                 goproTimeSynced = true;
