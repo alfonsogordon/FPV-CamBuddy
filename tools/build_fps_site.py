@@ -81,8 +81,10 @@ if 'class="fps-start-wiring"' not in home_final or 'GPIO4 / TX' not in home_fina
 if 'id="disarmDelay"' not in final:
     raise SystemExit('Configurator lost Disarm Delay control')
 ui = read('web/fps-ui-rebuild.js')
-if "filter(r=>r!==delayRow)" not in ui:
-    raise SystemExit('AUX section no longer excludes always-visible Disarm Delay row')
+if "fps-disarm-delay-row" not in ui:
+    raise SystemExit('AUX section lost always-visible stop-delay handling')
+if "section('Camera Mode Switch'" in ui:
+    raise SystemExit('Legacy Camera Mode Switch is being rebuilt into Easy Config')
 if "fps-config-read-complete" not in ui or "fpsRefreshUiVisibility" not in ui:
     raise SystemExit('Authoritative board read no longer refreshes master/child visibility')
 
