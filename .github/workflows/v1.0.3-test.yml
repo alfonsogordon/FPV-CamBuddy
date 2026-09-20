@@ -1,0 +1,52 @@
+name: Build V1.0.3 Test Firmware
+
+on:
+  push:
+    branches:
+      - v1.0.3
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout V1.0.3 candidate
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Generate and validate site
+        run: python3 tools/build_fps_site.py
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build both supported boards
+        run: pio run -e esp32c3supermini -e esp32dev
+
+      - name: Upload C3 test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fpv-cambuddy-v1.0.3-test-esp32c3
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            .pio/build/esp32c3supermini/firmware.bin
+            .pio/build/esp32c3supermini/bootloader.bin
+            .pio/build/esp32c3supermini/partitions.bin
+
+      - name: Upload ESP32 test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fpv-cambuddy-v1.0.3-test-esp32
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            .pio/build/esp32dev/firmware.bin
+            .pio/build/esp32dev/bootloader.bin
+            .pio/build/esp32dev/partitions.bin
