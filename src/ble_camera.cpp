@@ -126,6 +126,7 @@ void BLECamera::update() {
 // ─── Scan ────────────────────────────────────────────────────────────────────
 
 void BLECamera::startScan() {
+    if (!_scanEnabled) return;
     _targetFound   = false;
     _scanning      = true;
     _candidateAddr = "";
