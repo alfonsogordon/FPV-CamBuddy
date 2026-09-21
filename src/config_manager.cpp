@@ -249,6 +249,7 @@ static const char *cameraTypeName(uint8_t t) {
 
 void ConfigManager::printAll(Stream &out) {
     out.printf("[cfg] camera_type     = %s\n", cameraTypeName(_cfg.cameraType));
+    out.printf("[cfg] multi_cam       = %s\n", _cfg.multiCamSync ? "true" : "false");
     static const char *matchModeNames[] = {"fallback", "strict", "best_signal"};
     out.printf("[cfg] camera_match    = %s\n",
                _cfg.cameraMatchMode <= 2 ? matchModeNames[_cfg.cameraMatchMode] : "?");
@@ -344,6 +345,7 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
         out.println("  diag clear                 - clear persistent AP diagnostic log");
         out.println("  show                       - print all settings");
         out.println("  set camera_type <0-5>      - 0=DJI, 1=GoPro, 2=Caddx Orca, 3=Sony Alpha, 4=Blackmagic, 5=Insta360 (reboot required)");
+        out.println("  set multi_cam <0|1>        - enable Multi Cam coordinator (reboot required)");
         out.println("  set camera_match <0-2>     - 0=fallback (preferred, else any found), 1=strict (preferred only), 2=best_signal (strongest RSSI, ignores preferred)");
         out.println("  set wake_guard <0|1>       - 1=don't connect to a sleeping/powered-down GoPro (avoids waking it); bypassed for a manually selected camera");
         out.println("  set disarm_delay <ms>      - delay before stopping recording after disarm");
@@ -520,6 +522,14 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
             }
             setCameraType(t);
             out.printf("[cfg] camera_type = %s (saved — reboot to apply)\n", cameraTypeName(t));
+            return;
+        }
+
+        if (strncmp(rest, "multi_cam ", 10) == 0) {
+            const int v = atoi(rest + 10);
+            if (v != 0 && v != 1) { out.println("[cfg] multi_cam must be 0 or 1"); return; }
+            setMultiCamSync(v != 0);
+            out.printf("[cfg] multi_cam = %s (saved — reboot to apply)\n", _cfg.multiCamSync ? "true" : "false");
             return;
         }
 
