@@ -604,6 +604,7 @@ void WebConfigServer::handleGetConfig() {
     const auto &c = _cfg->config();
     JsonDocument d;
     d["camera_type"] = c.cameraType;
+    d["multi_cam"] = c.multiCamSync;
     CameraEntry ce;
     d["caddx_ssid"] = (_reg && _reg->preferredEntry(2, ce)) ? ce.addr : "";
     d["disarm_delay"] = c.disarmStopDelayMs;
@@ -680,6 +681,7 @@ void WebConfigServer::handlePostConfig() {
     }
 
     if (d["camera_type"].is<int>()) _cfg->setCameraType(d["camera_type"].as<uint8_t>());
+    if (d["multi_cam"].is<bool>()) _cfg->setMultiCamSync(d["multi_cam"].as<bool>());
     if (d["caddx_ssid"].is<const char*>()) _cfg->setCaddxSsid(d["caddx_ssid"].as<const char*>());
     if (d["caddx_pass"].is<const char*>()) _cfg->setCaddxPass(d["caddx_pass"].as<const char*>());
     if (d["disarm_delay"].is<int>()) _cfg->setDisarmDelay(d["disarm_delay"].as<uint32_t>());
@@ -757,6 +759,7 @@ void WebConfigServer::handlePostConfig() {
     };
 
     checkInt("camera_type", c.cameraType);
+    checkBool("multi_cam", c.multiCamSync);
     checkInt("disarm_delay", c.disarmStopDelayMs);
     checkBool("stop_on_disarm", c.stopOnDisarm);
     checkInt("aux_channel", c.auxChannel);
