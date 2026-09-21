@@ -23,6 +23,7 @@ static constexpr const char *KEY_PHNAME = "prof_hi_name";
 static constexpr const char *KEY_POSD = "profile_osd";
 static constexpr const char *KEY_POSDT = "prof_osd_dst";
 static constexpr const char *KEY_CAM  = "camera_type";
+static constexpr const char *KEY_MULTI = "multi_cam";
 static constexpr const char *KEY_OSD1 = "osd1_tpl";
 static constexpr const char *KEY_OSD2 = "osd2_tpl";
 static constexpr const char *KEY_OSD3 = "osd3_tpl";
@@ -102,6 +103,7 @@ void ConfigManager::load() {
     _cfg.profileOsdTarget = static_cast<uint8_t>(_prefs.getUInt(KEY_POSDT, DEFAULT_PROFILE_OSD_TARGET));
     if (_cfg.profileOsdTarget < 1 || _cfg.profileOsdTarget > 4) _cfg.profileOsdTarget = DEFAULT_PROFILE_OSD_TARGET;
     _cfg.cameraType        = static_cast<uint8_t>(_prefs.getUInt(KEY_CAM, DEFAULT_CAMERA_TYPE));
+    _cfg.multiCamSync      = _prefs.getBool(KEY_MULTI, DEFAULT_MULTI_CAM_SYNC);
     _cfg.cameraMatchMode   = static_cast<uint8_t>(_prefs.getUInt(KEY_CMM, DEFAULT_CAMERA_MATCH_MODE));
     _cfg.cameraWakeGuard   = _prefs.getBool(KEY_WAKE, DEFAULT_CAMERA_WAKE_GUARD);
     _cfg.debugBle          = _prefs.getBool(KEY_DBG, DEFAULT_DEBUG_BLE);
@@ -190,6 +192,7 @@ void ConfigManager::save() {
     _prefs.putBool(KEY_POSD, _cfg.profileOsdEnabled);
     _prefs.putUInt(KEY_POSDT, _cfg.profileOsdTarget);
     _prefs.putUInt(KEY_CAM, _cfg.cameraType);
+    _prefs.putBool(KEY_MULTI, _cfg.multiCamSync);
     _prefs.putUInt(KEY_CMM, _cfg.cameraMatchMode);
     _prefs.putBool(KEY_WAKE, _cfg.cameraWakeGuard);
     _prefs.putBool(KEY_DBG, _cfg.debugBle);
@@ -933,6 +936,8 @@ void ConfigManager::setCameraType(uint8_t v) {
     _cfg.cameraType = v;
     _prefs.putUInt(KEY_CAM, v);
 }
+
+void ConfigManager::setMultiCamSync(bool v) { _cfg.multiCamSync = v; _prefs.putBool(KEY_MULTI, v); }
 
 void ConfigManager::setDisarmDelay(uint32_t ms) {
     _cfg.disarmStopDelayMs = ms;
