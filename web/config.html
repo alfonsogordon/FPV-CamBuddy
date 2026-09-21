@@ -346,6 +346,18 @@
         </select>
       </div>
 
+      <!-- Multi Cam -->
+      <div class="cfg-field" id="multiCamField" style="background:#fffbeb;border-left:3px solid #f59e0b">
+        <div class="cfg-field-text">
+          <div class="cfg-field-name">Multi-Cam <span style="font-size:10px;color:#b45309">V1.0.3 TEST</span></div>
+          <div class="cfg-field-desc">Control multiple supported cameras together. Shared discovery and ARM/DISARM recording fan-out are active after reboot. Single-Cam behaviour is unchanged when this is off.</div>
+        </div>
+        <label class="switch" title="Enable Multi-Cam">
+          <input type="checkbox" id="multiCam" disabled>
+          <span class="track"><span class="thumb"></span></span>
+        </label>
+      </div>
+
       <!-- Camera matching mode -->
       <div class="cfg-field">
         <div class="cfg-field-text">
@@ -681,6 +693,7 @@ const baudSelect    = document.getElementById('baudRate');
 const readBtn        = document.getElementById('readBtn');
 const applyBtn       = document.getElementById('applyBtn');
 const cameraTypeSel  = document.getElementById('cameraType');
+const multiCamToggle = document.getElementById('multiCam');
 const caddxWifiCard     = document.getElementById('caddxWifiCard');
 const caddxSsidInput    = document.getElementById('caddxSsid');
 const caddxPassInput    = document.getElementById('caddxPass');
@@ -856,6 +869,9 @@ function parseConfigLine(line) {
   if (key === 'camera_type') {
     const CAMERA_TYPE_VALUES = { DJI: '0', GoPro: '1', Caddx: '2', Sony: '3', Blackmagic: '4', Insta360: '5' };
     cameraTypeSel.value = CAMERA_TYPE_VALUES[val] ?? '0';
+    updateCameraTypeState();
+  } else if (key === 'multi_cam') {
+    multiCamToggle.checked = (val === 'true');
     updateCameraTypeState();
   } else if (key === 'caddx_ssid') {
     caddxSsidInput.value = val;
@@ -1068,6 +1084,7 @@ applyBtn.addEventListener('click', async () => {
   const stop       = stopToggle.checked ? 1 : 0;
   const wakeGuard  = wakeGuardToggle.checked ? 1 : 0;
   await sendCommand(`set camera_type ${cameraTypeSel.value}`);
+  await sendCommand(`set multi_cam ${multiCamToggle.checked ? 1 : 0}`);
   const debugBle = debugBleToggle.checked ? 1 : 0;
   const lowPower = lowPowerToggle.checked ? 1 : 0;
   await sendCommand(`set camera_match ${cameraMatchSel.value}`);
@@ -1082,8 +1099,11 @@ applyBtn.addEventListener('click', async () => {
 });
 
 cameraTypeSel.addEventListener('change', updateCameraTypeState);
+multiCamToggle.addEventListener('change', updateCameraTypeState);
 function updateCameraTypeState() {
-  caddxWifiCard.style.display = parseInt(cameraTypeSel.value) === 2 ? 'block' : 'none';
+  const multi = !!multiCamToggle.checked;
+  cameraTypeSel.disabled = !port || multi;
+  caddxWifiCard.style.display = (!multi && parseInt(cameraTypeSel.value) === 2) ? 'block' : 'none';
 }
 
 caddxApplyBtn.addEventListener('click', async () => {
@@ -1497,7 +1517,8 @@ function setConnected(connected) {
   readBtn.disabled       = !connected;
   diagBtn.disabled       = !connected;
   applyBtn.disabled      = !connected;
-  cameraTypeSel.disabled = !connected;
+  cameraTypeSel.disabled = !connected || multiCamToggle.checked;
+  multiCamToggle.disabled = !connected;
   caddxSsidInput.disabled = !connected;
   caddxPassInput.disabled = !connected;
   caddxScanBtn.disabled   = !connected;
