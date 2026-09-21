@@ -185,3 +185,8 @@ For individual migration commits, prefer `git revert <migration-commit-sha>` so 
 - Recording control is hardware-confirmed.
 - AUX-triggered recording is hardware-confirmed.
 - Richer Insta360 telemetry and broader Insta360 model coverage remain under test; Camera Switch support is still not claimed.
+
+
+## DJI Action 4 hardware confirmation
+
+DJI Action 4 is hardware-confirmed for connection, live telemetry, recording control and AUX-triggered recording. Camera Switch and selection-name OSD are not yet claimed as hardware-confirmed.
