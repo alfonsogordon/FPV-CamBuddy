@@ -60,6 +60,7 @@ void SonyCamera::update() {
 // ─── Scan ────────────────────────────────────────────────────────────────────
 
 void SonyCamera::startScan() {
+    if (!_scanEnabled) return;
     _targetFound   = false;
     _scanning      = true;
     _candidateAddr = "";
