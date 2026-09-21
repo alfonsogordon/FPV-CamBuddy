@@ -43,6 +43,7 @@ void BlackmagicCamera::update() {
 // ─── Scan ────────────────────────────────────────────────────────────────────
 
 void BlackmagicCamera::startScan() {
+    if (!_scanEnabled) return;
     _targetFound   = false;
     _scanning      = true;
     _candidateAddr = "";
