@@ -137,7 +137,7 @@ Camera-warning behaviour and priority have been validated in the integrated Prev
 
 The V1.0.2 profile-name OSD notification has now been physically confirmed from the C3 through the flight controller into Betaflight OSD. Its USB/AP setting and saved Camera Switch configuration are part of the current V1.0.2 candidate.
 
-Insta360 is in active hardware investigation: BLE connection and configurator recording control have been observed, while richer telemetry and ARM-trigger behaviour still need validation. DJI Action 4 / 5 Pro / 6 retain the existing backend and expose verified camera modes, but native Custom Modes 1–5 are not claimed until the recall command is verified. Osmo Nano Camera Switch mode selection is implemented from hardware-captured DUML 0x02/0xE1 mode values and is awaiting real Nano validation. Sony, Blackmagic and Caddx retain upstream support paths without FPSteVe hardware confirmation.
+Insta360 Ace Pro 2 is now hardware-confirmed for BLE connection, recording control and AUX-triggered recording. Richer Insta360 telemetry and broader model coverage still need validation. DJI Action 4 / 5 Pro / 6 retain the existing backend and expose verified camera modes, but native Custom Modes 1–5 are not claimed until the recall command is verified. Osmo Nano Camera Switch mode selection is implemented from hardware-captured DUML 0x02/0xE1 mode values and is awaiting real Nano validation. Sony, Blackmagic and Caddx retain upstream support paths without FPSteVe hardware confirmation.
 
 ## Quick hardware connection
 
