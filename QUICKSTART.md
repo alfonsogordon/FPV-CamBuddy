@@ -170,3 +170,8 @@ GoPro MAX2 is hardware-confirmed across the current V1.0.2 GoPro feature set, in
 ### Insta360 Ace Pro 2 validation
 
 Insta360 Ace Pro 2 is hardware-confirmed for BLE connection, recording control and AUX-triggered recording. Richer telemetry and additional Insta360 models still need further validation.
+
+
+## DJI Action 4 hardware confirmation
+
+DJI Action 4 is hardware-confirmed for connection, live telemetry, recording control and AUX-triggered recording. Camera Switch and selection-name OSD are not yet claimed as hardware-confirmed.
