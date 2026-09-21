@@ -10,20 +10,7 @@
 #include "camera_registry.h"
 #include "gopro_protocol.h"
 
-// The old experimental backend stopped at an arbitrary six GoPros. C3/S3 BLE
-// controller resources are the real boundary: with scanning active the useful
-// controller ceiling is eight connections, and the configured host limit can
-// be lower. Keep the array bounded for deterministic embedded memory usage, but
-// do not impose an additional six-camera application limit.
-#if defined(CONFIG_IDF_TARGET_ESP32C3)
-static constexpr uint8_t MAX_MULTI_GOPRO_SLOTS = 8;
-#else
-// Classic ESP32 has substantially less free internal DRAM than the C3 build.
-// Keep Multi-Cam available there without statically reserving eight full
-// Open-GoPro session/telemetry slots. C3 remains the primary CamBuddy target.
-static constexpr uint8_t MAX_MULTI_GOPRO_SLOTS = 3;
-#endif
-
+// Application safety ceiling only. Slot state itself is allocated lazily as\n// cameras are discovered, so unused cameras consume no full session state.\nstatic constexpr uint8_t MAX_MULTI_GOPRO_SLOTS = 8;\n
 class MultiGoProCamera : public Camera,
                          public BLEAdvertisedDeviceCallbacks,
                          public BLEClientCallbacks {
@@ -109,7 +96,7 @@ private:
     static void queryNotifyCallback(BLERemoteCharacteristic *ch,
                                     uint8_t *data, size_t len, bool isNotify);
 
-    Slot _slots[MAX_MULTI_GOPRO_SLOTS];
+    Slot *_slots[MAX_MULTI_GOPRO_SLOTS]{};\n    Slot *ensureSlot(uint8_t slot);\n    Slot *slotAt(uint8_t slot) const { return slot < MAX_MULTI_GOPRO_SLOTS ? _slots[slot] : nullptr; }
     int8_t _scanSlot = -1;
     bool _scanning = false;
     bool _recordingRequested = false;
@@ -121,8 +108,8 @@ private:
 
 inline bool MultiGoProCamera::prepareSharedScanSlot() {
     for (uint8_t i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i) {
-        Slot &s = _slots[i];
-        if (!s.ready && !s.bleConnected && !s.found) {
+        Slot *s = _slots[i];
+        if (!s || (!s->ready && !s->bleConnected && !s->found)) {
             _scanSlot = static_cast<int8_t>(i);
             return true;
         }
@@ -133,7 +120,9 @@ inline bool MultiGoProCamera::prepareSharedScanSlot() {
 
 inline bool MultiGoProCamera::acceptSharedAdvertisement(BLEAdvertisedDevice device) {
     if (_scanSlot < 0 && !prepareSharedScanSlot()) return false;
-    Slot &s = _slots[_scanSlot];
+    Slot *sp = ensureSlot(static_cast<uint8_t>(_scanSlot));
+    if (!sp) return false;
+    Slot &s = *sp;
     const bool had = s.found;
 
     // Keep Wake Guard active for saved cameras while idle so a sleeping/off
@@ -162,36 +151,32 @@ inline bool MultiGoProCamera::sharedConnectionPending() const {
     // important for camera 2: slot 1 can otherwise be found while slot 0 still
     // has deferred handshake/status work, causing the shared scan to restart
     // before slot 1 gets its GATT connection attempt.
-    for (const auto &s : _slots) {
-        if (!s.ready && (s.found || s.bleConnected || s.pendingHwInfo ||
-                         s.pendingRegisterSettings || s.pendingRegisterStatus))
-            return true;
-    }
+    for (const Slot *s : _slots) {\n        if (s && !s->ready && (s->found || s->bleConnected || s->pendingHwInfo ||\n                              s->pendingRegisterSettings || s->pendingRegisterStatus))\n            return true;\n    }
     return false;
 }
 
 inline uint8_t MultiGoProCamera::copySources(CameraData &out) const {
     out.source_count = 0;
-    for (const auto &s : _slots) {
-        if (!s.ready || out.source_count >= CAM_OSD_SOURCE_MAX) continue;
+    for (const Slot *s : _slots) {
+        if (!s || !s->ready || out.source_count >= CAM_OSD_SOURCE_MAX) continue;
         CameraSourceData &dst = out.sources[out.source_count++];
-        dst.valid = s.telemetry.valid;
-        dst.camera_number = s.cameraNumber;
-        strlcpy(dst.camera_label, s.cameraLabel, sizeof(dst.camera_label));
-        dst.has_battery = s.telemetry.has_battery;
-        dst.percent = s.telemetry.percent;
-        dst.has_recording = s.recordingKnown || s.telemetry.has_recording;
-        dst.recording = s.recordingKnown ? s.recording : s.telemetry.recording;
-        dst.has_temperature = s.telemetry.has_temperature;
-        dst.temp_over = s.telemetry.temp_over;
-        dst.has_remain_time = s.telemetry.has_remain_time;
-        dst.remain_time = s.telemetry.remain_time;
-        dst.remain_cap_mb = s.telemetry.remain_cap_mb;
-        dst.record_time = s.telemetry.record_time;
-        dst.camera_mode = s.telemetry.camera_mode;
-        dst.eis_mode = s.telemetry.eis_mode;
-        dst.resolution = s.telemetry.resolution;
-        dst.fps_idx = s.telemetry.fps_idx;
+        dst.valid = s->telemetry.valid;
+        dst.camera_number = s->cameraNumber;
+        strlcpy(dst.camera_label, s->cameraLabel, sizeof(dst.camera_label));
+        dst.has_battery = s->telemetry.has_battery;
+        dst.percent = s->telemetry.percent;
+        dst.has_recording = s->recordingKnown || s->telemetry.has_recording;
+        dst.recording = s->recordingKnown ? s->recording : s->telemetry.recording;
+        dst.has_temperature = s->telemetry.has_temperature;
+        dst.temp_over = s->telemetry.temp_over;
+        dst.has_remain_time = s->telemetry.has_remain_time;
+        dst.remain_time = s->telemetry.remain_time;
+        dst.remain_cap_mb = s->telemetry.remain_cap_mb;
+        dst.record_time = s->telemetry.record_time;
+        dst.camera_mode = s->telemetry.camera_mode;
+        dst.eis_mode = s->telemetry.eis_mode;
+        dst.resolution = s->telemetry.resolution;
+        dst.fps_idx = s->telemetry.fps_idx;
     }
     return out.source_count;
 }
