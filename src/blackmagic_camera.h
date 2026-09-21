@@ -57,9 +57,7 @@ public:
     }
     const std::string &sharedAddress() const { return _targetAddr; }
 
-    bool acceptSharedAdvertisement(BLEAdvertisedDevice device);
-    bool sharedConnectionPending() const { return !_bmdConnected && _targetFound; }
-    const std::string &sharedAddress() const { return _targetAddr; }
+
 
 private:
     // BLE stack callbacks
