@@ -46,6 +46,12 @@ public:
     uint32_t activeProfileId() const override { return _activeProfile; }
     bool queryProfiles() override;
 
+    bool acceptSharedAdvertisement(BLEAdvertisedDevice device);
+    bool sharedConnectionPending() const {
+        return !_djiConnected && (_targetFound || _bleConnected || _pendingConnectAck);
+    }
+    const std::string &sharedAddress() const { return _targetAddr; }
+
 private:
     // BLE stack callbacks
     void onResult(BLEAdvertisedDevice device) override;
@@ -143,3 +149,27 @@ private:
 
     static BLECamera *_instance;
 };
+
+inline bool BLECamera::acceptSharedAdvertisement(BLEAdvertisedDevice device) {
+    if (_djiConnected || _bleConnected || _targetFound) return false;
+    const bool hadCandidate = !_candidateAddr.empty() || !_bestAddr.empty();
+    onResult(device);
+    if (_targetFound) return true;
+    if (!hadCandidate && !_candidateAddr.empty()) {
+        _targetAddr = _candidateAddr;
+        _targetName = _candidateName;
+        _targetType = _candidateType;
+        _targetFound = true;
+        _scanning = false;
+        return true;
+    }
+    if (!hadCandidate && !_bestAddr.empty()) {
+        _targetAddr = _bestAddr;
+        _targetName = _bestName;
+        _targetType = _bestType;
+        _targetFound = true;
+        _scanning = false;
+        return true;
+    }
+    return false;
+}
