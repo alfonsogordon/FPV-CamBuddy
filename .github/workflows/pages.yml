@@ -6,16 +6,19 @@ on:
   push:
     branches:
       - main
+      - v1.0.3
   workflow_run:
     workflows:
       - Validate FPV CamBuddy
       - Build V1.0.2 Test Firmware
+      - Build V1.0.3 Test Firmware
     types:
       - completed
     branches:
       - main
       - experimental
       - v1.0.2
+      - v1.0.3
   workflow_dispatch:
 
 permissions:
@@ -49,6 +52,10 @@ jobs:
         with:
           ref: v1.0.2
           path: candidate
+      - uses: actions/checkout@v4
+        with:
+          ref: v1.0.3
+          path: v103
       - uses: actions/configure-pages@v5
 
       - name: Generate stable V1 site
@@ -182,6 +189,37 @@ jobs:
           cp "$esp/bootloader.bin" stable/web/v1.0.2/firmware/bootloader-esp32dev.bin
           cp "$esp/partitions.bin" stable/web/v1.0.2/firmware/partitions-esp32dev.bin
           cp "$esp/firmware.bin" stable/web/v1.0.2/firmware/firmware-esp32dev.bin
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Generate V1.0.3 test site
+        working-directory: v103
+        run: python3 tools/build_fps_site.py
+
+      - name: Stage isolated V1.0.3 test site
+        run: |
+          rm -rf stable/web/v1.0.3
+          mkdir -p stable/web/v1.0.3/firmware
+          cp -a v103/web/. stable/web/v1.0.3/
+          cp v103/web/v1.0.3-flash.html stable/web/v1.0.3/flash.html
+
+      - name: Download latest successful V1.0.3 test firmware
+        run: |
+          rm -rf /tmp/v103-artifacts
+          mkdir -p /tmp/v103-artifacts
+          run_id=$(gh api "repos/${{ github.repository }}/actions/runs?branch=v1.0.3&status=success&per_page=50" --jq '.workflow_runs[] | select(.name == "Build V1.0.3 Test Firmware") | .id' | head -n1)
+          test -n "$run_id" || { echo "No successful V1.0.3 test build found"; exit 1; }
+          echo "Using V1.0.3 build run $run_id"
+          gh run download "$run_id" --repo ${{ github.repository }} --dir /tmp/v103-artifacts
+          c3=$(find /tmp/v103-artifacts -type d -name 'fpv-cambuddy-v1.0.3-test-esp32c3' | head -n1)
+          esp=$(find /tmp/v103-artifacts -type d -name 'fpv-cambuddy-v1.0.3-test-esp32' | head -n1)
+          test -n "$c3" -a -n "$esp" || { echo "V1.0.3 firmware artifacts missing"; exit 1; }
+          cp "$c3/bootloader.bin" stable/web/v1.0.3/firmware/bootloader-esp32c3supermini.bin
+          cp "$c3/partitions.bin" stable/web/v1.0.3/firmware/partitions-esp32c3supermini.bin
+          cp "$c3/firmware.bin" stable/web/v1.0.3/firmware/firmware-esp32c3supermini.bin
+          cp "$esp/bootloader.bin" stable/web/v1.0.3/firmware/bootloader-esp32dev.bin
+          cp "$esp/partitions.bin" stable/web/v1.0.3/firmware/partitions-esp32dev.bin
+          cp "$esp/firmware.bin" stable/web/v1.0.3/firmware/firmware-esp32dev.bin
         env:
           GH_TOKEN: ${{ github.token }}
 
