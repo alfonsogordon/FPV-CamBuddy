@@ -10,7 +10,10 @@
 #include "camera_registry.h"
 #include "gopro_protocol.h"
 
-// Application safety ceiling only. Slot state itself is allocated lazily as\n// cameras are discovered, so unused cameras consume no full session state.\nstatic constexpr uint8_t MAX_MULTI_GOPRO_SLOTS = 4;\n
+// Application safety ceiling only. Slot state itself is allocated lazily as
+// cameras are discovered, so unused cameras consume no full session state.
+static constexpr uint8_t MAX_MULTI_GOPRO_SLOTS = 4;
+
 class MultiGoProCamera : public Camera,
                          public BLEAdvertisedDeviceCallbacks,
                          public BLEClientCallbacks {
@@ -96,7 +99,9 @@ private:
     static void queryNotifyCallback(BLERemoteCharacteristic *ch,
                                     uint8_t *data, size_t len, bool isNotify);
 
-    Slot *_slots[MAX_MULTI_GOPRO_SLOTS]{};\n    Slot *ensureSlot(uint8_t slot);\n    Slot *slotAt(uint8_t slot) const { return slot < MAX_MULTI_GOPRO_SLOTS ? _slots[slot] : nullptr; }
+    Slot *_slots[MAX_MULTI_GOPRO_SLOTS]{};
+    Slot *ensureSlot(uint8_t slot);
+    Slot *slotAt(uint8_t slot) const { return slot < MAX_MULTI_GOPRO_SLOTS ? _slots[slot] : nullptr; }
     int8_t _scanSlot = -1;
     bool _scanning = false;
     bool _recordingRequested = false;
@@ -151,7 +156,11 @@ inline bool MultiGoProCamera::sharedConnectionPending() const {
     // important for camera 2: slot 1 can otherwise be found while slot 0 still
     // has deferred handshake/status work, causing the shared scan to restart
     // before slot 1 gets its GATT connection attempt.
-    for (const Slot *s : _slots) {\n        if (s && !s->ready && (s->found || s->bleConnected || s->pendingHwInfo ||\n                              s->pendingRegisterSettings || s->pendingRegisterStatus))\n            return true;\n    }
+    for (const Slot *s : _slots) {
+        if (s && !s->ready && (s->found || s->bleConnected || s->pendingHwInfo ||
+                              s->pendingRegisterSettings || s->pendingRegisterStatus))
+            return true;
+    }
     return false;
 }
 
