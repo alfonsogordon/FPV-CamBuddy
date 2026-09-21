@@ -51,6 +51,12 @@ public:
     // Not supported — see class comment above.
     bool switchCameraMode(uint8_t mode) override;
 
+    bool acceptSharedAdvertisement(BLEAdvertisedDevice device);
+    bool sharedConnectionPending() const {
+        return !_instaConnected && (_targetFound || _bleConnected);
+    }
+    const std::string &sharedAddress() const { return _targetAddr; }
+
 private:
     // BLE stack callbacks
     void onResult(BLEAdvertisedDevice device) override;
