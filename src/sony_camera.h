@@ -42,6 +42,12 @@ public:
     // Not supported — the Sony remote-button protocol has no mode-switch command.
     bool switchCameraMode(uint8_t mode) override;
 
+    bool acceptSharedAdvertisement(BLEAdvertisedDevice device);
+    bool sharedConnectionPending() const {
+        return !_sonyConnected && (_targetFound || _bleConnected || _secured || _pendingDiscover);
+    }
+    const std::string &sharedAddress() const { return _targetAddr; }
+
 private:
     // BLE stack callbacks
     void onResult(BLEAdvertisedDevice device) override;
