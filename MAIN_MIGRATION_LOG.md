@@ -179,3 +179,9 @@ For individual migration commits, prefer `git revert <migration-commit-sha>` so 
 ### GoPro MAX2 full V1.0.2 hardware confirmation
 - Steve confirmed GoPro MAX2 across the current V1.0.2 GoPro feature set: connection/reconnect, recording control, live OSD/telemetry, native saved-preset Camera Switch and selection-name OSD.
 - The public support matrix may therefore mark all current GoPro MAX2 feature columns as hardware-confirmed.
+
+### Insta360 Ace Pro 2 hardware confirmation
+- Steve confirmed Insta360 Ace Pro 2 connects successfully to FPV CamBuddy.
+- Recording control is hardware-confirmed.
+- AUX-triggered recording is hardware-confirmed.
+- Richer Insta360 telemetry and broader Insta360 model coverage remain under test; Camera Switch support is still not claimed.
