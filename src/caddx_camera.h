@@ -53,6 +53,8 @@ public:
     // confirmed against a real Orca.
     bool switchCameraMode(uint8_t mode) override;
 
+    const String &liveAddress() const { return _ssid; }
+
 private:
     enum class RecordVariant : uint8_t { kUnknown, kRecordCgi, kRecord2Cgi };
 
