@@ -28,6 +28,7 @@ public:
         bool profileOsdEnabled;
         uint8_t profileOsdTarget;
         uint8_t cameraType;
+        bool multiCamSync;
         uint8_t cameraMatchMode;
         bool cameraWakeGuard;
         bool debugBle;
@@ -80,6 +81,7 @@ public:
     static constexpr uint8_t DEFAULT_PROFILE_OSD_TARGET = 1;
     static constexpr uint32_t DEFAULT_PROFILE_ID = 0;
     static constexpr uint8_t DEFAULT_CAMERA_TYPE = 1;
+    static constexpr bool DEFAULT_MULTI_CAM_SYNC = false;
     static constexpr uint8_t DEFAULT_CAMERA_MATCH_MODE = 0;
     static constexpr bool DEFAULT_CAMERA_WAKE_GUARD = true;
     static constexpr bool DEFAULT_DEBUG_BLE = false;
@@ -137,6 +139,7 @@ public:
     void reloadFromStorage() { load(); }
     void processCommand(const char *line, Stream &out);
     void setCameraType(uint8_t v);
+    void setMultiCamSync(bool v);
     void setDisarmDelay(uint32_t ms);
     void setStopOnDisarm(bool v);
     void setAuxChannel(uint8_t ch);
