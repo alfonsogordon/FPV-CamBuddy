@@ -10,7 +10,7 @@
 #include "camera_registry.h"
 #include "gopro_protocol.h"
 
-// Application safety ceiling only. Slot state itself is allocated lazily as\n// cameras are discovered, so unused cameras consume no full session state.\nstatic constexpr uint8_t MAX_MULTI_GOPRO_SLOTS = 8;\n
+// Application safety ceiling only. Slot state itself is allocated lazily as\n// cameras are discovered, so unused cameras consume no full session state.\nstatic constexpr uint8_t MAX_MULTI_GOPRO_SLOTS = 4;\n
 class MultiGoProCamera : public Camera,
                          public BLEAdvertisedDeviceCallbacks,
                          public BLEClientCallbacks {
