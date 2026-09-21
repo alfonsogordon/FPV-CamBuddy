@@ -9,6 +9,8 @@
 #include "sony_camera.h"
 #include "blackmagic_camera.h"
 #include "insta360_camera.h"
+#include "multi_gopro_camera.h"
+#include "multi_camera_coordinator.h"
 #include "msp_serial.h"
 #include "dji_protocol.h"
 #include "web_server.h"
@@ -20,6 +22,8 @@ static CaddxCamera     caddxCamera;
 static SonyCamera      sonyCamera;
 static BlackmagicCamera blackmagicCamera;
 static Insta360Camera  insta360Camera;
+static MultiGoProCamera multiGoProCamera;
+static MultiCameraCoordinator multiCameraCoordinator(multiGoProCamera, djiCamera, sonyCamera, blackmagicCamera, insta360Camera, caddxCamera);
 static Camera         *activeCamera = nullptr;
 
 static CameraRegistry   cameraRegistry;
@@ -73,7 +77,7 @@ static void updateStatusLed(uint32_t now, bool camConnected, bool apRunning) {
 
 static void onAuxSwitch(bool high) {
     if (configMode || !activeCamera) return;
-    const bool isGoPro = (configManager.config().cameraType == 1);
+    const bool isGoPro = (configManager.config().cameraType == 1) && !configManager.config().multiCamSync;
     if (isGoPro && currentCamera.recording) {
         if (high) {
             DBG_SERIAL.println("[main] AUX high + GoPro recording → Burst Slo-Mo");
@@ -210,13 +214,18 @@ void setup() {
 
     const uint8_t camType = configManager.config().cameraType;
     const char *camTypeName;
-    switch (camType) {
-        case 1:  activeCamera = &goProCamera; camTypeName = "GoPro";      break;
-        case 2:  activeCamera = &caddxCamera; camTypeName = "Caddx Orca"; break;
-        case 3:  activeCamera = &sonyCamera;       camTypeName = "Sony Alpha"; break;
-        case 4:  activeCamera = &blackmagicCamera; camTypeName = "Blackmagic"; break;
-        case 5:  activeCamera = &insta360Camera;   camTypeName = "Insta360";   break;
-        default: activeCamera = &djiCamera;        camTypeName = "DJI Action / Osmo Nano"; break;
+    if (configManager.config().multiCamSync) {
+        activeCamera = &multiCameraCoordinator;
+        camTypeName = "Multi Cam";
+    } else {
+        switch (camType) {
+            case 1:  activeCamera = &goProCamera; camTypeName = "GoPro";      break;
+            case 2:  activeCamera = &caddxCamera; camTypeName = "Caddx Orca"; break;
+            case 3:  activeCamera = &sonyCamera;       camTypeName = "Sony Alpha"; break;
+            case 4:  activeCamera = &blackmagicCamera; camTypeName = "Blackmagic"; break;
+            case 5:  activeCamera = &insta360Camera;   camTypeName = "Insta360";   break;
+            default: activeCamera = &djiCamera;        camTypeName = "DJI Action / Osmo Nano"; break;
+        }
     }
 
     DBG_SERIAL.printf("[main] Camera type: %s\n", camTypeName);
@@ -247,6 +256,7 @@ void setup() {
     // it just joins a Wi-Fi network directly — but it does still use the
     // registry, to remember multiple Orcas by SSID/password and read
     // whichever is preferred at begin() (see caddx_camera.h).
+    multiGoProCamera.setRegistry(&cameraRegistry);
     djiCamera.setRegistry(&cameraRegistry);
     goProCamera.setRegistry(&cameraRegistry);
     caddxCamera.setRegistry(&cameraRegistry);
@@ -255,6 +265,7 @@ void setup() {
     insta360Camera.setRegistry(&cameraRegistry);
 
     const uint8_t matchMode = configManager.config().cameraMatchMode;
+    multiGoProCamera.setMatchMode(matchMode);
     djiCamera.setMatchMode(matchMode);
     goProCamera.setMatchMode(matchMode);
     sonyCamera.setMatchMode(matchMode);
@@ -264,6 +275,7 @@ void setup() {
     // Wake guard only affects GoPro (the only backend with a known
     // sleep/awake advertisement format), but it's harmless to set on all.
     const bool wakeGuard = configManager.config().cameraWakeGuard;
+    multiGoProCamera.setWakeGuard(wakeGuard);
     djiCamera.setWakeGuard(wakeGuard);
     goProCamera.setWakeGuard(wakeGuard);
     sonyCamera.setWakeGuard(wakeGuard);
@@ -271,6 +283,7 @@ void setup() {
     insta360Camera.setWakeGuard(wakeGuard);
 
     const bool debugBle = configManager.config().debugBle;
+    multiGoProCamera.setDebugBle(debugBle);
     djiCamera.setDebugBle(debugBle);
     goProCamera.setDebugBle(debugBle);
     sonyCamera.setDebugBle(debugBle);
@@ -282,6 +295,7 @@ void setup() {
     // interference with the flight controller's RC receiver — harmless to
     // set on all since each begin() only reads its own relevant radio.
     const bool lowPowerMode = configManager.config().lowPowerMode;
+    multiGoProCamera.setLowPowerMode(lowPowerMode);
     djiCamera.setLowPowerMode(lowPowerMode);
     goProCamera.setLowPowerMode(lowPowerMode);
     caddxCamera.setLowPowerMode(lowPowerMode);
