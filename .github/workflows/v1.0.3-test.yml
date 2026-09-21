@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -50,3 +50,23 @@ jobs:
             .pio/build/esp32dev/firmware.bin
             .pio/build/esp32dev/bootloader.bin
             .pio/build/esp32dev/partitions.bin
+
+      - name: Publish branch-local browser test binaries
+        run: |
+          mkdir -p web/firmware
+          cp .pio/build/esp32c3supermini/bootloader.bin web/firmware/bootloader-esp32c3supermini.bin
+          cp .pio/build/esp32c3supermini/partitions.bin web/firmware/partitions-esp32c3supermini.bin
+          cp .pio/build/esp32c3supermini/firmware.bin web/firmware/firmware-esp32c3supermini.bin
+          cp .pio/build/esp32dev/bootloader.bin web/firmware/bootloader-esp32dev.bin
+          cp .pio/build/esp32dev/partitions.bin web/firmware/partitions-esp32dev.bin
+          cp .pio/build/esp32dev/firmware.bin web/firmware/firmware-esp32dev.bin
+          printf '{"sha":"%s","run_id":"%s"}\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" > web/firmware/meta.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/firmware
+          if git diff --cached --quiet; then
+            echo "Branch firmware already current"
+          else
+            git commit -m "V1.0.3 test firmware binaries [skip ci]"
+            git push origin HEAD:v1.0.3
+          fi
