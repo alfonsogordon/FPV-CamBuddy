@@ -15,7 +15,14 @@
 // controller ceiling is eight connections, and the configured host limit can
 // be lower. Keep the array bounded for deterministic embedded memory usage, but
 // do not impose an additional six-camera application limit.
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
 static constexpr uint8_t MAX_MULTI_GOPRO_SLOTS = 8;
+#else
+// Classic ESP32 has substantially less free internal DRAM than the C3 build.
+// Keep Multi-Cam available there without statically reserving eight full
+// Open-GoPro session/telemetry slots. C3 remains the primary CamBuddy target.
+static constexpr uint8_t MAX_MULTI_GOPRO_SLOTS = 3;
+#endif
 
 class MultiGoProCamera : public Camera,
                          public BLEAdvertisedDeviceCallbacks,
