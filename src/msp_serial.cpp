@@ -476,7 +476,8 @@ void MSPSerial::sendCustomOSD(uint8_t textType, const CameraData &data, const ch
     else if (cameraRecording) state = "REC";
 
     const unsigned pct = data.percent > 100 ? 100 : data.percent;
-    const bool lowBatt = _fpvLowBatteryEnabled && data.valid && data.has_battery && pct <= _fpvLowBatteryPct;
+    const bool lowBatt = _fpvLowBatteryEnabled && _fpvLowBatteryPct > 0 &&
+                         data.valid && data.has_battery && pct <= _fpvLowBatteryPct;
     const bool lowRec = _fpvLowRecEnabled && data.valid && data.has_remain_time &&
                         data.remain_time <= static_cast<uint32_t>(_fpvLowRecMinutes) * 60UL;
     const bool hot = _fpvHotEnabled && data.valid && data.has_temperature && data.temp_over != 0;
