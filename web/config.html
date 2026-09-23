@@ -837,7 +837,20 @@ const lowPowerToggle      = document.getElementById('lowPower');
 const advancedPowerToggle = document.getElementById('advancedPower');
 const advancedPowerDbmSel = document.getElementById('advancedPowerDbm');
 const advancedPowerSelectRow = document.getElementById('advancedPowerSelectRow');
-function updateAdvancedPowerState(){ const on=advancedPowerToggle.checked; advancedPowerSelectRow.style.display=on?'block':'none'; lowPowerToggle.disabled=!connected||on; advancedPowerDbmSel.disabled=!connected||!on; }
+let savedLowPowerState = lowPowerToggle.checked;
+function updateAdvancedPowerState(){
+  const on=advancedPowerToggle.checked;
+  advancedPowerSelectRow.style.display=on?'block':'none';
+  if(on){
+    savedLowPowerState=lowPowerToggle.checked;
+    lowPowerToggle.checked=false;
+  } else {
+    lowPowerToggle.checked=savedLowPowerState;
+  }
+  lowPowerToggle.disabled=!connected||on;
+  advancedPowerDbmSel.disabled=!connected||!on;
+}
+lowPowerToggle.addEventListener('change',()=>{ if(!advancedPowerToggle.checked) savedLowPowerState=lowPowerToggle.checked; });
 advancedPowerToggle.addEventListener('change',updateAdvancedPowerState);
 const goproGpsTimeToggle   = document.getElementById('goproGpsTime');
 const goproGpsTimeRow      = document.getElementById('goproGpsTimeRow');
@@ -1046,7 +1059,8 @@ function parseConfigLine(line) {
   } else if (key === 'debug_ble') {
     debugBleToggle.checked = (val === 'true');
   } else if (key === 'low_power') {
-    lowPowerToggle.checked = (val === 'true');
+    savedLowPowerState = (val === 'true');
+    lowPowerToggle.checked = advancedPowerToggle.checked ? false : savedLowPowerState;
   } else if (key === 'advanced_power') {
     advancedPowerToggle.checked = (val === 'true'); updateAdvancedPowerState();
   } else if (key === 'advanced_dbm') {
@@ -1231,7 +1245,7 @@ applyBtn.addEventListener('click', async () => {
   const wakeGuard  = wakeGuardToggle.checked ? 1 : 0;
   await sendCommand(`set camera_type ${cameraTypeSel.value}`);
   const debugBle = debugBleToggle.checked ? 1 : 0;
-  const lowPower = lowPowerToggle.checked ? 1 : 0;
+  const lowPower = (advancedPowerToggle.checked ? savedLowPowerState : lowPowerToggle.checked) ? 1 : 0;
   await sendCommand(`set camera_match ${cameraMatchSel.value}`);
   await sendCommand(`set wake_guard ${wakeGuard}`);
   await sendCommand(`set debug_ble ${debugBle}`);
