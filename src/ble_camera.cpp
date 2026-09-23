@@ -6,12 +6,24 @@
 
 BLECamera *BLECamera::_instance = nullptr;
 
+static esp_power_level_t selectedBlePower(bool advanced, int8_t dbm, bool low) {
+    if (!advanced) return low ? ESP_PWR_LVL_N12 : ESP_PWR_LVL_P9;
+    if (dbm <= -12) return ESP_PWR_LVL_N12;
+    if (dbm <= -9) return ESP_PWR_LVL_N9;
+    if (dbm <= -6) return ESP_PWR_LVL_N6;
+    if (dbm <= -3) return ESP_PWR_LVL_N3;
+    if (dbm <= 0) return ESP_PWR_LVL_N0;
+    if (dbm <= 3) return ESP_PWR_LVL_P3;
+    if (dbm <= 6) return ESP_PWR_LVL_P6;
+    return ESP_PWR_LVL_P9;
+}
+
 // ─── Public ──────────────────────────────────────────────────────────────────
 
 void BLECamera::begin() {
     _instance = this;
     BLEDevice::init("ESP32-DJI-Bridge");
-    BLEDevice::setPower(_lowPowerMode ? ESP_PWR_LVL_N12 : ESP_PWR_LVL_P9);
+    BLEDevice::setPower(selectedBlePower(_advancedPowerMode, _advancedPowerDbm, _lowPowerMode));
     BLEDevice::setMTU(500);   // sets local preference; per-connection exchange done via _client->setMTU()
     startScan();
 }
