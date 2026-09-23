@@ -5,12 +5,24 @@
 
 BlackmagicCamera *BlackmagicCamera::_instance = nullptr;
 
+static esp_power_level_t selectedBlePower(bool advanced, int8_t dbm, bool low) {
+    if (!advanced) return low ? ESP_PWR_LVL_N12 : ESP_PWR_LVL_P9;
+    if (dbm <= -12) return ESP_PWR_LVL_N12;
+    if (dbm <= -9) return ESP_PWR_LVL_N9;
+    if (dbm <= -6) return ESP_PWR_LVL_N6;
+    if (dbm <= -3) return ESP_PWR_LVL_N3;
+    if (dbm <= 0) return ESP_PWR_LVL_N0;
+    if (dbm <= 3) return ESP_PWR_LVL_P3;
+    if (dbm <= 6) return ESP_PWR_LVL_P6;
+    return ESP_PWR_LVL_P9;
+}
+
 // ─── Public ──────────────────────────────────────────────────────────────────
 
 void BlackmagicCamera::begin() {
     _instance = this;
     BLEDevice::init(BMD_DEVICE_NAME);
-    BLEDevice::setPower(_lowPowerMode ? ESP_PWR_LVL_N12 : ESP_PWR_LVL_P9);
+    BLEDevice::setPower(selectedBlePower(_advancedPowerMode, _advancedPowerDbm, _lowPowerMode));
 
     // Outgoing/Incoming Camera Control and Camera Status are all marked
     // "(encrypted)" in the protocol doc — the first read/write/subscribe on
