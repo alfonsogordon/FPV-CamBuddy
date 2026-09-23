@@ -621,6 +621,8 @@ void WebConfigServer::handleGetConfig() {
     d["wake_guard"] = c.cameraWakeGuard;
     d["debug_ble"] = c.debugBle;
     d["low_power"] = c.lowPowerMode;
+    d["advanced_power"] = c.advancedPowerMode;
+    d["advanced_dbm"] = c.advancedPowerDbm;
     d["wifi_ap_enabled"] = c.wifiApEnabled;
     d["wifi_ap_delay"] = c.wifiApStartDelaySec;
     d["gopro_gps_time"] = c.goproGpsTimeSync;
@@ -700,6 +702,8 @@ void WebConfigServer::handlePostConfig() {
     if (d["wake_guard"].is<bool>()) _cfg->setCameraWakeGuard(d["wake_guard"].as<bool>());
     if (d["debug_ble"].is<bool>()) _cfg->setDebugBle(d["debug_ble"].as<bool>());
     if (d["low_power"].is<bool>()) _cfg->setLowPowerMode(d["low_power"].as<bool>());
+    if (d["advanced_power"].is<bool>()) _cfg->setAdvancedPowerMode(d["advanced_power"].as<bool>());
+    if (d["advanced_dbm"].is<int>()) _cfg->setAdvancedPowerDbm(d["advanced_dbm"].as<int8_t>());
     if (d["wifi_ap_enabled"].is<bool>()) _cfg->setWifiApEnabled(d["wifi_ap_enabled"].as<bool>());
     if (d["wifi_ap_delay"].is<int>()) _cfg->setWifiApStartDelay(d["wifi_ap_delay"].as<uint32_t>());
     if (d["osd1"].is<const char*>()) _cfg->setOsdTemplate(1, d["osd1"].as<const char*>());
@@ -768,6 +772,8 @@ void WebConfigServer::handlePostConfig() {
     checkBool("wake_guard", c.cameraWakeGuard);
     checkBool("debug_ble", c.debugBle);
     checkBool("low_power", c.lowPowerMode);
+    checkBool("advanced_power", c.advancedPowerMode);
+    checkInt("advanced_dbm", c.advancedPowerDbm);
     checkBool("wifi_ap_enabled", c.wifiApEnabled);
     checkInt("wifi_ap_delay", c.wifiApStartDelaySec);
     checkStr("osd1", c.osd1Tpl);
