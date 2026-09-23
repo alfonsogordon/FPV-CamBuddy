@@ -32,6 +32,8 @@ public:
         bool cameraWakeGuard;
         bool debugBle;
         bool lowPowerMode;
+        bool advancedPowerMode;
+        int8_t advancedPowerDbm;
         bool goproGpsTimeSync;
         uint8_t goproTimezoneMode;       // 0=fixed UTC offset, 1-11=regional automatic DST rules
         int16_t goproTimezoneOffsetMin; // used when mode=1
@@ -87,6 +89,8 @@ public:
     static constexpr bool DEFAULT_CAMERA_WAKE_GUARD = true;
     static constexpr bool DEFAULT_DEBUG_BLE = false;
     static constexpr bool DEFAULT_LOW_POWER_MODE = true;
+    static constexpr bool DEFAULT_ADVANCED_POWER_MODE = false;
+    static constexpr int8_t DEFAULT_ADVANCED_POWER_DBM = -12;
     static constexpr bool DEFAULT_GOPRO_GPS_TIME_SYNC = true;
     static constexpr uint8_t DEFAULT_GOPRO_TIMEZONE_MODE = 0; // UTC until the user selects a timezone
     static constexpr int16_t DEFAULT_GOPRO_TIMEZONE_OFFSET_MIN = 0;
@@ -157,6 +161,8 @@ public:
     void setCameraWakeGuard(bool v);
     void setDebugBle(bool v);
     void setLowPowerMode(bool v);
+    void setAdvancedPowerMode(bool v);
+    void setAdvancedPowerDbm(int8_t v);
     void setGoProGpsTimeSync(bool v);
     void setGoProTimezoneMode(uint8_t v);
     void setGoProTimezoneOffsetMin(int16_t v);
