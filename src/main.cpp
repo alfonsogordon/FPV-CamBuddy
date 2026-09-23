@@ -409,12 +409,17 @@ void setup() {
     // interference with the flight controller's RC receiver — harmless to
     // set on all since each begin() only reads its own relevant radio.
     const bool lowPowerMode = configManager.config().lowPowerMode;
+    const bool advancedPowerMode = configManager.config().advancedPowerMode;
+    const int8_t advancedPowerDbm = configManager.config().advancedPowerDbm;
     djiCamera.setLowPowerMode(lowPowerMode);
     goProCamera.setLowPowerMode(lowPowerMode);
     caddxCamera.setLowPowerMode(lowPowerMode);
     sonyCamera.setLowPowerMode(lowPowerMode);
     blackmagicCamera.setLowPowerMode(lowPowerMode);
     insta360Camera.setLowPowerMode(lowPowerMode);
+
+    Camera* powerCameras[] = {&djiCamera, &goProCamera, &sonyCamera, &blackmagicCamera, &insta360Camera};
+    for (Camera* c : powerCameras) { c->setAdvancedPowerMode(advancedPowerMode); c->setAdvancedPowerDbm(advancedPowerDbm); }
 
     activeCamera->setCameraCallback(onCameraData);
     configManager.setCamera(activeCamera, &currentCamera);
