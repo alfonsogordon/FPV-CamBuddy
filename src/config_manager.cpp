@@ -31,6 +31,8 @@ static constexpr const char *KEY_CMM  = "cam_match";
 static constexpr const char *KEY_WAKE = "wake_guard";
 static constexpr const char *KEY_DBG  = "debug_ble";
 static constexpr const char *KEY_LPM  = "low_power";
+static constexpr const char *KEY_APM  = "adv_power";
+static constexpr const char *KEY_APDB = "adv_pwr_dbm";
 static constexpr const char *KEY_GPST = "gopro_gps_time";
 static constexpr const char *KEY_GPTZM = "gp_tz_mode";
 static constexpr const char *KEY_GPTZO = "gp_tz_offset";
@@ -109,6 +111,9 @@ void ConfigManager::load() {
     _cfg.cameraWakeGuard   = _prefs.getBool(KEY_WAKE, DEFAULT_CAMERA_WAKE_GUARD);
     _cfg.debugBle          = _prefs.getBool(KEY_DBG, DEFAULT_DEBUG_BLE);
     _cfg.lowPowerMode      = _prefs.getBool(KEY_LPM, DEFAULT_LOW_POWER_MODE);
+    _cfg.advancedPowerMode = _prefs.getBool(KEY_APM, DEFAULT_ADVANCED_POWER_MODE);
+    _cfg.advancedPowerDbm  = static_cast<int8_t>(_prefs.getInt(KEY_APDB, DEFAULT_ADVANCED_POWER_DBM));
+    if (_cfg.advancedPowerDbm < -12 || _cfg.advancedPowerDbm > 9 || (_cfg.advancedPowerDbm % 3) != 0) _cfg.advancedPowerDbm = DEFAULT_ADVANCED_POWER_DBM;
     _cfg.goproGpsTimeSync  = _prefs.getBool(KEY_GPST, DEFAULT_GOPRO_GPS_TIME_SYNC);
     _cfg.goproTimezoneMode = static_cast<uint8_t>(_prefs.getUInt(KEY_GPTZM, DEFAULT_GOPRO_TIMEZONE_MODE));
     _cfg.goproTimezoneOffsetMin = static_cast<int16_t>(_prefs.getInt(KEY_GPTZO, DEFAULT_GOPRO_TIMEZONE_OFFSET_MIN));
@@ -202,6 +207,8 @@ void ConfigManager::save() {
     _prefs.putBool(KEY_WAKE, _cfg.cameraWakeGuard);
     _prefs.putBool(KEY_DBG, _cfg.debugBle);
     _prefs.putBool(KEY_LPM, _cfg.lowPowerMode);
+    _prefs.putBool(KEY_APM, _cfg.advancedPowerMode);
+    _prefs.putInt(KEY_APDB, _cfg.advancedPowerDbm);
     _prefs.putBool(KEY_GPST, _cfg.goproGpsTimeSync);
     _prefs.putUInt(KEY_GPTZM, _cfg.goproTimezoneMode);
     _prefs.putInt(KEY_GPTZO, _cfg.goproTimezoneOffsetMin);
@@ -278,6 +285,8 @@ void ConfigManager::printAll(Stream &out) {
     out.printf("[cfg] profile_osd_dest = %u\n", _cfg.profileOsdTarget);
     out.printf("[cfg] debug_ble       = %s\n", _cfg.debugBle ? "true" : "false");
     out.printf("[cfg] low_power       = %s\n", _cfg.lowPowerMode ? "true" : "false");
+    out.printf("[cfg] advanced_power  = %s\n", _cfg.advancedPowerMode ? "true" : "false");
+    out.printf("[cfg] advanced_dbm    = %d dBm\n", _cfg.advancedPowerDbm);
     out.printf("[cfg] gopro_gps_time  = %s\n", _cfg.goproGpsTimeSync ? "true" : "false");
     out.printf("[cfg] gopro_tz_mode   = %u\n", _cfg.goproTimezoneMode);
     out.printf("[cfg] gopro_tz_offset = %d min\n", _cfg.goproTimezoneOffsetMin);
@@ -372,7 +381,9 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
         out.println("  set profile_osd <0|1>       - show profile name briefly in OSD");
         out.println("  set profile_osd_dest <1-4>  - OSD destination for profile name");
         out.println("  set debug_ble <0|1>        - log raw BLE TX/RX packets to the serial console");
-        out.println("  set low_power <0|1>        - 1=minimum BLE/Wi-Fi TX power (default) to reduce RC receiver interference, shorter range; 0=maximum TX power (reboot required)");
+        out.println("  set low_power <0|1>        - simple minimum/maximum radio power mode (reboot required)");
+        out.println("  set advanced_power <0|1>   - override low_power with a selected BLE TX level (reboot required)");
+        out.println("  set advanced_dbm <-12..9>  - advanced BLE TX level: -12,-9,-6,-3,0,3,6,9 dBm");
         out.println("  set gopro_gps_time <0|1>   - automatically set GoPro clock from FC/GPS time");
         out.println("  set gopro_tz_mode <0-11>   - timezone rule: 0=fixed offset; 1=London; 2=Europe Central; 3=Europe Eastern; 4=US Eastern; 5=US Central; 6=US Mountain; 7=US Pacific; 8=Alaska; 9=Australia Eastern; 10=Adelaide; 11=New Zealand");
         out.println("  set gopro_tz_offset <-720..840> - fixed UTC offset in minutes when mode=0");
@@ -639,6 +650,17 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
             setLowPowerMode(strtoul(val, nullptr, 10) != 0);
             out.printf("[cfg] low_power = %s (saved — reboot to apply)\n", _cfg.lowPowerMode ? "true" : "false");
             return;
+        }
+
+        if (strncmp(rest, "advanced_power ", 15) == 0) {
+            const char *val = rest + 15; while (*val == ' ') val++;
+            setAdvancedPowerMode(strtoul(val, nullptr, 10) != 0);
+            out.printf("[cfg] advanced_power = %s (saved — reboot to apply)\n", _cfg.advancedPowerMode ? "true" : "false"); return;
+        }
+        if (strncmp(rest, "advanced_dbm ", 13) == 0) {
+            const char *val = rest + 13; while (*val == ' ') val++;
+            setAdvancedPowerDbm(static_cast<int8_t>(strtol(val, nullptr, 10)));
+            out.printf("[cfg] advanced_dbm = %d dBm (saved — reboot to apply)\n", _cfg.advancedPowerDbm); return;
         }
 
         if (strncmp(rest, "gopro_gps_time ", 15) == 0) {
@@ -1036,6 +1058,15 @@ void ConfigManager::setDebugBle(bool v) {
 void ConfigManager::setLowPowerMode(bool v) {
     _cfg.lowPowerMode = v;
     _prefs.putBool(KEY_LPM, v);
+}
+
+void ConfigManager::setAdvancedPowerMode(bool v) {
+    _cfg.advancedPowerMode = v; _prefs.putBool(KEY_APM, v);
+}
+
+void ConfigManager::setAdvancedPowerDbm(int8_t v) {
+    if (v < -12) v = -12; if (v > 9) v = 9; v = static_cast<int8_t>((v / 3) * 3);
+    _cfg.advancedPowerDbm = v; _prefs.putInt(KEY_APDB, v);
 }
 
 void ConfigManager::setGoProGpsTimeSync(bool v) {
