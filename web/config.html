@@ -450,6 +450,24 @@
         </label>
       </div>
 
+      <!-- Advanced BLE power override -->
+      <div class="cfg-field" id="advancedPowerRow">
+        <div class="cfg-field-text">
+          <div class="cfg-field-name">Advanced power mode <span style="color:#f7c948;font-size:.72em;">ADVANCED</span></div>
+          <div class="cfg-field-desc">Overrides Low power mode and lets you choose the BLE transmitter output directly. Reboot required to apply.</div>
+          <div id="advancedPowerSelectRow" style="margin-top:10px;display:none;">
+            <label for="advancedPowerDbm" style="display:block;margin-bottom:6px;">BLE output power</label>
+            <select id="advancedPowerDbm" disabled>
+              <option value="-12">-12 dBm (~0.063 mW) — minimum</option><option value="-9">-9 dBm (~0.126 mW)</option>
+              <option value="-6">-6 dBm (~0.25 mW)</option><option value="-3">-3 dBm (~0.50 mW)</option>
+              <option value="0">0 dBm (1 mW)</option><option value="3">+3 dBm (~2 mW)</option>
+              <option value="6">+6 dBm (~4 mW)</option><option value="9">+9 dBm (~7.9 mW) — maximum</option>
+            </select>
+          </div>
+        </div>
+        <label class="switch" title="Advanced power mode"><input type="checkbox" id="advancedPower" disabled><span class="track"><span class="thumb"></span></span></label>
+      </div>
+
       <!-- GoPro GPS time sync experimental -->
       <div class="cfg-field gps-time-card" id="goproGpsTimeRow">
         <div class="gps-time-head">
@@ -816,6 +834,11 @@ const cameraMatchSel      = document.getElementById('cameraMatch');
 const wakeGuardToggle     = document.getElementById('wakeGuard');
 const debugBleToggle      = document.getElementById('debugBle');
 const lowPowerToggle      = document.getElementById('lowPower');
+const advancedPowerToggle = document.getElementById('advancedPower');
+const advancedPowerDbmSel = document.getElementById('advancedPowerDbm');
+const advancedPowerSelectRow = document.getElementById('advancedPowerSelectRow');
+function updateAdvancedPowerState(){ const on=advancedPowerToggle.checked; advancedPowerSelectRow.style.display=on?'block':'none'; lowPowerToggle.disabled=!connected||on; advancedPowerDbmSel.disabled=!connected||!on; }
+advancedPowerToggle.addEventListener('change',updateAdvancedPowerState);
 const goproGpsTimeToggle   = document.getElementById('goproGpsTime');
 const goproGpsTimeRow      = document.getElementById('goproGpsTimeRow');
 const goproTimezoneSel      = document.getElementById('goproTimezone');
@@ -1024,6 +1047,10 @@ function parseConfigLine(line) {
     debugBleToggle.checked = (val === 'true');
   } else if (key === 'low_power') {
     lowPowerToggle.checked = (val === 'true');
+  } else if (key === 'advanced_power') {
+    advancedPowerToggle.checked = (val === 'true'); updateAdvancedPowerState();
+  } else if (key === 'advanced_dbm') {
+    advancedPowerDbmSel.value = String(parseInt(val) || 0); updateAdvancedPowerState();
   } else if (key === 'gopro_gps_time') {
     goproGpsTimeToggle.checked = (val === 'true');
   } else if (key === 'gopro_tz_mode') {
@@ -1209,6 +1236,8 @@ applyBtn.addEventListener('click', async () => {
   await sendCommand(`set wake_guard ${wakeGuard}`);
   await sendCommand(`set debug_ble ${debugBle}`);
   await sendCommand(`set low_power ${lowPower}`);
+  await sendCommand(`set advanced_power ${advancedPowerToggle.checked ? 1 : 0}`);
+  await sendCommand(`set advanced_dbm ${advancedPowerDbmSel.value}`);
   await sendCommand(`set gopro_gps_time ${goproGpsTimeToggle.checked ? 1 : 0}`);
   const [tzMode,tzOffset] = goproTimezoneSel.value.split(':').map(Number);
   await sendCommand(`set gopro_tz_mode ${tzMode}`);
@@ -1658,7 +1687,9 @@ function setConnected(connected) {
   cameraMatchSel.disabled     = !connected;
   wakeGuardToggle.disabled    = !connected;
   debugBleToggle.disabled     = !connected;
-  lowPowerToggle.disabled     = !connected;
+  lowPowerToggle.disabled     = !connected || advancedPowerToggle.checked;
+  advancedPowerToggle.disabled = !connected;
+  advancedPowerDbmSel.disabled = !connected || !advancedPowerToggle.checked;
   goproGpsTimeToggle.disabled  = !connected;
   goproTimezoneSel.disabled     = !connected || !goproGpsTimeToggle.checked;
   wifiApEnabledToggle.disabled = !connected;
