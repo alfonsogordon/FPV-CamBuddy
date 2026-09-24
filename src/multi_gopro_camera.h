@@ -24,6 +24,7 @@ public:
     bool startRecording() override;
     bool stopRecording() override;
     bool switchCameraMode(uint8_t mode) override;
+    bool setDateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t minute, uint8_t second);
 
     uint8_t connectedCount() const;
     uint8_t recordingCount() const;
