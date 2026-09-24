@@ -32,6 +32,11 @@ static constexpr const char *KEY_CMM  = "cam_match";
 static constexpr const char *KEY_WAKE = "wake_guard";
 static constexpr const char *KEY_DBG  = "debug_ble";
 static constexpr const char *KEY_LPM  = "low_power";
+static constexpr const char *KEY_APM  = "adv_power";
+static constexpr const char *KEY_APDB = "adv_pwr_dbm";
+static constexpr const char *KEY_GPST = "gopro_gps_time";
+static constexpr const char *KEY_GPTZM = "gp_tz_mode";
+static constexpr const char *KEY_GPTZO = "gp_tz_offset";
 static constexpr const char *KEY_WAP_DELAY = "wifi_ap_delay";
 static constexpr const char *KEY_WAP_EN    = "wifi_ap_en";
 static constexpr const char *KEY_BF45  = "bf45_compat";
@@ -108,6 +113,14 @@ void ConfigManager::load() {
     _cfg.cameraWakeGuard   = _prefs.getBool(KEY_WAKE, DEFAULT_CAMERA_WAKE_GUARD);
     _cfg.debugBle          = _prefs.getBool(KEY_DBG, DEFAULT_DEBUG_BLE);
     _cfg.lowPowerMode      = _prefs.getBool(KEY_LPM, DEFAULT_LOW_POWER_MODE);
+    _cfg.advancedPowerMode = _prefs.getBool(KEY_APM, DEFAULT_ADVANCED_POWER_MODE);
+    _cfg.advancedPowerDbm  = static_cast<int8_t>(_prefs.getInt(KEY_APDB, DEFAULT_ADVANCED_POWER_DBM));
+    if (_cfg.advancedPowerDbm < -24 || _cfg.advancedPowerDbm > 9 || (_cfg.advancedPowerDbm % 3) != 0) _cfg.advancedPowerDbm = DEFAULT_ADVANCED_POWER_DBM;
+    _cfg.goproGpsTimeSync  = _prefs.getBool(KEY_GPST, DEFAULT_GOPRO_GPS_TIME_SYNC);
+    _cfg.goproTimezoneMode = static_cast<uint8_t>(_prefs.getUInt(KEY_GPTZM, DEFAULT_GOPRO_TIMEZONE_MODE));
+    _cfg.goproTimezoneOffsetMin = static_cast<int16_t>(_prefs.getInt(KEY_GPTZO, DEFAULT_GOPRO_TIMEZONE_OFFSET_MIN));
+    if (_cfg.goproTimezoneMode > 11) _cfg.goproTimezoneMode = 0;
+    if (_cfg.goproTimezoneOffsetMin < -720 || _cfg.goproTimezoneOffsetMin > 840) _cfg.goproTimezoneOffsetMin = 0;
     _cfg.wifiApStartDelaySec = _prefs.getUInt(KEY_WAP_DELAY, DEFAULT_WIFI_AP_START_DELAY_SEC);
     _cfg.wifiApEnabled       = _prefs.getBool(KEY_WAP_EN, DEFAULT_WIFI_AP_ENABLED);
     loadStr(_prefs, KEY_OSD1, _cfg.osd1Tpl, sizeof(_cfg.osd1Tpl), DEFAULT_OSD1_TPL);
@@ -197,6 +210,11 @@ void ConfigManager::save() {
     _prefs.putBool(KEY_WAKE, _cfg.cameraWakeGuard);
     _prefs.putBool(KEY_DBG, _cfg.debugBle);
     _prefs.putBool(KEY_LPM, _cfg.lowPowerMode);
+    _prefs.putBool(KEY_APM, _cfg.advancedPowerMode);
+    _prefs.putInt(KEY_APDB, _cfg.advancedPowerDbm);
+    _prefs.putBool(KEY_GPST, _cfg.goproGpsTimeSync);
+    _prefs.putUInt(KEY_GPTZM, _cfg.goproTimezoneMode);
+    _prefs.putInt(KEY_GPTZO, _cfg.goproTimezoneOffsetMin);
     _prefs.putUInt(KEY_WAP_DELAY, _cfg.wifiApStartDelaySec);
     _prefs.putBool(KEY_WAP_EN, _cfg.wifiApEnabled);
     _prefs.putString(KEY_OSD1, _cfg.osd1Tpl);
@@ -271,6 +289,11 @@ void ConfigManager::printAll(Stream &out) {
     out.printf("[cfg] profile_osd_dest = %u\n", _cfg.profileOsdTarget);
     out.printf("[cfg] debug_ble       = %s\n", _cfg.debugBle ? "true" : "false");
     out.printf("[cfg] low_power       = %s\n", _cfg.lowPowerMode ? "true" : "false");
+    out.printf("[cfg] advanced_power  = %s\n", _cfg.advancedPowerMode ? "true" : "false");
+    out.printf("[cfg] advanced_dbm    = %d dBm\n", _cfg.advancedPowerDbm);
+    out.printf("[cfg] gopro_gps_time  = %s\n", _cfg.goproGpsTimeSync ? "true" : "false");
+    out.printf("[cfg] gopro_tz_mode   = %u\n", _cfg.goproTimezoneMode);
+    out.printf("[cfg] gopro_tz_offset = %d min\n", _cfg.goproTimezoneOffsetMin);
     out.printf("[cfg] wifi_ap_enabled = %s\n", _cfg.wifiApEnabled ? "true" : "false");
     out.printf("[cfg] wifi_ap_delay   = %u s\n", _cfg.wifiApStartDelaySec);
     out.printf("[cfg] osd1            = %s\n", _cfg.osd1Tpl);
@@ -635,6 +658,32 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
             setLowPowerMode(strtoul(val, nullptr, 10) != 0);
             out.printf("[cfg] low_power = %s (saved — reboot to apply)\n", _cfg.lowPowerMode ? "true" : "false");
             return;
+        }
+
+        if (strncmp(rest, "advanced_power ", 15) == 0) {
+            const char *val = rest + 15; while (*val == ' ') val++;
+            setAdvancedPowerMode(strtoul(val, nullptr, 10) != 0);
+            out.printf("[cfg] advanced_power = %s (saved — reboot to apply)\n", _cfg.advancedPowerMode ? "true" : "false"); return;
+        }
+        if (strncmp(rest, "advanced_dbm ", 13) == 0) {
+            const char *val = rest + 13; while (*val == ' ') val++;
+            setAdvancedPowerDbm(static_cast<int8_t>(strtol(val, nullptr, 10)));
+            out.printf("[cfg] advanced_dbm = %d dBm (saved — reboot to apply)\n", _cfg.advancedPowerDbm); return;
+        }
+        if (strncmp(rest, "gopro_gps_time ", 15) == 0) {
+            const char *val = rest + 15; while (*val == ' ') val++;
+            setGoProGpsTimeSync(strtoul(val, nullptr, 10) != 0);
+            out.printf("[cfg] gopro_gps_time = %s (saved)\n", _cfg.goproGpsTimeSync ? "true" : "false"); return;
+        }
+        if (strncmp(rest, "gopro_tz_mode ", 14) == 0) {
+            const char *val = rest + 14; while (*val == ' ') val++;
+            setGoProTimezoneMode(static_cast<uint8_t>(strtoul(val, nullptr, 10)));
+            out.printf("[cfg] gopro_tz_mode = %u (saved)\n", _cfg.goproTimezoneMode); return;
+        }
+        if (strncmp(rest, "gopro_tz_offset ", 16) == 0) {
+            const char *val = rest + 16; while (*val == ' ') val++;
+            setGoProTimezoneOffsetMin(static_cast<int16_t>(strtol(val, nullptr, 10)));
+            out.printf("[cfg] gopro_tz_offset = %d min (saved)\n", _cfg.goproTimezoneOffsetMin); return;
         }
 
         if (strncmp(rest, "wifi_ap_enabled ", 16) == 0) {
@@ -1011,6 +1060,16 @@ void ConfigManager::setLowPowerMode(bool v) {
     _cfg.lowPowerMode = v;
     _prefs.putBool(KEY_LPM, v);
 }
+
+void ConfigManager::setAdvancedPowerMode(bool v) { _cfg.advancedPowerMode = v; _prefs.putBool(KEY_APM, v); }
+void ConfigManager::setAdvancedPowerDbm(int8_t v) {
+    if (v < -24) v = -24; if (v > 9) v = 9;
+    int8_t rem = static_cast<int8_t>(v % 3); v = static_cast<int8_t>(v - rem);
+    _cfg.advancedPowerDbm = v; _prefs.putInt(KEY_APDB, v);
+}
+void ConfigManager::setGoProGpsTimeSync(bool v) { _cfg.goproGpsTimeSync = v; _prefs.putBool(KEY_GPST, v); }
+void ConfigManager::setGoProTimezoneMode(uint8_t v) { if (v > 11) v = 0; _cfg.goproTimezoneMode = v; _prefs.putUInt(KEY_GPTZM, v); }
+void ConfigManager::setGoProTimezoneOffsetMin(int16_t v) { if (v < -720) v = -720; if (v > 840) v = 840; _cfg.goproTimezoneOffsetMin = v; _prefs.putInt(KEY_GPTZO, v); }
 
 void ConfigManager::setWifiApStartDelay(uint32_t sec) {
     _cfg.wifiApStartDelaySec = sec;
