@@ -464,6 +464,26 @@ void MultiGoProCamera::syncSlotToDesiredState(uint8_t slot) {
     }
 }
 
+bool MultiGoProCamera::setDateTime(uint16_t year, uint8_t month, uint8_t day,
+                                     uint8_t hour, uint8_t minute, uint8_t second) {
+    bool any = false;
+    for (uint8_t i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i) {
+        Slot *s = _slots[i];
+        if (!s || !s->ready || !s->cmdWrite) continue;
+        const uint8_t buf[] = {
+            0x09, GP_CMD_SET_DATE_TIME, 0x07,
+            static_cast<uint8_t>((year >> 8) & 0xFF),
+            static_cast<uint8_t>(year & 0xFF),
+            month, day, hour, minute, second
+        };
+        s->cmdWrite->writeValue(const_cast<uint8_t *>(buf), sizeof(buf), false);
+        DBG_SERIAL.printf("[GPS-TIME] Multi GoPro slot %u time sent: %04u-%02u-%02u %02u:%02u:%02u\n",
+                          i + 1, year, month, day, hour, minute, second);
+        any = true;
+    }
+    return any;
+}
+
 bool MultiGoProCamera::startRecording() {
     _recordingRequested = true; _recordStartedMs = millis(); bool any = false;
     for (uint8_t i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i) {
