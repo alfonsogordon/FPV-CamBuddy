@@ -197,6 +197,15 @@ void MSPSerial::update() {
         _lastPollMs = millis();
         sendRequest(MSP_STATUS);
         if (_auxChannel > 0 || _profileAuxChannel > 0 || _recordAuxChannel > 0) sendRequest(MSP_RC);
+        // GPS time experiment: Betaflight fills its RTC from GPS and exposes it as MSP_RTC.
+        if (millis() - _lastGpsPollMs >= 1000) {
+            _lastGpsPollMs = millis();
+            sendRequest(MSP_RAW_GPS);
+        }
+        if (millis() - _lastRtcPollMs >= 1000) {
+            _lastRtcPollMs = millis();
+            sendRequest(MSP_RTC);
+        }
     }
     while (_serial->available()) feedByte(static_cast<uint8_t>(_serial->read()));
 }
@@ -249,6 +258,8 @@ void MSPSerial::processResponse() {
     switch (_rxCmd) {
         case MSP_STATUS: handleStatusResponse(); break;
         case MSP_RC: handleRcResponse(); break;
+        case MSP_RAW_GPS: handleGpsResponse(); break;
+        case MSP_RTC: handleRtcResponse(); break;
     }
 }
 
@@ -262,6 +273,74 @@ void MSPSerial::handleStatusResponse() {
         _armed = armed;
         if (_armCb) _armCb(_armed);
     }
+}
+
+
+void MSPSerial::handleGpsResponse() {
+    // MSP_RAW_GPS begins with fix type and satellite count. We deliberately
+    // gate camera clock sync on a live FC GPS fix, not merely a plausible RTC,
+    // so a retained/default RTC cannot overwrite the GoPro after cold power-up.
+    static uint32_t lastDiagMs = 0;
+    const bool periodicDiag = millis() - lastDiagMs >= 5000;
+
+    if (_rxSize < 2) {
+        if (periodicDiag) {
+            lastDiagMs = millis();
+            DBG_SERIAL.printf("[GPS-TIME] MSP_RAW_GPS response too short: %u bytes; waiting for GPS data\n", _rxSize);
+        }
+        _gpsFix = false;
+        _gpsSatellites = 0;
+        return;
+    }
+
+    const bool fix = _rxBuf[0] > 0;
+    const uint8_t sats = _rxBuf[1];
+    if (fix != _gpsFix || sats != _gpsSatellites || periodicDiag) {
+        lastDiagMs = millis();
+        DBG_SERIAL.printf("[GPS-TIME] MSP_RAW_GPS response: fix=%u sats=%u -> %s\n",
+                          fix ? 1 : 0, sats, fix ? "GPS FIX" : "WAITING FOR GPS FIX");
+    }
+    _gpsFix = fix;
+    _gpsSatellites = sats;
+}
+
+
+void MSPSerial::handleRtcResponse() {
+    // Betaflight MSP_RTC payload: year U16 LE, month, day, hours, minutes,
+    // seconds, millis U16 LE. Empty payload means RTC is not set yet.
+    static uint32_t lastRtcDiagMs = 0;
+    if (_rxSize < 9) {
+        if (millis() - lastRtcDiagMs >= 5000) {
+            lastRtcDiagMs = millis();
+            DBG_SERIAL.printf("[GPS-TIME] MSP_RTC response: %u bytes -> RTC NOT SET / WAITING FOR GPS TIME\n", _rxSize);
+        }
+        return;
+    }
+    MspRtcDateTime dt{};
+    memcpy(&dt.year, _rxBuf, sizeof(dt.year));
+    dt.month = _rxBuf[2]; dt.day = _rxBuf[3]; dt.hour = _rxBuf[4];
+    dt.minute = _rxBuf[5]; dt.second = _rxBuf[6];
+    memcpy(&dt.millis, _rxBuf + 7, sizeof(dt.millis));
+    dt.valid = dt.year >= 2024 && dt.year <= 2099 && dt.month >= 1 && dt.month <= 12 &&
+               dt.day >= 1 && dt.day <= 31 && dt.hour <= 23 && dt.minute <= 59 && dt.second <= 60;
+    if (!dt.valid) {
+        if (millis() - lastRtcDiagMs >= 5000) {
+            lastRtcDiagMs = millis();
+            DBG_SERIAL.printf("[GPS-TIME] MSP_RTC invalid: %04u-%02u-%02u %02u:%02u:%02u\n",
+                              dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second);
+        }
+        return;
+    }
+    if (millis() - lastRtcDiagMs >= 5000) {
+        lastRtcDiagMs = millis();
+        DBG_SERIAL.printf("[GPS-TIME] MSP_RTC valid: %04u-%02u-%02u %02u:%02u:%02u UTC\n",
+                          dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second);
+    }
+    const bool changed = !_rtc.valid || dt.year != _rtc.year || dt.month != _rtc.month ||
+                         dt.day != _rtc.day || dt.hour != _rtc.hour || dt.minute != _rtc.minute ||
+                         dt.second != _rtc.second;
+    _rtc = dt;
+    if (changed && _rtcCb) _rtcCb(_rtc);
 }
 
 void MSPSerial::handleRcResponse() {
@@ -355,6 +434,14 @@ void MSPSerial::sendCustomText(uint8_t textType, const char *text) {
 
 void MSPSerial::showTransientMessage(uint8_t target, const char *text, uint16_t durationMs) {
     _transientTarget = (target >= 1 && target <= 4) ? target : 1;
+    _transientTextType = 0;
+    strlcpy(_transientText, text ? text : "", sizeof(_transientText));
+    _transientUntilMs = millis() + (durationMs < 100 ? 100 : durationMs);
+}
+
+void MSPSerial::showTransientTextType(uint8_t textType, const char *text, uint16_t durationMs) {
+    _transientTextType = textType;
+    _transientTarget = 0;
     strlcpy(_transientText, text ? text : "", sizeof(_transientText));
     _transientUntilMs = millis() + (durationMs < 100 ? 100 : durationMs);
 }
@@ -389,7 +476,8 @@ void MSPSerial::sendCustomOSD(uint8_t textType, const CameraData &data, const ch
     else if (cameraRecording) state = "REC";
 
     const unsigned pct = data.percent > 100 ? 100 : data.percent;
-    const bool lowBatt = _fpvLowBatteryEnabled && data.valid && data.has_battery && pct <= _fpvLowBatteryPct;
+    const bool lowBatt = _fpvLowBatteryEnabled && _fpvLowBatteryPct > 0 &&
+                         data.valid && data.has_battery && pct <= _fpvLowBatteryPct;
     const bool lowRec = _fpvLowRecEnabled && data.valid && data.has_remain_time &&
                         data.remain_time <= static_cast<uint32_t>(_fpvLowRecMinutes) * 60UL;
     const bool hot = _fpvHotEnabled && data.valid && data.has_temperature && data.temp_over != 0;
@@ -413,7 +501,9 @@ void MSPSerial::sendCustomOSD(uint8_t textType, const CameraData &data, const ch
     // returns automatically. Critical camera warnings retain priority.
     const bool transientActive = _transientText[0] &&
                                  static_cast<int32_t>(_transientUntilMs - millis()) > 0;
-    if (transientActive && destination == _transientTarget) {
+    if (transientActive &&
+        ((_transientTextType != 0 && textType == _transientTextType) ||
+         (_transientTextType == 0 && destination == _transientTarget))) {
         sendCustomText(textType, _transientText);
         return;
     }
