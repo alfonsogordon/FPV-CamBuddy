@@ -90,7 +90,7 @@ public:
     static constexpr bool DEFAULT_DEBUG_BLE = false;
     static constexpr bool DEFAULT_LOW_POWER_MODE = true;
     static constexpr bool DEFAULT_ADVANCED_POWER_MODE = false;
-    static constexpr int8_t DEFAULT_ADVANCED_POWER_DBM = -12;
+    static constexpr int8_t DEFAULT_ADVANCED_POWER_DBM = -24;
     static constexpr bool DEFAULT_GOPRO_GPS_TIME_SYNC = true;
     static constexpr uint8_t DEFAULT_GOPRO_TIMEZONE_MODE = 0; // UTC until the user selects a timezone
     static constexpr int16_t DEFAULT_GOPRO_TIMEZONE_OFFSET_MIN = 0;
