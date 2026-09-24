@@ -113,7 +113,7 @@ void ConfigManager::load() {
     _cfg.lowPowerMode      = _prefs.getBool(KEY_LPM, DEFAULT_LOW_POWER_MODE);
     _cfg.advancedPowerMode = _prefs.getBool(KEY_APM, DEFAULT_ADVANCED_POWER_MODE);
     _cfg.advancedPowerDbm  = static_cast<int8_t>(_prefs.getInt(KEY_APDB, DEFAULT_ADVANCED_POWER_DBM));
-    if (_cfg.advancedPowerDbm < -12 || _cfg.advancedPowerDbm > 9 || (_cfg.advancedPowerDbm % 3) != 0) _cfg.advancedPowerDbm = DEFAULT_ADVANCED_POWER_DBM;
+    if (_cfg.advancedPowerDbm < -24 || _cfg.advancedPowerDbm > 9 || (_cfg.advancedPowerDbm % 3) != 0) _cfg.advancedPowerDbm = DEFAULT_ADVANCED_POWER_DBM;
     _cfg.goproGpsTimeSync  = _prefs.getBool(KEY_GPST, DEFAULT_GOPRO_GPS_TIME_SYNC);
     _cfg.goproTimezoneMode = static_cast<uint8_t>(_prefs.getUInt(KEY_GPTZM, DEFAULT_GOPRO_TIMEZONE_MODE));
     _cfg.goproTimezoneOffsetMin = static_cast<int16_t>(_prefs.getInt(KEY_GPTZO, DEFAULT_GOPRO_TIMEZONE_OFFSET_MIN));
@@ -383,7 +383,7 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
         out.println("  set debug_ble <0|1>        - log raw BLE TX/RX packets to the serial console");
         out.println("  set low_power <0|1>        - simple minimum/maximum radio power mode (reboot required)");
         out.println("  set advanced_power <0|1>   - override low_power with a selected BLE TX level (reboot required)");
-        out.println("  set advanced_dbm <-12..9>  - advanced BLE TX level: -12,-9,-6,-3,0,3,6,9 dBm");
+        out.println("  set advanced_dbm <-24..9>  - advanced BLE TX level: -24,-21,-18,-15,-12,-9,-6,-3,0,3,6,9 dBm");
         out.println("  set gopro_gps_time <0|1>   - automatically set GoPro clock from FC/GPS time");
         out.println("  set gopro_tz_mode <0-11>   - timezone rule: 0=fixed offset; 1=London; 2=Europe Central; 3=Europe Eastern; 4=US Eastern; 5=US Central; 6=US Mountain; 7=US Pacific; 8=Alaska; 9=Australia Eastern; 10=Adelaide; 11=New Zealand");
         out.println("  set gopro_tz_offset <-720..840> - fixed UTC offset in minutes when mode=0");
@@ -1065,7 +1065,7 @@ void ConfigManager::setAdvancedPowerMode(bool v) {
 }
 
 void ConfigManager::setAdvancedPowerDbm(int8_t v) {
-    if (v < -12) v = -12; if (v > 9) v = 9; v = static_cast<int8_t>((v / 3) * 3);
+    if (v < -24) v = -24; if (v > 9) v = 9; v = static_cast<int8_t>((v / 3) * 3);
     _cfg.advancedPowerDbm = v; _prefs.putInt(KEY_APDB, v);
 }
 
