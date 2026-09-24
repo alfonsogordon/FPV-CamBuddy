@@ -295,13 +295,27 @@ void setup() {
     // interference with the flight controller's RC receiver — harmless to
     // set on all since each begin() only reads its own relevant radio.
     const bool lowPowerMode = configManager.config().lowPowerMode;
+    const bool advancedPowerMode = configManager.config().advancedPowerMode;
+    const int8_t advancedPowerDbm = configManager.config().advancedPowerDbm;
     multiGoProCamera.setLowPowerMode(lowPowerMode);
+    multiGoProCamera.setAdvancedPowerMode(advancedPowerMode);
+    multiGoProCamera.setAdvancedPowerDbm(advancedPowerDbm);
     djiCamera.setLowPowerMode(lowPowerMode);
+    djiCamera.setAdvancedPowerMode(advancedPowerMode);
+    djiCamera.setAdvancedPowerDbm(advancedPowerDbm);
     goProCamera.setLowPowerMode(lowPowerMode);
+    goProCamera.setAdvancedPowerMode(advancedPowerMode);
+    goProCamera.setAdvancedPowerDbm(advancedPowerDbm);
     caddxCamera.setLowPowerMode(lowPowerMode);
     sonyCamera.setLowPowerMode(lowPowerMode);
+    sonyCamera.setAdvancedPowerMode(advancedPowerMode);
+    sonyCamera.setAdvancedPowerDbm(advancedPowerDbm);
     blackmagicCamera.setLowPowerMode(lowPowerMode);
+    blackmagicCamera.setAdvancedPowerMode(advancedPowerMode);
+    blackmagicCamera.setAdvancedPowerDbm(advancedPowerDbm);
     insta360Camera.setLowPowerMode(lowPowerMode);
+    insta360Camera.setAdvancedPowerMode(advancedPowerMode);
+    insta360Camera.setAdvancedPowerDbm(advancedPowerDbm);
 
     activeCamera->setCameraCallback(onCameraData);
     configManager.setCamera(activeCamera, &currentCamera);
