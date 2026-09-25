@@ -173,3 +173,8 @@ FPV CamBuddy is based on **[FreeCLinker by sheeprine](https://github.com/sheepri
 💜 **No donation link here.** If you like the project and feel like giving something back, take whatever you would've donated and spend it on more props 🤘 — or, even better, donate it to a local charity of your choice.
 
 **FPV CamBuddy V1.0** 🤘
+
+
+## DJI Action 5 Pro hardware confirmation
+
+DJI Action 5 Pro is hardware-confirmed for connection, recording control and Camera Switch mode switching. Live telemetry and selection-name OSD are not yet claimed as hardware-confirmed.
