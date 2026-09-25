@@ -1206,11 +1206,14 @@ async function sendCommand(cmd) {
 
 async function sendCommandAck(cmd, timeoutMs = 2000) {
   if (!writer) throw new Error('Serial port is not writable');
+  const setMatch = cmd.match(/^set\s+(\w+)\b/i);
+  const expectedKey = setMatch ? setMatch[1] : null;
   const response = new Promise((resolve, reject) => {
     let timer = null;
     const onLine = ev => {
       const line = String(ev.detail || '');
       if (!line.startsWith('[cfg]')) return;
+      if (expectedKey && !new RegExp('^\\[cfg\\]\\s+' + expectedKey + '\\s*=').test(line)) return;
       cleanup();
       resolve(line);
     };
