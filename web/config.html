@@ -1062,7 +1062,11 @@ function parseConfigLine(line) {
     savedLowPowerState = (val === 'true');
     lowPowerToggle.checked = advancedPowerToggle.checked ? false : savedLowPowerState;
   } else if (key === 'advanced_power') {
-    advancedPowerToggle.checked = (val === 'true'); updateAdvancedPowerState();
+    advancedPowerToggle.checked = (val === 'true');
+    advancedPowerSelectRow.style.display = advancedPowerToggle.checked ? 'block' : 'none';
+    lowPowerToggle.checked = advancedPowerToggle.checked ? false : savedLowPowerState;
+    lowPowerToggle.disabled = !connected || advancedPowerToggle.checked;
+    advancedPowerDbmSel.disabled = !connected || !advancedPowerToggle.checked;
   } else if (key === 'advanced_dbm') {
     advancedPowerDbmSel.value = String(parseInt(val) || 0); updateAdvancedPowerState();
   } else if (key === 'gopro_gps_time') {
@@ -1170,6 +1174,7 @@ async function startReading() {
       for (const line of parts) {
         const clean = line.replace(/\r$/, '');
         log(clean);
+        document.dispatchEvent(new CustomEvent('fps-serial-line', { detail: clean }));
         parseFirmwareVersionLine(clean);
         parseConfigLine(clean);
         collectCameraLine(clean);
@@ -1194,14 +1199,40 @@ async function startReading() {
 const encoder = new TextEncoder();
 
 async function sendCommand(cmd) {
-  if (!writer) return;
+  if (!writer) throw new Error('Serial port is not writable');
   log('> ' + cmd, 'cmd');
   try {
     await writer.write(encoder.encode(cmd + '\r\n'));
   } catch (e) {
     log('Write error: ' + e.message, 'err');
+    throw e;
   }
 }
+
+async function sendCommandAck(cmd, timeoutMs = 2000) {
+  if (!writer) throw new Error('Serial port is not writable');
+  const response = new Promise((resolve, reject) => {
+    let timer = null;
+    const onLine = ev => {
+      const line = String(ev.detail || '');
+      if (!line.startsWith('[cfg]')) return;
+      cleanup();
+      resolve(line);
+    };
+    const cleanup = () => {
+      document.removeEventListener('fps-serial-line', onLine);
+      if (timer) clearTimeout(timer);
+    };
+    document.addEventListener('fps-serial-line', onLine);
+    timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('No C3 acknowledgement for: ' + cmd));
+    }, timeoutMs);
+  });
+  await sendCommand(cmd);
+  return response;
+}
+window.fpsSendCommandAck = sendCommandAck;
 
 // ── CLI input ─────────────────────────────────────────────────────────────────
 async function sendCurrent() {
@@ -1243,24 +1274,36 @@ applyBtn.addEventListener('click', async () => {
   const delay      = parseInt(delayInput.value) || 0;
   const stop       = stopToggle.checked ? 1 : 0;
   const wakeGuard  = wakeGuardToggle.checked ? 1 : 0;
-  await sendCommand(`set camera_type ${cameraTypeSel.value}`);
-  const debugBle = debugBleToggle.checked ? 1 : 0;
-  const lowPower = (advancedPowerToggle.checked ? savedLowPowerState : lowPowerToggle.checked) ? 1 : 0;
-  await sendCommand(`set camera_match ${cameraMatchSel.value}`);
-  await sendCommand(`set wake_guard ${wakeGuard}`);
-  await sendCommand(`set debug_ble ${debugBle}`);
-  await sendCommand(`set low_power ${lowPower}`);
-  await sendCommand(`set advanced_power ${advancedPowerToggle.checked ? 1 : 0}`);
-  await sendCommand(`set advanced_dbm ${advancedPowerDbmSel.value}`);
-  await sendCommand(`set gopro_gps_time ${goproGpsTimeToggle.checked ? 1 : 0}`);
+  const debugBle   = debugBleToggle.checked ? 1 : 0;
+  const lowPower   = (advancedPowerToggle.checked ? savedLowPowerState : lowPowerToggle.checked) ? 1 : 0;
   const [tzMode,tzOffset] = goproTimezoneSel.value.split(':').map(Number);
-  await sendCommand(`set gopro_tz_mode ${tzMode}`);
-  await sendCommand(`set gopro_tz_offset ${tzOffset}`);
-  await sendCommand(`set wifi_ap_enabled ${wifiApEnabledToggle.checked ? 1 : 0}`);
-  await sendCommand(`set wifi_ap_delay ${parseInt(wifiApDelayInput.value) || 0}`);
-  await sendCommand(`set disarm_delay ${delay}`);
-  await sendCommand(`set stop_on_disarm ${stop}`);
-  flashSaved(savedMsg);
+  applyBtn.disabled = true;
+  try {
+    const cmds = [
+      `set camera_type ${cameraTypeSel.value}`,
+      `set camera_match ${cameraMatchSel.value}`,
+      `set wake_guard ${wakeGuard}`,
+      `set debug_ble ${debugBle}`,
+      `set low_power ${lowPower}`,
+      `set advanced_power ${advancedPowerToggle.checked ? 1 : 0}`,
+      `set advanced_dbm ${advancedPowerDbmSel.value}`,
+      `set gopro_gps_time ${goproGpsTimeToggle.checked ? 1 : 0}`,
+      `set gopro_tz_mode ${tzMode}`,
+      `set gopro_tz_offset ${tzOffset}`,
+      `set wifi_ap_enabled ${wifiApEnabledToggle.checked ? 1 : 0}`,
+      `set wifi_ap_delay ${parseInt(wifiApDelayInput.value) || 0}`,
+      `set disarm_delay ${delay}`,
+      `set stop_on_disarm ${stop}`
+    ];
+    for (const cmd of cmds) await sendCommandAck(cmd);
+    flashSaved(savedMsg);
+  } catch (e) {
+    log('Save stopped: ' + e.message, 'err');
+    savedMsg.textContent = 'Save failed — check CLI';
+    savedMsg.style.opacity = '1';
+  } finally {
+    applyBtn.disabled = !port;
+  }
 });
 
 function updateTimezoneFromBoard() {
