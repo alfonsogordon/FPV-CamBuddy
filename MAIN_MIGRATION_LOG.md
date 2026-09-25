@@ -190,3 +190,8 @@ For individual migration commits, prefer `git revert <migration-commit-sha>` so 
 ## DJI Action 4 hardware confirmation
 
 DJI Action 4 is hardware-confirmed for connection, live telemetry, recording control and AUX-triggered recording. Camera Switch and selection-name OSD are not yet claimed as hardware-confirmed.
+
+
+## DJI Action 5 Pro hardware confirmation
+
+DJI Action 5 Pro is hardware-confirmed for connection, recording control and Camera Switch mode switching. Live telemetry and selection-name OSD are not yet claimed as hardware-confirmed.
