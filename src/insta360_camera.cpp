@@ -126,10 +126,16 @@ Insta360Camera *Insta360Camera::_instance = nullptr;
 
 static esp_power_level_t selectedBlePower(bool advanced, int8_t dbm, bool low) {
     if (!advanced) return low ? ESP_PWR_LVL_N12 : ESP_PWR_LVL_P9;
+#if CONFIG_IDF_TARGET_ESP32C3
     if (dbm <= -24) return ESP_PWR_LVL_N24;
     if (dbm <= -21) return ESP_PWR_LVL_N21;
     if (dbm <= -18) return ESP_PWR_LVL_N18;
     if (dbm <= -15) return ESP_PWR_LVL_N15;
+#else
+    // Classic ESP32 has no levels below -12 dBm. The C3-only advanced values
+    // are clamped here so the shared firmware still compiles safely for ESP32.
+    if (dbm <= -12) return ESP_PWR_LVL_N12;
+#endif
     if (dbm <= -12) return ESP_PWR_LVL_N12;
     if (dbm <= -9) return ESP_PWR_LVL_N9;
     if (dbm <= -6) return ESP_PWR_LVL_N6;
