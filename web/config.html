@@ -838,20 +838,18 @@ const advancedPowerToggle = document.getElementById('advancedPower');
 const advancedPowerDbmSel = document.getElementById('advancedPowerDbm');
 const advancedPowerSelectRow = document.getElementById('advancedPowerSelectRow');
 let savedLowPowerState = lowPowerToggle.checked;
-function updateAdvancedPowerState(){
+function renderAdvancedPowerState(){
   const on=advancedPowerToggle.checked;
   advancedPowerSelectRow.style.display=on?'block':'none';
-  if(on){
-    savedLowPowerState=lowPowerToggle.checked;
-    lowPowerToggle.checked=false;
-  } else {
-    lowPowerToggle.checked=savedLowPowerState;
-  }
+  lowPowerToggle.checked=on ? false : savedLowPowerState;
   lowPowerToggle.disabled=!connected||on;
   advancedPowerDbmSel.disabled=!connected||!on;
 }
 lowPowerToggle.addEventListener('change',()=>{ if(!advancedPowerToggle.checked) savedLowPowerState=lowPowerToggle.checked; });
-advancedPowerToggle.addEventListener('change',updateAdvancedPowerState);
+advancedPowerToggle.addEventListener('change',()=>{
+  if(advancedPowerToggle.checked) savedLowPowerState=lowPowerToggle.checked;
+  renderAdvancedPowerState();
+});
 const goproGpsTimeToggle   = document.getElementById('goproGpsTime');
 const goproGpsTimeRow      = document.getElementById('goproGpsTimeRow');
 const goproTimezoneSel      = document.getElementById('goproTimezone');
@@ -1063,12 +1061,9 @@ function parseConfigLine(line) {
     lowPowerToggle.checked = advancedPowerToggle.checked ? false : savedLowPowerState;
   } else if (key === 'advanced_power') {
     advancedPowerToggle.checked = (val === 'true');
-    advancedPowerSelectRow.style.display = advancedPowerToggle.checked ? 'block' : 'none';
-    lowPowerToggle.checked = advancedPowerToggle.checked ? false : savedLowPowerState;
-    lowPowerToggle.disabled = !connected || advancedPowerToggle.checked;
-    advancedPowerDbmSel.disabled = !connected || !advancedPowerToggle.checked;
+    renderAdvancedPowerState();
   } else if (key === 'advanced_dbm') {
-    advancedPowerDbmSel.value = String(parseInt(val) || 0); updateAdvancedPowerState();
+    advancedPowerDbmSel.value = String(parseInt(val) || 0); renderAdvancedPowerState();
   } else if (key === 'gopro_gps_time') {
     goproGpsTimeToggle.checked = (val === 'true');
   } else if (key === 'gopro_tz_mode') {
