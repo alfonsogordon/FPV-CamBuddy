@@ -195,3 +195,10 @@ DJI Action 4 is hardware-confirmed for connection, live telemetry, recording con
 ## DJI Action 5 Pro hardware confirmation
 
 DJI Action 5 Pro is hardware-confirmed for connection, recording control and Camera Switch mode switching. Live telemetry and selection-name OSD are not yet claimed as hardware-confirmed.
+
+
+### V1.0.2 release-candidate fixes — DJI Camera Switch + legacy REC flash control
+- Fixed DJI Action Camera Switch Slow Motion colliding with CamBuddy's reserved ID 0 = Unassigned. Action camera selections now use the same safe `100 + DJI mode` namespace as Osmo Nano while preserving compatibility with previously saved non-zero raw DJI IDs.
+- Clarified DJI discovery wording: CamBuddy exposes only verified/supported switch modes; it does not claim every camera mode has been discovered.
+- DJI Action 5 Pro Camera Switch remains marked for retest until the Slow Motion fix is physically confirmed.
+- Fixed Easy Config so `Flash REC at 1 Hz` remains accessible in BF 4.4–2025.12 legacy Pilot/Craft mode whenever OSD is enabled. REC-only controls remain conditional on a Status token being used.
