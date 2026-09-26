@@ -814,9 +814,18 @@ bool BLECamera::loadProfile(uint32_t profileId) {
                 return false;
         }
     } else {
+        // Action 4/5 Pro/6 use the same CamBuddy 100+mode namespace as Nano.
+        // Raw mode 0 is Slow Motion on DJI but 0 means "Unassigned" in CamBuddy,
+        // so discovered options must never expose raw DJI IDs. Keep accepting
+        // the old non-zero raw IDs so existing saved Video/Timelapse/Photo/
+        // Hyperlapse assignments continue to work after this update.
         switch (profileId) {
+            case 100 + DJI_MODE_SLOW_MOTION: mode = DJI_MODE_SLOW_MOTION; break;
+            case 100 + DJI_MODE_VIDEO:       mode = DJI_MODE_VIDEO; break;
+            case 100 + DJI_MODE_TIMELAPSE:   mode = DJI_MODE_TIMELAPSE; break;
+            case 100 + DJI_MODE_PHOTO:       mode = DJI_MODE_PHOTO; break;
+            case 100 + DJI_MODE_HYPERLAPSE:  mode = DJI_MODE_HYPERLAPSE; break;
             case DJI_MODE_VIDEO:       mode = DJI_MODE_VIDEO; break;
-            case DJI_MODE_SLOW_MOTION: mode = DJI_MODE_SLOW_MOTION; break;
             case DJI_MODE_TIMELAPSE:   mode = DJI_MODE_TIMELAPSE; break;
             case DJI_MODE_PHOTO:       mode = DJI_MODE_PHOTO; break;
             case DJI_MODE_HYPERLAPSE:  mode = DJI_MODE_HYPERLAPSE; break;
@@ -847,11 +856,13 @@ bool BLECamera::queryProfiles() {
         return true;
     }
 
-    DBG_SERIAL.println("[DJI-PRESET] id=1 name=Video title=0 number=0");
-    DBG_SERIAL.println("[DJI-PRESET] id=0 name=Slow Motion title=0 number=0");
-    DBG_SERIAL.println("[DJI-PRESET] id=2 name=Timelapse title=0 number=0");
-    DBG_SERIAL.println("[DJI-PRESET] id=10 name=Hyperlapse title=0 number=0");
-    DBG_SERIAL.println("[DJI-PRESET] id=5 name=Photo title=0 number=0");
+    // Use 100+mode IDs for Action cameras too. This fixes Slow Motion (DJI
+    // mode 0x00) colliding with CamBuddy's reserved selection ID 0=Unassigned.
+    DBG_SERIAL.println("[DJI-PRESET] id=101 name=Video title=0 number=0");
+    DBG_SERIAL.println("[DJI-PRESET] id=100 name=Slow Motion title=0 number=0");
+    DBG_SERIAL.println("[DJI-PRESET] id=102 name=Timelapse title=0 number=0");
+    DBG_SERIAL.println("[DJI-PRESET] id=110 name=Hyperlapse title=0 number=0");
+    DBG_SERIAL.println("[DJI-PRESET] id=105 name=Photo title=0 number=0");
     return true;
 }
 
