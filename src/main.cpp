@@ -110,9 +110,37 @@ static void onProfileSwitch(uint8_t position) {
 
     const char *profileName = position == 0 ? cfg.profileLowName :
                               (position == 1 ? cfg.profileMidName : cfg.profileHighName);
+
+    // DJI Action modes use CamBuddy's 100+mode profile namespace. Build their
+    // OSD label from the verified mode ID instead of relying on a browser-saved
+    // label. This keeps DJI transient OSD text deterministic while leaving
+    // native GoPro preset names untouched.
+    const char *djiModeName = nullptr;
+    if (cfg.cameraType == CAMERA_DJI) {
+        switch (id) {
+            case 100: djiModeName = "SLOW MOTION"; break;
+            case 101: djiModeName = "VIDEO";       break;
+            case 102: djiModeName = "TIMELAPSE";   break;
+            case 105: djiModeName = "PHOTO";       break;
+            case 110: djiModeName = "HYPERLAPSE";  break;
+            case 112: djiModeName = "PANORAMA";    break;
+            case 140: djiModeName = "SUPERNIGHT";  break;
+            default: break;
+        }
+    }
+    if (djiModeName) profileName = djiModeName;
     if (!profileName || !profileName[0]) profileName = name;
-    char msg[32];
-    snprintf(msg, sizeof(msg), "%s", profileName);
+
+    // MSP OSD text must stay plain printable ASCII. Explicitly sanitize and
+    // terminate the transient label so a corrupt/stale saved name cannot be
+    // interpreted as Betaflight font glyphs.
+    char msg[32] = {};
+    size_t out = 0;
+    for (const unsigned char *p = reinterpret_cast<const unsigned char *>(profileName);
+         *p && out < sizeof(msg) - 1; ++p) {
+        msg[out++] = (*p >= 0x20 && *p <= 0x7E) ? static_cast<char>(*p) : ' ';
+    }
+    msg[out] = '\0';
     mspSerial.showTransientMessage(cfg.profileOsdTarget, msg, 2500);
     DBG_SERIAL.printf("[main] Profile OSD -> %s (%u ms, target %u)\n",
                       msg, 2500U, cfg.profileOsdTarget);
