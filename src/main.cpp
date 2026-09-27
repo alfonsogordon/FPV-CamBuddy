@@ -116,7 +116,7 @@ static void onProfileSwitch(uint8_t position) {
     // label. This keeps DJI transient OSD text deterministic while leaving
     // native GoPro preset names untouched.
     const char *djiModeName = nullptr;
-    if (cfg.cameraType == CAMERA_DJI) {
+    if (cfg.cameraType == 0) {
         switch (id) {
             case 100: djiModeName = "SLOW MOTION"; break;
             case 101: djiModeName = "VIDEO";       break;
