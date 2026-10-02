@@ -9,18 +9,22 @@ function stateText(text,kind=''){const t=$('fpsDeviceState');if(!t)return;t.clas
 function refresh(){const b=$('fpsDeviceBar'),r=$('fpsTopRead'),s=$('fpsTopSave'),c=connected();if(b)b.classList.toggle('connected',c);if(r){r.disabled=!c||reading||saving||disconnecting;r.classList.toggle('need',c&&needsRead&&!reading)}if(s){s.disabled=!c||needsRead||reading||saving||disconnecting;s.classList.toggle('need',c&&!needsRead&&dirty&&!saving)}if(c){if(reading)stateText('Reading ALL settings from C3…');else if(saving)stateText('Saving ALL settings to C3…');else if(needsRead)stateText('READ SETTINGS required — board is source of truth');else if(dirty&&!$('fpsDeviceState')?.textContent.startsWith('VERIFY FAILED'))stateText('Unsaved changes — SAVE / APPLY before disconnecting');else if(!$('fpsDeviceState')?.textContent.includes('✓'))stateText('Settings ready')}}
 function mark(e){if(e&&managed(e.id||'')&&!needsRead&&!reading&&!saving&&!window.fpsBoardSyncing&&Date.now()-lastBoardSyncAt>350){dirty=true;refresh()}}
 async function strictCmd(text){
- if(window.fpsSendCommandAck) return window.fpsSendCommandAck(text,2500);
  if(!writer) throw new Error('Serial port is not writable');
+ // Match the proven main configurator transport for reads. ACK pacing is only
+ // useful for writes; making version/show wait for an arbitrary [cfg] line can
+ // consume the first line of the readback and race the parity/read-complete path.
+ if(!/^set\s+/i.test(text)){
+  log('> '+text,'cmd');
+  await writer.write(new TextEncoder().encode(text+'\r\n'));
+  await new Promise(r=>setTimeout(r,25));
+  return;
+ }
+ // Settings writes remain serialized and ACKed so the C3 is never flooded with
+ // back-to-back Preferences/NVS writes.
+ if(window.fpsSendCommandAck) return window.fpsSendCommandAck(text,2500);
  log('> '+text,'cmd');
- const response=new Promise((resolve,reject)=>{
-  let timer=null;
-  const onLine=ev=>{const line=String(ev.detail||'');if(!line.startsWith('[cfg]'))return;cleanup();resolve(line)};
-  const cleanup=()=>{document.removeEventListener('fps-serial-line',onLine);if(timer)clearTimeout(timer)};
-  document.addEventListener('fps-serial-line',onLine);
-  timer=setTimeout(()=>{cleanup();reject(new Error('No C3 acknowledgement for: '+text))},2500);
- });
  await writer.write(new TextEncoder().encode(text+'\r\n'));
- return response;
+ await new Promise(r=>setTimeout(r,80));
 }
 function val(id,def=''){const e=$(id);return e?e.value:def}function chk(id,def=false){const e=$(id);return e?!!e.checked:def}
 function normTpl(v){return String(v??'').trim()}
