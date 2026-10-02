@@ -333,9 +333,6 @@ void ConfigManager::printAll(Stream &out) {
     out.printf("[cfg] caddx_ssid      = %s\n", haveCaddx ? ce.addr : "");
     out.printf("[cfg] caddx_pass      = %s\n",
                (haveCaddx && strlen(ce.pass)) ? "(set)" : "(not set — uses factory default)");
-    // Explicit terminator for web configurators. The settings list has grown
-    // enough that silence-based completion can fire before 'show' is finished.
-    out.println("[cfg] show_complete   = 1");
 }
 
 void ConfigManager::handleLine(const char *line, Stream &out) {
