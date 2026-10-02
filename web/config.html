@@ -1120,6 +1120,9 @@ function parseConfigLine(line) {
 
 // ── Connect / disconnect ──────────────────────────────────────────────────────
 async function connect() {
+  // A real serial connection always wins over any stale demo-mode flag stored
+  // by another configurator page on the same GitHub Pages origin.
+  localStorage.removeItem('freeclinkerDemoMode');
   try {
     port = await navigator.serial.requestPort();
   } catch (e) {
@@ -1138,10 +1141,7 @@ async function connect() {
   setConnected(true);
   log(`Connected at ${baudSelect.value} baud`, 'sys');
   startReading();
-  // Tell the full configurator explicitly that the serial reader is live.
-  // Do not infer this from button state: that race was able to leave a real
-  // board connected without ever starting the automatic settings read.
-  window.fpsHardwareConnected?.();
+  // Full Edition owns the single automatic board read after connection.
 }
 
 async function disconnect() {
