@@ -840,10 +840,11 @@ const advancedPowerSelectRow = document.getElementById('advancedPowerSelectRow')
 let savedLowPowerState = lowPowerToggle.checked;
 function renderAdvancedPowerState(){
   const on=advancedPowerToggle.checked;
+  const connectedNow=!!port;
   advancedPowerSelectRow.style.display=on?'block':'none';
   lowPowerToggle.checked=on ? false : savedLowPowerState;
-  lowPowerToggle.disabled=!connected||on;
-  advancedPowerDbmSel.disabled=!connected||!on;
+  lowPowerToggle.disabled=!connectedNow||on;
+  advancedPowerDbmSel.disabled=!connectedNow||!on;
 }
 lowPowerToggle.addEventListener('change',()=>{ if(!advancedPowerToggle.checked) savedLowPowerState=lowPowerToggle.checked; });
 advancedPowerToggle.addEventListener('change',()=>{
@@ -1173,11 +1174,15 @@ async function startReading() {
         const clean = line.replace(/\r$/, '');
         log(clean);
         document.dispatchEvent(new CustomEvent('fps-serial-line', { detail: clean }));
-        parseFirmwareVersionLine(clean);
-        parseConfigLine(clean);
-        collectCameraLine(clean);
-        collectWifiScanLine(clean);
-        collectProfileLine(clean);
+        // A UI parser must never be allowed to kill the serial reader. This
+        // caught the advanced-power regression where an undefined UI variable
+        // stopped reads exactly at the advanced_power line.
+        const safeParse=(name,fn)=>{try{fn(clean)}catch(e){log(name+' parse error: '+e.message,'err')}};
+        safeParse('version',parseFirmwareVersionLine);
+        safeParse('config',parseConfigLine);
+        safeParse('camera',collectCameraLine);
+        safeParse('wifi',collectWifiScanLine);
+        safeParse('profile',collectProfileLine);
       }
     }
   } catch {
