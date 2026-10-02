@@ -1,13 +1,13 @@
 (()=>{
 'use strict';
-const MODE='freeclinkerDemoMode', CFG='freeclinkerDemoConfig', STORE='fpsUiV2State', GPS_TEST='fpsGpsTimeTestDemoResetV1';
-// This isolated hardware-test page must always start in real-device mode once per browser.
-// Demo remains available only after the user explicitly clicks Demo Mode.
-if(localStorage.getItem(GPS_TEST)!=='1'){localStorage.removeItem(MODE);localStorage.setItem(GPS_TEST,'1')}
-const demo=()=>localStorage.getItem(MODE)==='1';
+const MODE='freeclinkerDemoMode', CFG='freeclinkerDemoConfig', STORE='fpsUiV2State', SESSION='fpsGpsTimeDemoSession';
+// GPS hardware-test page always opens in real-device mode. Demo is opt-in for
+// the current page session only and cannot leak in from main/other Pages paths.
+localStorage.removeItem(MODE);
+const demo=()=>sessionStorage.getItem(SESSION)==='1';
 function parse(k){try{return JSON.parse(localStorage.getItem(k)||'{}')}catch{return{}}}
-function enter(){const current=parse(STORE);if(Object.keys(current).length)localStorage.setItem(CFG,JSON.stringify(current));localStorage.setItem(MODE,'1');location.reload()}
-function exit(){const current=parse(STORE);if(Object.keys(current).length)localStorage.setItem(CFG,JSON.stringify(current));localStorage.removeItem(MODE);location.reload()}
+function enter(){const current=parse(STORE);if(Object.keys(current).length)localStorage.setItem(CFG,JSON.stringify(current));sessionStorage.setItem(SESSION,'1');location.reload()}
+function exit(){const current=parse(STORE);if(Object.keys(current).length)localStorage.setItem(CFG,JSON.stringify(current));sessionStorage.removeItem(SESSION);localStorage.removeItem(MODE);location.reload()}
 function init(){
  const connect=document.getElementById('connectBtn');if(!connect)return;
  const b=document.createElement('button');b.type='button';b.id='fpsDemoModeBtn';b.className='fps-demo-v1';b.textContent=demo()?'Exit Demo Mode':'Demo Mode';b.title=demo()?'Return to real ESP32 connection mode':'Try all configurator settings without a connected board';b.onclick=demo()?exit:enter;connect.insertAdjacentElement('afterend',b);
