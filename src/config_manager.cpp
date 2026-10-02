@@ -386,7 +386,12 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
         out.println("  set profile_osd <0|1>       - show profile name briefly in OSD");
         out.println("  set profile_osd_dest <1-4>  - OSD destination for profile name");
         out.println("  set debug_ble <0|1>        - log raw BLE TX/RX packets to the serial console");
-        out.println("  set low_power <0|1>        - 1=minimum BLE/Wi-Fi TX power (default) to reduce RC receiver interference, shorter range; 0=maximum TX power (reboot required)");
+        out.println("  set low_power <0|1>        - simple minimum/maximum radio power mode (reboot required)");
+        out.println("  set advanced_power <0|1>   - override low_power with a selected BLE TX level (reboot required)");
+        out.println("  set advanced_dbm <-24..9>  - advanced BLE TX level: -24,-21,-18,-15,-12,-9,-6,-3,0,3,6,9 dBm");
+        out.println("  set gopro_gps_time <0|1>   - optionally set the main/C1 GoPro clock from FC/GPS time");
+        out.println("  set gopro_tz_mode <0-11>   - timezone rule selector");
+        out.println("  set gopro_tz_offset <-720..840> - fixed UTC offset in minutes when mode=0");
         out.println("  set wifi_ap_enabled <0|1>  - 0=never auto-start the config-portal AP (BOOT-button force-AP still works)");
         out.println("  set wifi_ap_delay <sec>    - seconds after boot/disconnect before the AP auto-starts (default 30)");
         out.println("  set osd1 <template>        - OSD Custom Message 1 template (default: battery)");
