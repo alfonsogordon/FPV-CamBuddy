@@ -39,17 +39,9 @@ function syncMetadataFromDevice(){
  if($('fpsAuxMaster')&&$('auxChannel')){$('fpsAuxMaster').checked=parseInt($('auxChannel').value,10)>0;fire('fpsAuxMaster')}
  fire('fpvFlash');fire('fpvPreArm');fire('fpvLowPct','input');fire('fpvRecLowMin','input');syncGoProNote();window.fpsBoardSyncing=false;document.dispatchEvent(new CustomEvent('fps-config-read-complete'));
 }
-function scheduleLegacyReadFallback(){if(!readRequested)return;clearTimeout(readTimer);readTimer=setTimeout(syncMetadataFromDevice,1200)}
-function installReadCompletionHook(){if(typeof parseConfigLine!=='function'||parseConfigLine.__fpsWrapped)return;const original=parseConfigLine;const wrapped=function(line){
- original(line);
- if(!readRequested)return;
- const s=String(line||'');
- if(/^\[cfg\]\s+show_complete\s*=\s*1\b/.test(s)){clearTimeout(readTimer);syncMetadataFromDevice();return}
- // Backward-compatible fallback for firmware that predates show_complete.
- // This is deliberately much longer than the old 220 ms guess.
- if(/^\[cfg\]\s+\w+\s*=/.test(s))scheduleLegacyReadFallback()
-};wrapped.__fpsWrapped=true;parseConfigLine=wrapped}
-function requestRead(){readRequested=true;clearTimeout(readTimer);readTimer=setTimeout(()=>{if(readRequested)syncMetadataFromDevice()},3000)}window.fpsRequestBoardRead=requestRead;
+function scheduleReadSync(){if(!readRequested)return;clearTimeout(readTimer);readTimer=setTimeout(syncMetadataFromDevice,220)}
+function installReadCompletionHook(){if(typeof parseConfigLine!=='function'||parseConfigLine.__fpsWrapped)return;const original=parseConfigLine;const wrapped=function(line){original(line);if(readRequested&&/^\[cfg\]\s+\w+\s*=/.test(String(line||'')))scheduleReadSync()};wrapped.__fpsWrapped=true;parseConfigLine=wrapped}
+function requestRead(){readRequested=true;clearTimeout(readTimer)}window.fpsRequestBoardRead=requestRead;
 function init(){installReadCompletionHook();$('readBtn')?.addEventListener('click',requestRead,true);$('fpsCraftMaster')?.addEventListener('change',()=>{if(healCraftTemplate())fire('fpsCraftMaster')});$('wakeGuard')?.addEventListener('change',syncGoProNote);syncGoProNote()}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(init,450));else setTimeout(init,450);
 })();
