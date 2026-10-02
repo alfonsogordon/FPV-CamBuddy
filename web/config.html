@@ -1138,7 +1138,10 @@ async function connect() {
   setConnected(true);
   log(`Connected at ${baudSelect.value} baud`, 'sys');
   startReading();
-  // Full Edition owns the single automatic board read after connection.
+  // Tell the full configurator explicitly that the serial reader is live.
+  // Do not infer this from button state: that race was able to leave a real
+  // board connected without ever starting the automatic settings read.
+  window.fpsHardwareConnected?.();
 }
 
 async function disconnect() {
