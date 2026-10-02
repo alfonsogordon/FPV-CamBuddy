@@ -40,7 +40,7 @@ static uint32_t      lastBattMs = 0;
 static MspRtcDateTime gpsRtc{};
 static bool goproTimeSynced = false;
 static bool goproWasConnectedForTime = false;
-static uint8_t goproTimeSyncCameraCount = 0;
+static bool mainGoProWasConnectedForTime = false;
 
 
 struct GoProLocalDateTime {
@@ -469,25 +469,28 @@ void loop() {
     const uint32_t now          = millis();
     const bool     camConnected = !configMode && activeCamera->isConnected();
 
-    // GPS-derived GoPro clock sync. In Multi-Cam mode, resync whenever the
-    // number of live GoPro sessions changes so a newly joined/reconnected camera
-    // receives the same local timestamp as the existing cameras.
+    // Optional GPS clock sync for the main on-quad GoPro only.
+    // In Multi-Cam, C1/slot 0 is the designated main camera; C2-C4 never
+    // receive clock commands.
     const bool multiCam = configManager.config().multiCamSync;
-    const uint8_t liveGoPros = multiCam ? multiGoProCamera.connectedCount()
-                                        : ((configManager.config().cameraType == 1 && camConnected) ? 1 : 0);
-    if (liveGoPros != goproTimeSyncCameraCount) {
-        goproTimeSyncCameraCount = liveGoPros;
+    const bool mainGoProConnected = multiCam
+        ? multiGoProCamera.mainConnected()
+        : (configManager.config().cameraType == 1 && camConnected);
+    if (mainGoProConnected != mainGoProWasConnectedForTime) {
+        mainGoProWasConnectedForTime = mainGoProConnected;
         goproTimeSynced = false;
-        DBG_SERIAL.printf("[GPS-TIME] GoPro session count changed -> %u; clock sync re-armed\n", liveGoPros);
+        DBG_SERIAL.printf("[GPS-TIME] Main GoPro C1 %s; clock sync %s\n",
+                          mainGoProConnected ? "connected" : "disconnected",
+                          mainGoProConnected ? "armed" : "cleared");
     }
-    if (liveGoPros > 0 && configManager.config().goproGpsTimeSync &&
+    if (mainGoProConnected && configManager.config().goproGpsTimeSync &&
         !goproTimeSynced && mspSerial.gpsTimeReady()) {
         const auto local = localizeGoProTime(gpsRtc, configManager.config());
-        DBG_SERIAL.printf("[GPS-TIME] Local camera time: %04u-%02u-%02u %02u:%02u:%02u (UTC%+d:%02d)\n",
+        DBG_SERIAL.printf("[GPS-TIME] Main GoPro local time: %04u-%02u-%02u %02u:%02u:%02u (UTC%+d:%02d)\n",
                           local.year, local.month, local.day, local.hour, local.minute, local.second,
                           local.offsetMin / 60, abs(local.offsetMin % 60));
         const bool sent = multiCam
-            ? multiGoProCamera.setDateTime(local.year, local.month, local.day, local.hour, local.minute, local.second)
+            ? multiGoProCamera.setMainDateTime(local.year, local.month, local.day, local.hour, local.minute, local.second)
             : goProCamera.setDateTime(local.year, local.month, local.day, local.hour, local.minute, local.second);
         if (sent) {
             goproTimeSynced = true;
@@ -500,7 +503,6 @@ void loop() {
                 mspSerial.showTransientMessage(timeCfg.profileOsdTarget, "GOPRO TIME SET", 2000);
         }
     }
-
 
     // ── BOOT button → force AP ─────────────────────────────────────────────────
     if (!configMode && !forceAP) {
