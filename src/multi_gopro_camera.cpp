@@ -469,24 +469,22 @@ void MultiGoProCamera::syncSlotToDesiredState(uint8_t slot) {
     }
 }
 
-bool MultiGoProCamera::setDateTime(uint16_t year, uint8_t month, uint8_t day,
-                                     uint8_t hour, uint8_t minute, uint8_t second) {
-    bool any = false;
-    for (uint8_t i = 0; i < MAX_MULTI_GOPRO_SLOTS; ++i) {
-        Slot *s = _slots[i];
-        if (!s || !s->ready || !s->cmdWrite) continue;
-        const uint8_t buf[] = {
-            0x09, GP_CMD_SET_DATE_TIME, 0x07,
-            static_cast<uint8_t>((year >> 8) & 0xFF),
-            static_cast<uint8_t>(year & 0xFF),
-            month, day, hour, minute, second
-        };
-        s->cmdWrite->writeValue(const_cast<uint8_t *>(buf), sizeof(buf), false);
-        DBG_SERIAL.printf("[GPS-TIME] Multi GoPro slot %u time sent: %04u-%02u-%02u %02u:%02u:%02u\n",
-                          i + 1, year, month, day, hour, minute, second);
-        any = true;
-    }
-    return any;
+bool MultiGoProCamera::setMainDateTime(uint16_t year, uint8_t month, uint8_t day,
+                                         uint8_t hour, uint8_t minute, uint8_t second) {
+    // C1/slot 0 is the main on-quad GoPro. GPS clock sync is intentionally
+    // never fanned out to secondary Multi-Cam cameras.
+    Slot *s = _slots[0];
+    if (!s || !s->ready || !s->cmdWrite) return false;
+    const uint8_t buf[] = {
+        0x09, GP_CMD_SET_DATE_TIME, 0x07,
+        static_cast<uint8_t>((year >> 8) & 0xFF),
+        static_cast<uint8_t>(year & 0xFF),
+        month, day, hour, minute, second
+    };
+    s->cmdWrite->writeValue(const_cast<uint8_t *>(buf), sizeof(buf), false);
+    DBG_SERIAL.printf("[GPS-TIME] Main GoPro C1 time sent: %04u-%02u-%02u %02u:%02u:%02u\n",
+                      year, month, day, hour, minute, second);
+    return true;
 }
 
 bool MultiGoProCamera::startRecording() {
