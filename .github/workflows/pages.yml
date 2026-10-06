@@ -286,11 +286,11 @@ jobs:
           from pathlib import Path
           p=Path('stable/web/gopro-gps-time/flash.html')
           s=p.read_text()
-          old="""releases=[{tag_name:'gps-time-test',display_name:'GoPro GPS Time Sync Test',published_at:new Date().toISOString(),html_url:'https://github.com/alfonsogordon/FPV-CamBuddy/tree/gopro-gps-time-test',is_candidate:true,sha:'branch'}];
-          versionSelect.innerHTML='<option value="gps-time-test">GoPro GPS Time Sync Test — isolated branch build</option>';
-          versionSelect.disabled=true;
-          selectRelease(releases[0]);
-          """
+          marker="releases=[{tag_name:'gps-time-test'"
+          start=s.find(marker)
+          end=s.find("function showPostFlash", start)
+          if start < 0 or end < 0:
+              raise SystemExit('GPS static flasher release block not found')
           new="""releases=[
             {tag_name:'gps-time-test',display_name:'GPS Time Test — current proven build',published_at:new Date().toISOString(),html_url:'https://github.com/alfonsogordon/FPV-CamBuddy/tree/gopro-gps-time-test',is_candidate:true,sha:'gps-time'},
             {tag_name:'gps-reconnect-test',display_name:'GPS Time + GoPro Reconnect Recovery Test',published_at:new Date().toISOString(),html_url:'https://github.com/alfonsogordon/FPV-CamBuddy/tree/gopro-gps-reconnect-test',is_candidate:true,sha:'gps-reconnect'}
@@ -300,9 +300,7 @@ jobs:
           versionSelect.onchange=()=>selectRelease(releases.find(r=>r.tag_name===versionSelect.value)||releases[0]);
           selectRelease(releases[0]);
           """
-          if old not in s:
-              raise SystemExit('GPS static flasher block not found')
-          s=s.replace(old,new)
+          s=s[:start]+new+s[end:]
           p.write_text(s)
           PY
 
