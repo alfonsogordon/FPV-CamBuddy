@@ -284,6 +284,25 @@ void CameraRegistry::clear() {
     save();
 }
 
+bool CameraRegistry::requestForget(uint8_t idx) {
+    if (idx >= _count) return false;
+    _prefs.putBytes(KEY_FORGET, &_entries[idx], sizeof(CameraEntry));
+    return remove(idx);
+}
+
+bool CameraRegistry::pendingForget(uint8_t wantType, CameraEntry &out) {
+    if (_prefs.getBytesLength(KEY_FORGET) != sizeof(CameraEntry)) return false;
+    CameraEntry e{};
+    if (_prefs.getBytes(KEY_FORGET, &e, sizeof(e)) != sizeof(e)) return false;
+    if (e.cameraType != wantType) return false;
+    out = e;
+    return true;
+}
+
+void CameraRegistry::clearPendingForget() {
+    _prefs.remove(KEY_FORGET);
+}
+
 void CameraRegistry::printList(Stream &out) const {
     if (_count == 0) { out.println("[reg] No cameras saved"); return; }
     out.printf("[reg] %u camera(s) saved:\n", _count);
