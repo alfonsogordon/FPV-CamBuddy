@@ -8,8 +8,6 @@
 #include "sdkconfig.h"
 #if defined(CONFIG_BLUEDROID_ENABLED)
 #include <esp_gap_ble_api.h>
-#elif defined(CONFIG_NIMBLE_ENABLED)
-#include <host/ble_store.h>
 #endif
 
 GoProCamera *GoProCamera::_instance = nullptr;
@@ -478,24 +476,20 @@ void GoProCamera::rebuildClient() {
 }
 
 bool GoProCamera::clearLocalBond(const std::string &addr, esp_ble_addr_type_t addrType) {
+    (void)addrType;
     if (addr.empty()) return false;
-    BLEAddress peer(addr);
 #if defined(CONFIG_BLUEDROID_ENABLED)
+    BLEAddress peer(addr);
     esp_err_t rc = esp_ble_remove_bond_device(peer.getNative());
     DBG_SERIAL.printf("[GP-RECOVER] esp_ble_remove_bond_device(%s) -> %d\n",
                       addr.c_str(), (int)rc);
     return rc == ESP_OK;
-#elif defined(CONFIG_NIMBLE_ENABLED)
-    ble_addr_t p{};
-    p.type = (addrType == BLE_ADDR_TYPE_RANDOM) ? BLE_ADDR_RANDOM : BLE_ADDR_PUBLIC;
-    uint8_t *native = peer.getNative();
-    for (int i = 0; i < 6; ++i) p.val[i] = native[5 - i];
-    int rc = ble_store_util_delete_peer(&p);
-    DBG_SERIAL.printf("[GP-RECOVER] ble_store_util_delete_peer(%s,type=%u) -> %d\n",
-                      addr.c_str(), (unsigned)p.type, rc);
-    return rc == 0;
 #else
-    DBG_SERIAL.println("[GP-RECOVER] Local bond cleanup unavailable on this BLE stack");
+    // The current Arduino-ESP32 targets in this project use Bluedroid. Keep
+    // the fallback compile-safe rather than reaching into NimBLE host-private
+    // headers that are not part of the selected framework.
+    DBG_SERIAL.printf("[GP-RECOVER] Local bond cleanup unavailable for %s on this BLE stack\n",
+                      addr.c_str());
     return false;
 #endif
 }
