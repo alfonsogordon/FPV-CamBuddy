@@ -23,6 +23,7 @@ static constexpr const char *KEY_PHNAME = "prof_hi_name";
 static constexpr const char *KEY_POSD = "profile_osd";
 static constexpr const char *KEY_POSDT = "prof_osd_dst";
 static constexpr const char *KEY_CAM  = "camera_type";
+static constexpr const char *KEY_MULTI = "multi_cam";
 static constexpr const char *KEY_OSD1 = "osd1_tpl";
 static constexpr const char *KEY_OSD2 = "osd2_tpl";
 static constexpr const char *KEY_OSD3 = "osd3_tpl";
@@ -107,6 +108,7 @@ void ConfigManager::load() {
     _cfg.profileOsdTarget = static_cast<uint8_t>(_prefs.getUInt(KEY_POSDT, DEFAULT_PROFILE_OSD_TARGET));
     if (_cfg.profileOsdTarget < 1 || _cfg.profileOsdTarget > 4) _cfg.profileOsdTarget = DEFAULT_PROFILE_OSD_TARGET;
     _cfg.cameraType        = static_cast<uint8_t>(_prefs.getUInt(KEY_CAM, DEFAULT_CAMERA_TYPE));
+    _cfg.multiCamSync      = _prefs.getBool(KEY_MULTI, DEFAULT_MULTI_CAM_SYNC);
     _cfg.cameraMatchMode   = static_cast<uint8_t>(_prefs.getUInt(KEY_CMM, DEFAULT_CAMERA_MATCH_MODE));
     _cfg.cameraWakeGuard   = _prefs.getBool(KEY_WAKE, DEFAULT_CAMERA_WAKE_GUARD);
     _cfg.debugBle          = _prefs.getBool(KEY_DBG, DEFAULT_DEBUG_BLE);
@@ -203,6 +205,7 @@ void ConfigManager::save() {
     _prefs.putBool(KEY_POSD, _cfg.profileOsdEnabled);
     _prefs.putUInt(KEY_POSDT, _cfg.profileOsdTarget);
     _prefs.putUInt(KEY_CAM, _cfg.cameraType);
+    _prefs.putBool(KEY_MULTI, _cfg.multiCamSync);
     _prefs.putUInt(KEY_CMM, _cfg.cameraMatchMode);
     _prefs.putBool(KEY_WAKE, _cfg.cameraWakeGuard);
     _prefs.putBool(KEY_DBG, _cfg.debugBle);
@@ -264,6 +267,7 @@ static const char *cameraTypeName(uint8_t t) {
 
 void ConfigManager::printAll(Stream &out) {
     out.printf("[cfg] camera_type     = %s\n", cameraTypeName(_cfg.cameraType));
+    out.printf("[cfg] multi_cam       = %s\n", _cfg.multiCamSync ? "true" : "false");
     static const char *matchModeNames[] = {"fallback", "strict", "best_signal"};
     out.printf("[cfg] camera_match    = %s\n",
                _cfg.cameraMatchMode <= 2 ? matchModeNames[_cfg.cameraMatchMode] : "?");
@@ -364,6 +368,7 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
         out.println("  diag clear                 - clear persistent AP diagnostic log");
         out.println("  show                       - print all settings");
         out.println("  set camera_type <0-5>      - 0=DJI, 1=GoPro, 2=Caddx Orca, 3=Sony Alpha, 4=Blackmagic, 5=Insta360 (reboot required)");
+        out.println("  set multi_cam <0|1>        - enable Multi Cam coordinator (reboot required)");
         out.println("  set camera_match <0-2>     - 0=fallback (preferred, else any found), 1=strict (preferred only), 2=best_signal (strongest RSSI, ignores preferred)");
         out.println("  set wake_guard <0|1>       - 1=don't connect to a sleeping/powered-down GoPro (avoids waking it); bypassed for a manually selected camera");
         out.println("  set disarm_delay <ms>      - delay before stopping recording after disarm");
@@ -545,6 +550,14 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
             }
             setCameraType(t);
             out.printf("[cfg] camera_type = %s (saved — reboot to apply)\n", cameraTypeName(t));
+            return;
+        }
+
+        if (strncmp(rest, "multi_cam ", 10) == 0) {
+            const int v = atoi(rest + 10);
+            if (v != 0 && v != 1) { out.println("[cfg] multi_cam must be 0 or 1"); return; }
+            setMultiCamSync(v != 0);
+            out.printf("[cfg] multi_cam = %s (saved — reboot to apply)\n", _cfg.multiCamSync ? "true" : "false");
             return;
         }
 
@@ -1014,6 +1027,8 @@ void ConfigManager::setCameraType(uint8_t v) {
     _cfg.cameraType = v;
     _prefs.putUInt(KEY_CAM, v);
 }
+
+void ConfigManager::setMultiCamSync(bool v) { _cfg.multiCamSync = v; _prefs.putBool(KEY_MULTI, v); }
 
 void ConfigManager::setDisarmDelay(uint32_t ms) {
     _cfg.disarmStopDelayMs = ms;
