@@ -67,6 +67,10 @@ private:
     void startScan();
     bool connectAndSetup();
     void discoverBatteryService();
+    void noteConnectionFailure(const char *reason);
+    void rebuildClient();
+    bool clearLocalBond(const std::string &addr, esp_ble_addr_type_t addrType);
+    void resetRecoveryState();
 
     // ── GoPro commands ────────────────────────────────────────────────────────
     void sendCmd(uint8_t cmd_id, const uint8_t *params, uint8_t param_len);
@@ -117,6 +121,16 @@ private:
     uint32_t                 _lastAttemptMs = 0;
     uint32_t                 _lastStatusPollMs = 0;
     uint32_t                 _lastKeepAliveMs = 0;
+
+    // Reconnect recovery test. A GoPro can remain visible/wakeable while a
+    // stale BLE/Open-GoPro session prevents a usable connection. Escalate only
+    // after repeated failures to the same visible address: normal retry ->
+    // recreate local BLE client -> clear only that peer's local bond.
+    std::string              _recoveryAddr;
+    uint8_t                  _connectFailCount = 0;
+    bool                     _clientRebuiltForAddr = false;
+    bool                     _bondClearedForAddr = false;
+    uint32_t                 _handshakeStartMs = 0;
 
     // First GoPro seen during scan — fallback when preferred addr isn't found
     std::string              _candidateAddr;
