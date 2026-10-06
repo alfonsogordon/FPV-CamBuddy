@@ -82,7 +82,12 @@ public:
     bool remove(uint8_t idx);
     void clear();
 
-    // Field recovery: persist one camera to forget after AP exit/reboot.\n    bool requestForget(uint8_t idx);\n    bool pendingForget(uint8_t wantType, CameraEntry &out);\n    void clearPendingForget();\n\n    void   printList(Stream &out) const;
+    // Field recovery: persist one camera to forget after AP exit/reboot.
+    bool requestForget(uint8_t idx);
+    bool pendingForget(uint8_t wantType, CameraEntry &out);
+    void clearPendingForget();
+
+    void   printList(Stream &out) const;
     String toJson()               const;
 
 private:
