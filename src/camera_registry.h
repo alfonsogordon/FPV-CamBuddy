@@ -69,6 +69,13 @@ public:
     bool remove(uint8_t idx);
     void clear();
 
+    // Field recovery: remember one camera that should be fully forgotten on
+    // the next BLE boot. This lets the Wi-Fi AP request a GoPro re-pair even
+    // though BLE is deliberately deinitialized while the AP is running.
+    bool requestForget(uint8_t idx);
+    bool pendingForget(uint8_t wantType, CameraEntry &out) const;
+    void clearPendingForget();
+
     void   printList(Stream &out) const;
     String toJson()               const;
 
