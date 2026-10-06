@@ -907,6 +907,24 @@ void ConfigManager::handleCamerasCmd(const char *sub, Stream &out) {
         return;
     }
 
+    if (strncmp(sub, "forget ", 7) == 0) {
+        const char *arg = sub + 7;
+        while (*arg == ' ') arg++;
+        uint8_t idx = (uint8_t)strtoul(arg, nullptr, 10);
+        CameraEntry e{};
+        if (!_registry->getEntry(idx, e)) {
+            out.printf("[reg] No camera at index %u\n", idx);
+        } else if (e.cameraType != 1) {
+            if (_registry->remove(idx))
+                out.printf("[reg] Camera %u removed (no GoPro BLE bond cleanup required)\n", idx);
+        } else if (_registry->requestForget(idx)) {
+            out.printf("[reg] GoPro %u forgotten; local BLE bond will be cleared on next reboot\n", idx);
+        } else {
+            out.printf("[reg] Failed to schedule forget for camera %u\n", idx);
+        }
+        return;
+    }
+
     if (strncmp(sub, "connect ", 8) == 0) {
         const char *arg = sub + 8;
         while (*arg == ' ') arg++;
