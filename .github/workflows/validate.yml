@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - gopro-gps-time-test
+      - gopro-gps-reconnect-test
   workflow_dispatch:
 
 permissions:
