@@ -148,7 +148,7 @@ bool CameraRegistry::requestForget(uint8_t idx) {
     return remove(idx);
 }
 
-bool CameraRegistry::pendingForget(uint8_t wantType, CameraEntry &out) const {
+bool CameraRegistry::pendingForget(uint8_t wantType, CameraEntry &out) {
     if (_prefs.getBytesLength(KEY_FORGET) != sizeof(CameraEntry)) return false;
     CameraEntry e{};
     if (_prefs.getBytes(KEY_FORGET, &e, sizeof(e)) != sizeof(e)) return false;
