@@ -395,6 +395,18 @@
         </select>
       </div>
 
+      <!-- Multi Cam -->
+      <div class="cfg-field" id="multiCamField" style="background:#fffbeb;border-left:3px solid #f59e0b">
+        <div class="cfg-field-text">
+          <div class="cfg-field-name">Multi-Cam <span style="font-size:10px;color:#b45309">V1.0.3 TEST</span></div>
+          <div class="cfg-field-desc">Control multiple supported cameras together. Shared discovery and ARM/DISARM recording fan-out are active after reboot. Single-Cam behaviour is unchanged when this is off.</div>
+        </div>
+        <label class="switch" title="Enable Multi-Cam">
+          <input type="checkbox" id="multiCam" disabled>
+          <span class="track"><span class="thumb"></span></span>
+        </label>
+      </div>
+
       <!-- Camera matching mode -->
       <div class="cfg-field">
         <div class="cfg-field-text">
@@ -781,6 +793,19 @@
       </div>
     </div>
 
+    <div class="config-card" id="backupRestoreCard" style="width:100%;max-width:560px;margin-bottom:16px;">
+      <div class="card-header"><h2>Backup &amp; Restore</h2></div>
+      <div class="cfg-field" style="flex-direction:column;align-items:flex-start;">
+        <div class="cfg-field-desc">Save the complete CamBuddy settings currently read from the board to a versioned JSON file, or restore a compatible backup. Connect and READ SETTINGS before backing up.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+          <button id="backupConfigBtn" type="button" disabled>Backup Configuration</button>
+          <button id="restoreConfigBtn" type="button" disabled>Restore Configuration</button>
+          <input id="restoreConfigFile" type="file" accept=".json,application/json" style="display:none">
+        </div>
+        <div class="cfg-field-desc" id="backupRestoreStatus" style="margin-top:8px;"></div>
+      </div>
+    </div>
+
     <div class="cam-toolbar">
       <button id="camRefreshBtn" disabled>Refresh</button>
       <button id="camClearBtn"   disabled>Clear All</button>
@@ -822,6 +847,7 @@ const baudSelect    = document.getElementById('baudRate');
 const readBtn        = document.getElementById('readBtn');
 const applyBtn       = document.getElementById('applyBtn');
 const cameraTypeSel  = document.getElementById('cameraType');
+const multiCamToggle = document.getElementById('multiCam');
 const caddxWifiCard     = document.getElementById('caddxWifiCard');
 const caddxSsidInput    = document.getElementById('caddxSsid');
 const caddxPassInput    = document.getElementById('caddxPass');
@@ -1018,6 +1044,9 @@ function parseConfigLine(line) {
   if (key === 'camera_type') {
     const CAMERA_TYPE_VALUES = { DJI: '0', GoPro: '1', Caddx: '2', Sony: '3', Blackmagic: '4', Insta360: '5' };
     cameraTypeSel.value = CAMERA_TYPE_VALUES[val] ?? '0';
+    updateCameraTypeState();
+  } else if (key === 'multi_cam') {
+    multiCamToggle.checked = (val === 'true');
     updateCameraTypeState();
   } else if (key === 'caddx_ssid') {
     caddxSsidInput.value = val;
@@ -1292,6 +1321,7 @@ applyBtn.addEventListener('click', async () => {
   try {
     const cmds = [
       `set camera_type ${cameraTypeSel.value}`,
+      `set multi_cam ${multiCamToggle.checked ? 1 : 0}`,
       `set camera_match ${cameraMatchSel.value}`,
       `set wake_guard ${wakeGuard}`,
       `set debug_ble ${debugBle}`,
@@ -1746,7 +1776,8 @@ function setConnected(connected) {
   readBtn.disabled       = !connected;
   diagBtn.disabled       = !connected;
   applyBtn.disabled      = !connected;
-  cameraTypeSel.disabled = !connected;
+  cameraTypeSel.disabled = !connected || multiCamToggle.checked;
+  multiCamToggle.disabled = !connected;
   caddxSsidInput.disabled = !connected;
   caddxPassInput.disabled = !connected;
   caddxScanBtn.disabled   = !connected;
@@ -1801,6 +1832,51 @@ function setConnected(connected) {
 connectBtn.addEventListener('click', connect);
 disconnectBtn.addEventListener('click', disconnect);
 sendBtn.addEventListener('click', sendCurrent);
+
+// ── Backup / Restore ─────────────────────────────────────────────────────────
+const backupConfigBtn=document.getElementById('backupConfigBtn');
+const restoreConfigBtn=document.getElementById('restoreConfigBtn');
+const restoreConfigFile=document.getElementById('restoreConfigFile');
+const backupRestoreStatus=document.getElementById('backupRestoreStatus');
+function currentBoardConfig(){try{return JSON.parse(localStorage.getItem('freeclinkerC3Config')||'{}')}catch{return{}}}
+function backupButtons(){const ok=!!port;backupConfigBtn.disabled=!ok;restoreConfigBtn.disabled=!ok}
+backupConfigBtn.addEventListener('click',()=>{
+  try{
+    const settings=currentBoardConfig();
+    if(!Object.keys(settings).length)throw new Error('READ SETTINGS from the board first');
+    const pack={format:'FPV CamBuddy Backup',schema:1,firmware:firmwareVersion||'unknown',created:new Date().toISOString(),settings};
+    const blob=new Blob([JSON.stringify(pack,null,2)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='FPV-CamBuddy-backup-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    backupRestoreStatus.textContent='Backup downloaded.';
+  }catch(e){backupRestoreStatus.textContent='Backup failed: '+e.message}
+});
+restoreConfigBtn.addEventListener('click',()=>restoreConfigFile.click());
+restoreConfigFile.addEventListener('change',async()=>{
+  const file=restoreConfigFile.files?.[0];restoreConfigFile.value='';if(!file)return;
+  try{
+    const pack=JSON.parse(await file.text());
+    if(pack?.format!=='FPV CamBuddy Backup'||Number(pack.schema)!==1||!pack.settings)throw new Error('Not a supported FPV CamBuddy backup');
+    const c=pack.settings, cmds=[];
+    const bool=(k)=>String(c[k]).toLowerCase()==='true'?1:0;
+    const num=(k,d=0)=>{const n=parseInt(c[k]);return Number.isFinite(n)?n:d};
+    const mapCamera={DJI:0,GoPro:1,Caddx:2,Sony:3,Blackmagic:4,Insta360:5};
+    if(c.camera_type!==undefined)cmds.push('set camera_type '+(mapCamera[c.camera_type]??num('camera_type',1)));
+    if(c.multi_cam!==undefined)cmds.push('set multi_cam '+bool('multi_cam'));
+    if(c.camera_match!==undefined){const mm={fallback:0,strict:1,best_signal:2};cmds.push('set camera_match '+(mm[c.camera_match]??num('camera_match',0)))}
+    for(const k of ['wake_guard','debug_ble','low_power','advanced_power','gopro_gps_time','wifi_ap_enabled','stop_on_disarm','profile_osd'])if(c[k]!==undefined)cmds.push('set '+k+' '+bool(k));
+    for(const k of ['advanced_dbm','gopro_tz_mode','gopro_tz_offset','wifi_ap_delay','disarm_delay','profile_aux','profile_low','profile_mid','profile_high','profile_osd_dest','fpv_low_pct','fpv_rect_min'])if(c[k]!==undefined)cmds.push('set '+k+' '+num(k));
+    if(c.record_trigger!==undefined){const m=String(c.record_trigger).match(/AUX(\d+)/);cmds.push('set record_aux '+(m?m[1]:0))}
+    for(let i=1;i<=4;i++)if(c['osd'+i]!==undefined)cmds.push('set osd'+i+' '+c['osd'+i]);
+    for(const k of ['bf45_compat','pilot_en','craft_en','fpv_flash','fpv_prearm','fpv_low_batt','fpv_rect_warn','fpv_hot_warn'])if(c[k]!==undefined)cmds.push('set '+k+' '+bool(k));
+    for(const [k,cmd] of [['pilot_tpl','pilot_tpl'],['craft_tpl','craft_tpl'],['fpv_prearm_text','fpv_prearm_text'],['fpv_low_text','fpv_low_text'],['fpv_rect_text','fpv_rect_text'],['fpv_hot_text','fpv_hot_text']])if(c[k]!==undefined)cmds.push('set '+cmd+' '+c[k]);
+    backupRestoreStatus.textContent='Restoring '+cmds.length+' settings…';
+    for(const cmd of cmds)await sendCommandAck(cmd,2500);
+    backupRestoreStatus.textContent='Restore written. Reading settings back from board…';
+    window.fpsRequestBoardRead?.();await new Promise(r=>setTimeout(r,250));await sendCommand('show');
+  }catch(e){backupRestoreStatus.textContent='Restore failed: '+e.message}
+});
+const _setConnectedBackup=setConnected;
+setConnected=function(on){_setConnectedBackup(on);backupButtons()};
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 updateDelayEquiv();
