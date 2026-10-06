@@ -486,9 +486,6 @@ bool GoProCamera::clearLocalBond(const std::string &addr, esp_ble_addr_type_t ad
                       addr.c_str(), (int)rc);
     return rc == ESP_OK;
 #else
-    // The current Arduino-ESP32 targets in this project use Bluedroid. Keep
-    // the fallback compile-safe rather than reaching into NimBLE host-private
-    // headers that are not part of the selected framework.
     DBG_SERIAL.printf("[GP-RECOVER] Local bond cleanup unavailable for %s on this BLE stack\n",
                       addr.c_str());
     return false;
