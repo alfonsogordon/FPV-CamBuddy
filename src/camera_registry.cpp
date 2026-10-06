@@ -5,6 +5,7 @@ static constexpr const char *NVS_NS   = "cam_reg";
 static constexpr const char *KEY_CNT  = "cnt";
 static constexpr const char *KEY_LAST = "last";
 static constexpr const char *KEY_LIST = "list";
+static constexpr const char *KEY_FORGET = "forget";
 
 static const char *cameraTypeName(uint8_t t) {
     switch (t) {
@@ -139,6 +140,25 @@ void CameraRegistry::clear() {
     _lastIdx     = -1;
     _selectedIdx = -1;
     save();
+}
+
+bool CameraRegistry::requestForget(uint8_t idx) {
+    if (idx >= _count) return false;
+    _prefs.putBytes(KEY_FORGET, &_entries[idx], sizeof(CameraEntry));
+    return remove(idx);
+}
+
+bool CameraRegistry::pendingForget(uint8_t wantType, CameraEntry &out) const {
+    if (_prefs.getBytesLength(KEY_FORGET) != sizeof(CameraEntry)) return false;
+    CameraEntry e{};
+    if (_prefs.getBytes(KEY_FORGET, &e, sizeof(e)) != sizeof(e)) return false;
+    if (e.cameraType != wantType) return false;
+    out = e;
+    return true;
+}
+
+void CameraRegistry::clearPendingForget() {
+    _prefs.remove(KEY_FORGET);
 }
 
 void CameraRegistry::printList(Stream &out) const {
