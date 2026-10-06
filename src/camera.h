@@ -37,6 +37,7 @@ public:
 
     void setCameraCallback(CameraCallback cb) { _cameraCb = cb; }
     void setRegistry(CameraRegistry *reg)     { _registry = reg; }
+    CameraRegistry *registry() const          { return _registry; }
     // v is one of the CAM_MATCH_* constants above.
     void setMatchMode(uint8_t v)              { _matchMode = v; }
     // When true (default), avoid connecting to a camera whose advertisement
@@ -55,6 +56,10 @@ public:
     void setLowPowerMode(bool v)              { _lowPowerMode = v; }
     void setAdvancedPowerMode(bool v)         { _advancedPowerMode = v; }
     void setAdvancedPowerDbm(int8_t v)        { _advancedPowerDbm = v; }
+    // Multi-Cam owns BLE discovery centrally; individual backends keep their
+    // proven connection/session logic but can have standalone scans disabled.
+    void setScanEnabled(bool v)                { _scanEnabled = v; }
+    bool scanEnabled() const                    { return _scanEnabled; }
 
 protected:
     CameraCallback  _cameraCb     = nullptr;
@@ -64,5 +69,6 @@ protected:
     bool            _debugBle     = false;  // when true, log raw BLE packets
     bool            _lowPowerMode = true;
     bool            _advancedPowerMode = false;
-    int8_t          _advancedPowerDbm = -12;
+    int8_t          _advancedPowerDbm = -24;
+    bool            _scanEnabled  = true;
 };
