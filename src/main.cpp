@@ -9,6 +9,8 @@
 #include "sony_camera.h"
 #include "blackmagic_camera.h"
 #include "insta360_camera.h"
+#include "multi_gopro_camera.h"
+#include "multi_camera_coordinator.h"
 #include "msp_serial.h"
 #include "dji_protocol.h"
 #include "web_server.h"
@@ -20,6 +22,8 @@ static CaddxCamera     caddxCamera;
 static SonyCamera      sonyCamera;
 static BlackmagicCamera blackmagicCamera;
 static Insta360Camera  insta360Camera;
+static MultiGoProCamera multiGoProCamera;
+static MultiCameraCoordinator multiCameraCoordinator(multiGoProCamera, djiCamera, sonyCamera, blackmagicCamera, insta360Camera, caddxCamera);
 static Camera         *activeCamera = nullptr;
 
 static CameraRegistry   cameraRegistry;
@@ -36,6 +40,7 @@ static uint32_t      lastBattMs = 0;
 static MspRtcDateTime gpsRtc{};
 static bool goproTimeSynced = false;
 static bool goproWasConnectedForTime = false;
+static bool mainGoProWasConnectedForTime = false;
 
 
 struct GoProLocalDateTime {
@@ -188,7 +193,7 @@ static void updateStatusLed(uint32_t now, bool camConnected, bool apRunning) {
 
 static void onAuxSwitch(bool high) {
     if (configMode || !activeCamera) return;
-    const bool isGoPro = (configManager.config().cameraType == 1);
+    const bool isGoPro = (configManager.config().cameraType == 1) && !configManager.config().multiCamSync;
     if (isGoPro && currentCamera.recording) {
         if (high) {
             DBG_SERIAL.println("[main] AUX high + GoPro recording → Burst Slo-Mo");
@@ -336,13 +341,18 @@ void setup() {
 
     const uint8_t camType = configManager.config().cameraType;
     const char *camTypeName;
-    switch (camType) {
-        case 1:  activeCamera = &goProCamera; camTypeName = "GoPro";      break;
-        case 2:  activeCamera = &caddxCamera; camTypeName = "Caddx Orca"; break;
-        case 3:  activeCamera = &sonyCamera;       camTypeName = "Sony Alpha"; break;
-        case 4:  activeCamera = &blackmagicCamera; camTypeName = "Blackmagic"; break;
-        case 5:  activeCamera = &insta360Camera;   camTypeName = "Insta360";   break;
-        default: activeCamera = &djiCamera;        camTypeName = "DJI Action / Osmo Nano"; break;
+    if (configManager.config().multiCamSync) {
+        activeCamera = &multiCameraCoordinator;
+        camTypeName = "Multi Cam";
+    } else {
+        switch (camType) {
+            case 1:  activeCamera = &goProCamera; camTypeName = "GoPro";      break;
+            case 2:  activeCamera = &caddxCamera; camTypeName = "Caddx Orca"; break;
+            case 3:  activeCamera = &sonyCamera;       camTypeName = "Sony Alpha"; break;
+            case 4:  activeCamera = &blackmagicCamera; camTypeName = "Blackmagic"; break;
+            case 5:  activeCamera = &insta360Camera;   camTypeName = "Insta360";   break;
+            default: activeCamera = &djiCamera;        camTypeName = "DJI Action / Osmo Nano"; break;
+        }
     }
 
     DBG_SERIAL.printf("[main] Camera type: %s\n", camTypeName);
@@ -374,6 +384,7 @@ void setup() {
     // it just joins a Wi-Fi network directly — but it does still use the
     // registry, to remember multiple Orcas by SSID/password and read
     // whichever is preferred at begin() (see caddx_camera.h).
+    multiGoProCamera.setRegistry(&cameraRegistry);
     djiCamera.setRegistry(&cameraRegistry);
     goProCamera.setRegistry(&cameraRegistry);
     caddxCamera.setRegistry(&cameraRegistry);
@@ -382,6 +393,7 @@ void setup() {
     insta360Camera.setRegistry(&cameraRegistry);
 
     const uint8_t matchMode = configManager.config().cameraMatchMode;
+    multiGoProCamera.setMatchMode(matchMode);
     djiCamera.setMatchMode(matchMode);
     goProCamera.setMatchMode(matchMode);
     sonyCamera.setMatchMode(matchMode);
@@ -391,6 +403,7 @@ void setup() {
     // Wake guard only affects GoPro (the only backend with a known
     // sleep/awake advertisement format), but it's harmless to set on all.
     const bool wakeGuard = configManager.config().cameraWakeGuard;
+    multiGoProCamera.setWakeGuard(wakeGuard);
     djiCamera.setWakeGuard(wakeGuard);
     goProCamera.setWakeGuard(wakeGuard);
     sonyCamera.setWakeGuard(wakeGuard);
@@ -398,6 +411,7 @@ void setup() {
     insta360Camera.setWakeGuard(wakeGuard);
 
     const bool debugBle = configManager.config().debugBle;
+    multiGoProCamera.setDebugBle(debugBle);
     djiCamera.setDebugBle(debugBle);
     goProCamera.setDebugBle(debugBle);
     sonyCamera.setDebugBle(debugBle);
@@ -411,6 +425,9 @@ void setup() {
     const bool lowPowerMode = configManager.config().lowPowerMode;
     const bool advancedPowerMode = configManager.config().advancedPowerMode;
     const int8_t advancedPowerDbm = configManager.config().advancedPowerDbm;
+    multiGoProCamera.setLowPowerMode(lowPowerMode);
+    multiGoProCamera.setAdvancedPowerMode(advancedPowerMode);
+    multiGoProCamera.setAdvancedPowerDbm(advancedPowerDbm);
     djiCamera.setLowPowerMode(lowPowerMode);
     goProCamera.setLowPowerMode(lowPowerMode);
     caddxCamera.setLowPowerMode(lowPowerMode);
@@ -445,42 +462,38 @@ void loop() {
     const uint32_t now          = millis();
     const bool     camConnected = !configMode && activeCamera->isConnected();
 
-    // HERO11 naked-camera clock recovery: once Betaflight has a GPS-derived RTC
-    // and the GoPro session is ready, set the camera clock once. A reconnect is
-    // treated as a new camera power/session and permits another sync.
-    const bool isGoPro = configManager.config().cameraType == 1;
-    if (!isGoPro || !camConnected) {
-        if (goproWasConnectedForTime && !camConnected) {
-            goproTimeSynced = false;
-            DBG_SERIAL.println("[GPS-TIME] GoPro disconnected; next connection will resync");
-        }
-        goproWasConnectedForTime = false;
-    } else {
-        goproWasConnectedForTime = true;
-        if (configManager.config().goproGpsTimeSync && !goproTimeSynced && mspSerial.gpsTimeReady()) {
-            const auto local = localizeGoProTime(gpsRtc, configManager.config());
-            DBG_SERIAL.printf("[GPS-TIME] Local camera time: %04u-%02u-%02u %02u:%02u:%02u (UTC%+d:%02d)\n",
-                              local.year, local.month, local.day, local.hour, local.minute, local.second,
-                              local.offsetMin / 60, abs(local.offsetMin % 60));
-            if (goProCamera.setDateTime(local.year, local.month, local.day,
-                                        local.hour, local.minute, local.second)) {
-                goproTimeSynced = true;
-                // Positive confirmation only: do not clutter the OSD while waiting.
-                // Follow the OSD mode already configured by the user. BF4.5 compatibility
-                // uses Pilot/Craft Name; newer BF uses the selected Custom Message target.
-                const auto &timeCfg = configManager.config();
-                if (timeCfg.bf45Compat && timeCfg.pilotNameEnabled) {
-                    mspSerial.showTransientTextType(MSP_TEXT_PILOT_NAME, "GOPRO TIME SET", 2000);
-                    DBG_SERIAL.println("[GPS-TIME] OSD confirmation -> Pilot Name");
-                } else if (timeCfg.bf45Compat && timeCfg.craftNameEnabled) {
-                    mspSerial.showTransientTextType(MSP_TEXT_CRAFT_NAME, "GOPRO TIME SET", 2000);
-                    DBG_SERIAL.println("[GPS-TIME] OSD confirmation -> Craft Name");
-                } else if (!timeCfg.bf45Compat) {
-                    mspSerial.showTransientMessage(timeCfg.profileOsdTarget, "GOPRO TIME SET", 2000);
-                    DBG_SERIAL.printf("[GPS-TIME] OSD confirmation -> Custom Message %u\n",
-                                      timeCfg.profileOsdTarget);
-                }
-            }
+    // Optional GPS clock sync for the main on-quad GoPro only.
+    // In Multi-Cam, C1/slot 0 is the designated main camera; C2-C4 never
+    // receive clock commands.
+    const bool multiCam = configManager.config().multiCamSync;
+    const bool mainGoProConnected = multiCam
+        ? multiGoProCamera.mainConnected()
+        : (configManager.config().cameraType == 1 && camConnected);
+    if (mainGoProConnected != mainGoProWasConnectedForTime) {
+        mainGoProWasConnectedForTime = mainGoProConnected;
+        goproTimeSynced = false;
+        DBG_SERIAL.printf("[GPS-TIME] Main GoPro C1 %s; clock sync %s\n",
+                          mainGoProConnected ? "connected" : "disconnected",
+                          mainGoProConnected ? "armed" : "cleared");
+    }
+    if (mainGoProConnected && configManager.config().goproGpsTimeSync &&
+        !goproTimeSynced && mspSerial.gpsTimeReady()) {
+        const auto local = localizeGoProTime(gpsRtc, configManager.config());
+        DBG_SERIAL.printf("[GPS-TIME] Main GoPro local time: %04u-%02u-%02u %02u:%02u:%02u (UTC%+d:%02d)\n",
+                          local.year, local.month, local.day, local.hour, local.minute, local.second,
+                          local.offsetMin / 60, abs(local.offsetMin % 60));
+        const bool sent = multiCam
+            ? multiGoProCamera.setMainDateTime(local.year, local.month, local.day, local.hour, local.minute, local.second)
+            : goProCamera.setDateTime(local.year, local.month, local.day, local.hour, local.minute, local.second);
+        if (sent) {
+            goproTimeSynced = true;
+            const auto &timeCfg = configManager.config();
+            if (timeCfg.bf45Compat && timeCfg.pilotNameEnabled)
+                mspSerial.showTransientTextType(MSP_TEXT_PILOT_NAME, "GOPRO TIME SET", 2000);
+            else if (timeCfg.bf45Compat && timeCfg.craftNameEnabled)
+                mspSerial.showTransientTextType(MSP_TEXT_CRAFT_NAME, "GOPRO TIME SET", 2000);
+            else if (!timeCfg.bf45Compat)
+                mspSerial.showTransientMessage(timeCfg.profileOsdTarget, "GOPRO TIME SET", 2000);
         }
     }
 
