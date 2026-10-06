@@ -306,8 +306,7 @@ void CameraRegistry::clearPendingForget() {
 
 void CameraRegistry::printList(Stream &out) const {
     if (_count == 0) { out.println("[reg] No cameras saved"); return; }
-    out.printf("[reg] %u camera(s) saved:
-", _count);
+    out.printf("[reg] %u camera(s) saved:\n", _count);
     for (uint8_t i = 0; i < _count; i++) {
         const char *tag = "";
         bool isLast = (i == (uint8_t)_lastIdx);
@@ -318,8 +317,7 @@ void CameraRegistry::printList(Stream &out) const {
         // Two literal spaces (not one) before addr: %-28s only pads up to
         // its width, so a name at or past 28 chars would otherwise leave
         // just one space — the browser parser needs a 2+-space boundary.
-        out.printf("[reg]  %2u: %-28s  %s  %s%s [cam=%u] [label=%s]
-", i,
+        out.printf("[reg]  %2u: %-28s  %s  %s%s [cam=%u] [label=%s]\n", i,
                    _entries[i].name, _entries[i].addr,
                    cameraTypeName(_entries[i].cameraType), tag,
                    _numbers[i], _labels[i]);
