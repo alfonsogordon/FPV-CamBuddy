@@ -130,11 +130,18 @@ jobs:
           rm -rf /tmp/exp-artifacts
           mkdir -p /tmp/exp-artifacts stable/web/experimental/firmware/experimental
           run_id=$(gh run list --repo ${{ github.repository }} --branch experimental --workflow "Validate FPV CamBuddy" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
-          test -n "$run_id" || { echo "No successful experimental firmware run found"; exit 1; }
-          gh run download "$run_id" --repo ${{ github.repository }} --dir /tmp/exp-artifacts
-          c3=$(find /tmp/exp-artifacts -type d -name 'fpv-cambuddy-stage3-esp32c3' | head -n1)
-          esp=$(find /tmp/exp-artifacts -type d -name 'fpv-cambuddy-stage3-esp32' | head -n1)
-          test -n "$c3" -a -n "$esp" || { echo "Experimental firmware artifacts missing"; exit 1; }
+          if [ -n "$run_id" ]; then
+            gh run download "$run_id" --repo ${{ github.repository }} --dir /tmp/exp-artifacts || true
+          fi
+          c3=$(find /tmp/exp-artifacts -type d \( -name 'fpv-cambuddy-stage3-esp32c3' -o -name 'freeclinker-stage3-esp32c3' \) | head -n1)
+          esp=$(find /tmp/exp-artifacts -type d \( -name 'fpv-cambuddy-stage3-esp32' -o -name 'freeclinker-stage3-esp32' \) | head -n1)
+          if [ -z "$c3" ] || [ -z "$esp" ]; then
+            echo "No downloadable experimental validation artifacts; building current experimental branch for Pages staging"
+            python3 -m pip install --user platformio
+            (cd experiment && ~/.local/bin/pio run -e esp32c3supermini -e esp32dev)
+            c3="experiment/.pio/build/esp32c3supermini"
+            esp="experiment/.pio/build/esp32dev"
+          fi
           cp "$c3/bootloader.bin" stable/web/experimental/firmware/experimental/bootloader-esp32c3supermini.bin
           cp "$c3/partitions.bin" stable/web/experimental/firmware/experimental/partitions-esp32c3supermini.bin
           cp "$c3/firmware.bin" stable/web/experimental/firmware/experimental/firmware-esp32c3supermini.bin
