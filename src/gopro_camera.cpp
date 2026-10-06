@@ -481,7 +481,9 @@ bool GoProCamera::clearLocalBond(const std::string &addr, esp_ble_addr_type_t ad
     if (addr.empty()) return false;
 #if defined(CONFIG_BLUEDROID_ENABLED)
     BLEAddress peer(addr);
-    esp_err_t rc = esp_ble_remove_bond_device(peer.getNative());
+    esp_bd_addr_t native{};
+    memcpy(native, peer.getNative(), sizeof(native));
+    esp_err_t rc = esp_ble_remove_bond_device(native);
     DBG_SERIAL.printf("[GP-RECOVER] esp_ble_remove_bond_device(%s) -> %d\n",
                       addr.c_str(), (int)rc);
     return rc == ESP_OK;
