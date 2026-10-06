@@ -53,6 +53,10 @@ jobs:
         with:
           ref: gopro-gps-time-test
           path: gpstime
+      - uses: actions/checkout@v4
+        with:
+          ref: gopro-gps-reconnect-test
+          path: gpreconnect
       - uses: actions/configure-pages@v5
 
       - name: Generate stable V1 site
@@ -254,6 +258,45 @@ jobs:
           """
           x=x[:start]+replacement+x[end:]
           p.write_text(x)
+          PY
+
+      - name: Build GoPro reconnect recovery test firmware
+        working-directory: gpreconnect
+        run: |
+          python3 -m pip install --user platformio
+          ~/.local/bin/pio run -e esp32c3supermini -e esp32dev
+
+      - name: Add reconnect recovery build to GPS Time flasher
+        run: |
+          mkdir -p stable/web/gopro-gps-time/firmware/gps-reconnect-test
+          cp gpreconnect/.pio/build/esp32c3supermini/bootloader.bin stable/web/gopro-gps-time/firmware/gps-reconnect-test/bootloader-esp32c3supermini.bin
+          cp gpreconnect/.pio/build/esp32c3supermini/partitions.bin stable/web/gopro-gps-time/firmware/gps-reconnect-test/partitions-esp32c3supermini.bin
+          cp gpreconnect/.pio/build/esp32c3supermini/firmware.bin stable/web/gopro-gps-time/firmware/gps-reconnect-test/firmware-esp32c3supermini.bin
+          cp gpreconnect/.pio/build/esp32dev/bootloader.bin stable/web/gopro-gps-time/firmware/gps-reconnect-test/bootloader-esp32dev.bin
+          cp gpreconnect/.pio/build/esp32dev/partitions.bin stable/web/gopro-gps-time/firmware/gps-reconnect-test/partitions-esp32dev.bin
+          cp gpreconnect/.pio/build/esp32dev/firmware.bin stable/web/gopro-gps-time/firmware/gps-reconnect-test/firmware-esp32dev.bin
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('stable/web/gopro-gps-time/flash.html')
+          s=p.read_text()
+          old="""releases=[{tag_name:'gps-time-test',display_name:'GoPro GPS Time Sync Test',published_at:new Date().toISOString(),html_url:'https://github.com/alfonsogordon/FPV-CamBuddy/tree/gopro-gps-time-test',is_candidate:true,sha:'branch'}];
+          versionSelect.innerHTML='<option value="gps-time-test">GoPro GPS Time Sync Test — isolated branch build</option>';
+          versionSelect.disabled=true;
+          selectRelease(releases[0]);
+          """
+          new="""releases=[
+            {tag_name:'gps-time-test',display_name:'GPS Time Test — current proven build',published_at:new Date().toISOString(),html_url:'https://github.com/alfonsogordon/FPV-CamBuddy/tree/gopro-gps-time-test',is_candidate:true,sha:'gps-time'},
+            {tag_name:'gps-reconnect-test',display_name:'GPS Time + GoPro Reconnect Recovery Test',published_at:new Date().toISOString(),html_url:'https://github.com/alfonsogordon/FPV-CamBuddy/tree/gopro-gps-reconnect-test',is_candidate:true,sha:'gps-reconnect'}
+          ];
+          versionSelect.innerHTML='<option value="gps-time-test">GPS Time Test — current proven build</option><option value="gps-reconnect-test">GPS Time + GoPro Reconnect Recovery Test</option>';
+          versionSelect.disabled=false;
+          versionSelect.onchange=()=>selectRelease(releases.find(r=>r.tag_name===versionSelect.value)||releases[0]);
+          selectRelease(releases[0]);
+          """
+          if old not in s:
+              raise SystemExit('GPS static flasher block not found')
+          s=s.replace(old,new)
+          p.write_text(s)
           PY
 
       - uses: actions/upload-pages-artifact@v3
