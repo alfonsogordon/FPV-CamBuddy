@@ -458,7 +458,8 @@ void GoProCamera::rebuildClient() {
     if (_client) {
         if (_client->isConnected()) _client->disconnect();
         delay(75);
-        delete _client;
+        // Arduino BLEDevice owns client lifetime internally. Do not delete the
+        // pointer directly; request a new client object for the next attempt.
         _client = nullptr;
     }
     _bleConnected = false;
