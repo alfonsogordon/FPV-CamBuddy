@@ -82,7 +82,7 @@ public:
     bool remove(uint8_t idx);
     void clear();
 
-    // Field recovery: persist one camera to forget after AP exit/reboot.
+    // Field recovery: remember one camera to forget after AP mode exits.
     bool requestForget(uint8_t idx);
     bool pendingForget(uint8_t wantType, CameraEntry &out);
     void clearPendingForget();
