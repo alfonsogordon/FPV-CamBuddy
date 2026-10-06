@@ -5,6 +5,12 @@
 #include "dji_protocol.h"  // for DJI_MODE_* constants used in mode mapping
 #include <BLESecurity.h>
 #include <cstring>
+#include "sdkconfig.h"
+#if defined(CONFIG_BLUEDROID_ENABLED)
+#include <esp_gap_ble_api.h>
+#elif defined(CONFIG_NIMBLE_ENABLED)
+#include <host/ble_store.h>
+#endif
 
 GoProCamera *GoProCamera::_instance = nullptr;
 
@@ -49,6 +55,20 @@ void GoProCamera::begin() {
     security.setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
     security.setRespEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
 
+    // Field recovery requested from the onboard AP. BLE is unavailable while
+    // the AP is active, so the AP persists this request and we execute it here
+    // on the next normal camera boot before scanning.
+    if (_registry) {
+        CameraEntry pending{};
+        if (_registry->pendingForget(/*GoPro=*/1, pending)) {
+            DBG_SERIAL.printf("[GP-RECOVER] Pending field forget for %s — clearing local BLE bond before scan\n",
+                              pending.addr);
+            const bool cleared = clearLocalBond(pending.addr, (esp_ble_addr_type_t)pending.addrType);
+            DBG_SERIAL.printf("[GP-RECOVER] Pending bond cleanup %s\n", cleared ? "complete" : "had no matching local bond");
+            _registry->clearPendingForget();
+        }
+    }
+
     startScan();
 }
 
@@ -90,6 +110,17 @@ void GoProCamera::update() {
             _lastStatusPollMs = now;
             sendStatusPoll();
         }
+        return;
+    }
+
+    // GATT can be up while the Open GoPro handshake is wedged. Previously this
+    // left CamBuddy stuck forever because _bleConnected suppressed all rescans.
+    // Treat a visible camera that never becomes _gpConnected as a failed
+    // connection and run the same staged recovery as a GATT connect failure.
+    if (_bleConnected && !_gpConnected && _handshakeStartMs &&
+        millis() - _handshakeStartMs > 8000UL) {
+        DBG_SERIAL.println("[GP-RECOVER] Open GoPro handshake timed out");
+        noteConnectionFailure("handshake timeout");
         return;
     }
 
@@ -311,10 +342,7 @@ bool GoProCamera::connectAndSetup() {
 
     if (!_client->connect(BLEAddress(_targetAddr), _targetType)) {
         DBG_SERIAL.println("[BLE] Connection failed");
-        _targetFound   = false;
-        _lastAttemptMs = millis();
-    _lastStatusPollMs = 0;
-    _lastKeepAliveMs = 0;
+        noteConnectionFailure("GATT connect failed");
         return false;
     }
 
@@ -402,6 +430,7 @@ bool GoProCamera::connectAndSetup() {
     }
 
     _bleConnected = true;
+    _handshakeStartMs = millis();
     DBG_SERIAL.println("[BLE] GoPro BLE connected — querying hardware info");
 
     discoverBatteryService();
@@ -414,6 +443,110 @@ bool GoProCamera::connectAndSetup() {
     // Kick off handshake; deferred so we're not writing from the connect callback
     _pendingHwInfo = true;
     return true;
+}
+
+void GoProCamera::resetRecoveryState() {
+    if (_connectFailCount || _clientRebuiltForAddr || _bondClearedForAddr)
+        DBG_SERIAL.println("[GP-RECOVER] Recovery state cleared — GoPro connection is healthy");
+    _connectFailCount = 0;
+    _clientRebuiltForAddr = false;
+    _bondClearedForAddr = false;
+    _recoveryAddr.clear();
+    _handshakeStartMs = 0;
+}
+
+void GoProCamera::rebuildClient() {
+    DBG_SERIAL.println("[GP-RECOVER] Recreating local BLE client");
+    if (_client) {
+        if (_client->isConnected()) _client->disconnect();
+        delay(75);
+        delete _client;
+        _client = nullptr;
+    }
+    _bleConnected = false;
+    _gpConnected = false;
+    _cmdChar = nullptr;
+    _settingChar = nullptr;
+    _queryChar = nullptr;
+    _pendingHwInfo = false;
+    _pendingRegisterSettings = false;
+    _pendingRegisterStatus = false;
+    _handshakeStartMs = 0;
+    _cmdRx.reset();
+    _settingRx.reset();
+    _queryRx.reset();
+}
+
+bool GoProCamera::clearLocalBond(const std::string &addr, esp_ble_addr_type_t addrType) {
+    if (addr.empty()) return false;
+    BLEAddress peer(addr);
+#if defined(CONFIG_BLUEDROID_ENABLED)
+    esp_err_t rc = esp_ble_remove_bond_device(peer.getNative());
+    DBG_SERIAL.printf("[GP-RECOVER] esp_ble_remove_bond_device(%s) -> %d\n",
+                      addr.c_str(), (int)rc);
+    return rc == ESP_OK;
+#elif defined(CONFIG_NIMBLE_ENABLED)
+    ble_addr_t p{};
+    p.type = (addrType == BLE_ADDR_TYPE_RANDOM) ? BLE_ADDR_RANDOM : BLE_ADDR_PUBLIC;
+    uint8_t *native = peer.getNative();
+    for (int i = 0; i < 6; ++i) p.val[i] = native[5 - i];
+    int rc = ble_store_util_delete_peer(&p);
+    DBG_SERIAL.printf("[GP-RECOVER] ble_store_util_delete_peer(%s,type=%u) -> %d\n",
+                      addr.c_str(), (unsigned)p.type, rc);
+    return rc == 0;
+#else
+    DBG_SERIAL.println("[GP-RECOVER] Local bond cleanup unavailable on this BLE stack");
+    return false;
+#endif
+}
+
+void GoProCamera::noteConnectionFailure(const char *reason) {
+    const std::string failedAddr = _targetAddr;
+    const esp_ble_addr_type_t failedType = _targetType;
+
+    if (_recoveryAddr != failedAddr) {
+        _recoveryAddr = failedAddr;
+        _connectFailCount = 0;
+        _clientRebuiltForAddr = false;
+        _bondClearedForAddr = false;
+    }
+    if (_connectFailCount < 255) ++_connectFailCount;
+
+    DBG_SERIAL.printf("[GP-RECOVER] GoPro %s but connection failed (%u/3): %s\n",
+                      failedAddr.c_str(), (unsigned)_connectFailCount, reason);
+
+    // Always tear down a half-open GATT/Open-GoPro session before retrying.
+    if (_bleConnected || (_client && _client->isConnected())) {
+        if (_client) _client->disconnect();
+        delay(75);
+    }
+    _bleConnected = false;
+    _gpConnected = false;
+    _handshakeStartMs = 0;
+
+    if (_connectFailCount >= 2 && !_clientRebuiltForAddr) {
+        rebuildClient();
+        _clientRebuiltForAddr = true;
+    }
+
+    if (_connectFailCount >= 3 && !_bondClearedForAddr) {
+        DBG_SERIAL.printf("[GP-RECOVER] Same GoPro is still visible — clearing only its local bond (%s)\n",
+                          failedAddr.c_str());
+        const bool cleared = clearLocalBond(failedAddr, failedType);
+        DBG_SERIAL.printf("[GP-RECOVER] Local bond cleanup %s; next attempt is a fresh pairing\n",
+                          cleared ? "succeeded" : "found no exact stored bond");
+        rebuildClient();
+        _bondClearedForAddr = true;
+    }
+
+    _targetFound = false;
+    _targetAddr.clear();
+    _targetName.clear();
+    _candidateAddr.clear();
+    _candidateName.clear();
+    _lastAttemptMs = millis();
+    _lastStatusPollMs = 0;
+    _lastKeepAliveMs = 0;
 }
 
 // Standard Battery Service (0x180F) — best-effort. HERO4/5-Session-era
@@ -464,6 +597,7 @@ void GoProCamera::onDisconnect(BLEClient * /*c*/) {
     _candidateAddr = "";
     _candidateName = "";
     _lastAttemptMs = millis();
+    _handshakeStartMs = 0;
     _cmdRx.reset();
     _settingRx.reset();
     _queryRx.reset();
@@ -920,6 +1054,7 @@ void GoProCamera::handleQueryMessage(const uint8_t *msg, size_t len) {
                 // let the bridge issue record/mode commands.
                 DBG_SERIAL.println("[GP] Legacy status registration also rejected — continuing without telemetry");
                 _gpConnected = true;
+                resetRecoveryState();
             }
             return;
         }
@@ -929,6 +1064,7 @@ void GoProCamera::handleQueryMessage(const uint8_t *msg, size_t len) {
             _pendingRegisterStatus = true;
         } else if (!_gpConnected) {
             _gpConnected = true;
+            resetRecoveryState();
             DBG_SERIAL.println("[GP] Status registration OK — camera ready");
         }
 
