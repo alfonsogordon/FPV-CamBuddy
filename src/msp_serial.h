@@ -51,6 +51,7 @@ public:
     void sendCustomOSD4(const CameraData &data, const char *tpl);
     void sendCustomOSDWarnings(uint8_t target, const CameraData &data, const char *tpl);
     uint8_t warningTarget() const { return _fpvWarningTarget; }
+    void clearOsdText(uint8_t textType);
     void sendPilotName(const CameraData &data, const char *tpl);
     void sendCraftName(const CameraData &data, const char *tpl);
     void setFpvDisplayOptions(bool stateMode,
