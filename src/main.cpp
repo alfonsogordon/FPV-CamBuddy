@@ -597,8 +597,12 @@ void loop() {
                 if (cfg.pilotNameEnabled) activeOsdMask |= 0x01;
                 if (cfg.craftNameEnabled) activeOsdMask |= 0x02;
             } else {
-                // Current mode sends all four Custom Message destinations.
-                activeOsdMask = 0x3C;
+                // Only own destinations with an enabled template. Disabled
+                // fields must remain available for other Betaflight uses.
+                if (strcmp(cfg.osd1Tpl, "{off}") != 0 && cfg.osd1Tpl[0]) activeOsdMask |= 0x04;
+                if (strcmp(cfg.osd2Tpl, "{off}") != 0 && cfg.osd2Tpl[0]) activeOsdMask |= 0x08;
+                if (strcmp(cfg.osd3Tpl, "{off}") != 0 && cfg.osd3Tpl[0]) activeOsdMask |= 0x10;
+                if (strcmp(cfg.osd4Tpl, "{off}") != 0 && cfg.osd4Tpl[0]) activeOsdMask |= 0x20;
             }
             const uint8_t staleOsdMask = ownedOsdMask & ~activeOsdMask;
             const uint8_t osdTypes[6] = {MSP_TEXT_PILOT_NAME, MSP_TEXT_CRAFT_NAME,
@@ -613,10 +617,10 @@ void loop() {
                 if (cfg.pilotNameEnabled) mspSerial.sendPilotName(currentCamera, cfg.pilotNameTpl);
                 if (cfg.craftNameEnabled) mspSerial.sendCraftName(currentCamera, cfg.craftNameTpl);
             } else {
-                mspSerial.sendCustomOSD1(currentCamera, cfg.osd1Tpl);
-                mspSerial.sendCustomOSD2(currentCamera, cfg.osd2Tpl);
-                mspSerial.sendCustomOSD3(currentCamera, cfg.osd3Tpl);
-                mspSerial.sendCustomOSD4(currentCamera, cfg.osd4Tpl);
+                if (activeOsdMask & 0x04) mspSerial.sendCustomOSD1(currentCamera, cfg.osd1Tpl);
+                if (activeOsdMask & 0x08) mspSerial.sendCustomOSD2(currentCamera, cfg.osd2Tpl);
+                if (activeOsdMask & 0x10) mspSerial.sendCustomOSD3(currentCamera, cfg.osd3Tpl);
+                if (activeOsdMask & 0x20) mspSerial.sendCustomOSD4(currentCamera, cfg.osd4Tpl);
             }
             lastBattMs = now;
 
