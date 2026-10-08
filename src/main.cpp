@@ -589,6 +589,24 @@ void loop() {
             hasCamera  = false;
             const auto &cfg = configManager.config();
             mspSerial.sendCameraStatus(currentCamera);
+            // Track actual destinations written during this runtime. Never clear
+            // an untouched Pilot/Craft field on boot or first connection.
+            static uint8_t ownedOsdMask = 0;
+            uint8_t activeOsdMask = 0;
+            if (cfg.bf45Compat) {
+                if (cfg.pilotNameEnabled) activeOsdMask |= 0x01;
+                if (cfg.craftNameEnabled) activeOsdMask |= 0x02;
+            } else {
+                // Current mode sends all four Custom Message destinations.
+                activeOsdMask = 0x3C;
+            }
+            const uint8_t staleOsdMask = ownedOsdMask & ~activeOsdMask;
+            const uint8_t osdTypes[6] = {MSP_TEXT_PILOT_NAME, MSP_TEXT_CRAFT_NAME,
+                MSP_TEXT_CUSTOM_1, MSP_TEXT_CUSTOM_2, MSP_TEXT_CUSTOM_3, MSP_TEXT_CUSTOM_4};
+            for (uint8_t i = 0; i < 6; ++i) {
+                if (staleOsdMask & (1U << i)) mspSerial.clearOsdText(osdTypes[i]);
+            }
+            ownedOsdMask = activeOsdMask;
             if (cfg.bf45Compat) {
                 // Betaflight 4.5 has no Custom Message 1-4 OSD fields — sending
                 // them would just be ignored, so use Pilot Name/Craft Name instead.
