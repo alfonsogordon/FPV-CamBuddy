@@ -422,6 +422,11 @@ void MSPSerial::sendFrame(uint16_t cmd, const uint8_t *payload, uint16_t length,
     _serial->write(payload, length); _serial->write(crc);
 }
 
+void MSPSerial::clearOsdText(uint8_t textType) {
+    // Clear only fields previously written by this CamBuddy runtime.
+    sendCustomText(textType, "");
+}
+
 void MSPSerial::sendCustomText(uint8_t textType, const char *text) {
     const size_t rawLen = text ? strlen(text) : 0;
     const uint8_t textLen = static_cast<uint8_t>(rawLen > TEXT_LIMIT ? TEXT_LIMIT : rawLen);
