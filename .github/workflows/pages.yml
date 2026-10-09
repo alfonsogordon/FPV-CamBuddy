@@ -15,6 +15,7 @@ on:
       - main
       - experimental
       - v1.0.3
+      - v1.0.3-rc1
       - gopro-gps-time-test
       - gopro-gps-reconnect-test
   workflow_dispatch:
