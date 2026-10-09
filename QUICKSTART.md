@@ -110,13 +110,13 @@ Craft Name is optional and can be enabled in FPSteVe Easy Config if you want a s
 
 This is the path physically tested for FPV CamBuddy V1.
 
-### Betaflight 2026.6+
+### Betaflight 2025.12+
 
-Choose **BF 2026.6+ — Custom Messages 1–4**.
+Choose **BF 2025.12+ — Custom Messages 1–4**.
 
 The four messages are already configured with the FPSteVe defaults. In **Betaflight Configurator → OSD**, enable/place the Custom Message elements you want to use.
 
-This newer path is implemented and tested through the integrated OSD Preview/firmware logic, but has **not yet been physically tested against a flight controller running BF 2026.6+**.
+This newer path is implemented and tested through the integrated OSD Preview/firmware logic, but has **not yet been physically tested against a flight controller running BF 2025.12+**.
 
 ## 6. Power up the GoPro
 
