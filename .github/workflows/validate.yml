@@ -7,6 +7,7 @@ on:
       - main
       - gopro-gps-time-test
       - gopro-gps-reconnect-test
+      - v1.0.3-rc1
   workflow_dispatch:
 
 permissions:
