@@ -1,5 +1,8 @@
 # FPV CamBuddy · by FPSteVe
 
+> **v1.0.3 RC1 preparation:** The GPS reconnect recovery codebase has been branched as `v1.0.3-rc1`. See [RC1 release notes](RC1_RELEASE_NOTES.md) for new features, evidence, remaining hardware tests, and release status. The stable v1.0.2 release and all historical material remain available. RC1 is not yet published in the main flasher.
+
+
 **Automatic action-camera control and Betaflight OSD telemetry from an ESP32-C3 Super Mini.**
 
 > **Based on the original [FreeCLinker by sheeprine](https://github.com/sheeprine/freeclinker).** Visit the [original FreeCLinker project site](https://sheeprine.github.io/freeclinker/) for the upstream project, its supported-camera foundations and original documentation.
