@@ -25,7 +25,7 @@ The core V1 behaviour is feature-complete and the project is in final validation
 
 ## Implemented / validated in software, awaiting matching or forced hardware conditions
 
-### Betaflight 2026.6+ Custom Messages 1–4
+### Betaflight 2025.12+ Custom Messages 1–4
 
 Implemented with four independently configurable Custom Message templates and integrated into the same OSD state/priority system. The Preview and firmware logic have been tested, but the V1 physical flight controller available for acceptance testing runs Betaflight 4.5.
 
@@ -52,7 +52,7 @@ BATT LOW / REC LOW / CAM HOT and the warning priority/alternation logic are impl
 - Craft Name: OFF
 - Craft latent/default template: `{res} {fps}`
 
-### BF 2026.6+
+### BF 2025.12+
 - OSD templates: ON
 - Custom Messages 1–4: ON
 - Message 1: `{batt}`
