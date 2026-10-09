@@ -1,5 +1,8 @@
 # FPV CamBuddy · by FPSteVe Quick Start
 
+> **v1.0.3 RC1:** When available in the [main flasher](https://alfonsogordon.github.io/FPV-CamBuddy/flash.html), select **v1.0.3 RC1 — GPS Reconnect Recovery**, flash, power-cycle and use [Easy Config](https://alfonsogordon.github.io/FPV-CamBuddy/config.html). Read settings from the board before editing, save/apply, then reconnect and read again. See [RC1 notes](https://github.com/alfonsogordon/FPV-CamBuddy/blob/v1.0.3-rc1/RC1_RELEASE_NOTES.md). Previous instructions remain below.
+
+
 The simple route from a fresh **ESP32-C3 Super Mini** to automatic GoPro recording and camera status in your Betaflight OSD.
 
 > FPV CamBuddy is based on **[FreeCLinker by sheeprine](https://github.com/sheeprine/freeclinker)**. You can also visit the [original FreeCLinker project site](https://sheeprine.github.io/freeclinker/).
