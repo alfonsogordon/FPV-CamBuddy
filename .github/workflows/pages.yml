@@ -17,6 +17,7 @@ on:
       - v1.0.3
       - gopro-gps-time-test
       - gopro-gps-reconnect-test
+      - v1.0.3-rc1
   workflow_dispatch:
 
 permissions:
@@ -58,6 +59,10 @@ jobs:
         with:
           ref: gopro-gps-reconnect-test
           path: gpreconnect
+      - uses: actions/checkout@v4
+        with:
+          ref: v1.0.3-rc1
+          path: rc1
       - uses: actions/configure-pages@v5
 
       - name: Generate stable V1 site
@@ -304,6 +309,40 @@ jobs:
           s=s[:start]+new+s[end:]
           p.write_text(s)
           PY
+
+      - name: Publish validated v1.0.3 RC1 firmware and firmware-aware configurator
+        run: |
+          set -eu
+          python3 rc1/tools/build_fps_site.py 2>/dev/null || (cd rc1 && python3 tools/build_fps_site.py)
+          mkdir -p stable/web/firmware/v1.0.3-rc1
+          run_id=$(gh run list --repo ${{ github.repository }} --branch v1.0.3-rc1 --workflow "Validate FPV CamBuddy" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          test -n "$run_id" || { echo "No successful RC1 validation"; exit 1; }
+          rm -rf /tmp/rc1-artifacts
+          mkdir -p /tmp/rc1-artifacts
+          gh run download "$run_id" --repo ${{ github.repository }} --dir /tmp/rc1-artifacts
+          c3=$(find /tmp/rc1-artifacts -type d -name 'freeclinker-stage3-esp32c3' | head -n1)
+          esp=$(find /tmp/rc1-artifacts -type d -name 'freeclinker-stage3-esp32' | head -n1)
+          test -n "$c3" -a -n "$esp" || { echo "RC1 artifacts missing"; exit 1; }
+          for pair in "esp32c3supermini:$c3" "esp32dev:$esp"; do
+            target=${pair%%:*}; source=${pair#*:}
+            for name in firmware bootloader partitions; do
+              cp "$source/$name.bin" "stable/web/firmware/v1.0.3-rc1/$name-$target.bin"
+            done
+          done
+          for name in config.html fps-ui-rebuild.js fps-demo-v1.js fps-integrated-preview.js fps-stage3-parity.js fps-autosync.js fps-theme.css fps-osd-cleanup.css osd-preview-bg.jpg; do
+            cp "rc1/web/$name" "stable/web/$name"
+          done
+          cp rc1/web/index.html stable/web/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('stable/web/index.html')
+          s=p.read_text()
+          info='<section class="panel" style="padding:20px;margin:16px auto;max-width:1100px"><h2>v1.0.3 RC1 — GPS reconnect recovery</h2><p>New release candidate: GoPro GPS time synchronisation and reconnect recovery, enhanced AP/USB settings, Betaflight OSD improvements and verified USB readback. The recovery baseline passed CI; RC1 hardware verification is ongoing. Stable v1.0.2 and all historical releases remain available.</p><p><a href="flash.html">Choose firmware in the main flasher</a> · <a href="https://github.com/alfonsogordon/FPV-CamBuddy/blob/v1.0.3-rc1/RC1_RELEASE_NOTES.md">Features, test status and known limitations</a></p></section>'
+          s=s.replace('</main>',info+'</main>',1) if '</main>' in s else s.replace('</body>',info+'</body>',1)
+          p.write_text(s)
+          PY
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - uses: actions/upload-pages-artifact@v3
         with:
