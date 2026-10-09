@@ -1,5 +1,8 @@
 # FPV CamBuddy · by FPSteVe Quick Start
 
+> **Release candidate:** v1.0.3 RC1 is being prepared from the GPS recovery build. Until a verified RC1 binary appears in the main flasher, use the existing published choices. See [RC1 release notes](RC1_RELEASE_NOTES.md); all earlier releases and instructions remain preserved.
+
+
 The simple route from a fresh **ESP32-C3 Super Mini** to automatic GoPro recording and camera status in your Betaflight OSD.
 
 > FPV CamBuddy is based on **[FreeCLinker by sheeprine](https://github.com/sheeprine/freeclinker)**. You can also visit the [original FreeCLinker project site](https://sheeprine.github.io/freeclinker/).
