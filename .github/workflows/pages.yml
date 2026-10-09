@@ -313,7 +313,7 @@ jobs:
       - name: Publish validated v1.0.3 RC1 firmware and firmware-aware configurator
         run: |
           set -eu
-          python3 rc1/tools/build_fps_site.py 2>/dev/null || (cd rc1 && python3 tools/build_fps_site.py)
+          (cd rc1 && python3 tools/build_fps_site.py)
           mkdir -p stable/web/firmware/v1.0.3-rc1
           run_id=$(gh run list --repo ${{ github.repository }} --branch v1.0.3-rc1 --workflow "Validate FPV CamBuddy" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
           test -n "$run_id" || { echo "No successful RC1 validation"; exit 1; }
@@ -329,7 +329,7 @@ jobs:
               cp "$source/$name.bin" "stable/web/firmware/v1.0.3-rc1/$name-$target.bin"
             done
           done
-          for name in config.html fps-ui-rebuild.js fps-demo-v1.js fps-integrated-preview.js fps-stage3-parity.js fps-autosync.js fps-theme.css fps-osd-cleanup.css osd-preview-bg.jpg; do
+          for name in config.html fps-ui-rebuild.js fps-demo-v1.js fps-integrated-preview.js fps-stage3-parity.js fps-autosync.js fps-theme.css fps-osd-cleanup.css fps-home-updates.js osd-preview-bg.jpg; do
             cp "rc1/web/$name" "stable/web/$name"
           done
           cp rc1/web/index.html stable/web/index.html
