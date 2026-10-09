@@ -40,7 +40,7 @@ function syncMetadataFromDevice(){
  fire('fpvFlash');fire('fpvPreArm');fire('fpvLowPct','input');fire('fpvRecLowMin','input');syncGoProNote();window.fpsBoardSyncing=false;document.dispatchEvent(new CustomEvent('fps-config-read-complete'));
 }
 function scheduleReadSync(){if(!readRequested)return;clearTimeout(readTimer);readTimer=setTimeout(syncMetadataFromDevice,220)}
-function installReadCompletionHook(){if(typeof parseConfigLine!=='function'||parseConfigLine.__fpsWrapped)return;const original=parseConfigLine;const wrapped=function(line){original(line);if(readRequested&&/^\[cfg\]\s+\w+\s*=/.test(String(line||'')))scheduleReadSync()};wrapped.__fpsWrapped=true;parseConfigLine=wrapped}
+function installReadCompletionHook(){if(typeof parseConfigLine!=='function'||parseConfigLine.__fpsWrapped)return;const original=parseConfigLine;const wrapped=function(line){original(line);if(readRequested){const serial=String(line||'').trim();if(serial==='[cfg] END_SHOW'){clearTimeout(readTimer);syncMetadataFromDevice()}else if(/^\[cfg\]\s+\w+\s*=/.test(serial))scheduleReadSync()}};wrapped.__fpsWrapped=true;parseConfigLine=wrapped}
 function requestRead(){readRequested=true;clearTimeout(readTimer)}window.fpsRequestBoardRead=requestRead;
 function init(){installReadCompletionHook();$('readBtn')?.addEventListener('click',requestRead,true);$('fpsCraftMaster')?.addEventListener('change',()=>{if(healCraftTemplate())fire('fpsCraftMaster')});$('wakeGuard')?.addEventListener('change',syncGoProNote);syncGoProNote()}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(init,450));else setTimeout(init,450);
