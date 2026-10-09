@@ -1,5 +1,8 @@
 # FPV CamBuddy · by FPSteVe
 
+> **v1.0.3 RC1:** GPS reconnect recovery release candidate with GPS clock synchronisation, expanded configuration and OSD improvements. Select it from the [main flasher](https://alfonsogordon.github.io/FPV-CamBuddy/flash.html) when published. See [RC1 release notes](https://github.com/alfonsogordon/FPV-CamBuddy/blob/v1.0.3-rc1/RC1_RELEASE_NOTES.md) for verified features, pending hardware tests and known limitations. Stable v1.0.2 and all previous releases remain available.
+
+
 **Automatic action-camera control and Betaflight OSD telemetry from an ESP32-C3 Super Mini.**
 
 > **Based on the original [FreeCLinker by sheeprine](https://github.com/sheeprine/freeclinker).** Visit the [original FreeCLinker project site](https://sheeprine.github.io/freeclinker/) for the upstream project, its supported-camera foundations and original documentation.
