@@ -331,15 +331,9 @@ jobs:
           for name in config.html fps-ui-rebuild.js fps-demo-v1.js fps-integrated-preview.js fps-stage3-parity.js fps-autosync.js fps-theme.css fps-osd-cleanup.css fps-home-updates.js osd-preview-bg.jpg; do
             cp "rc1/web/$name" "stable/web/$name"
           done
-          cp rc1/web/index.html stable/web/index.html
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('stable/web/index.html')
-          s=p.read_text()
-          info='<section class="panel" style="padding:20px;margin:16px auto;max-width:1100px"><h2>v1.0.3 RC1 — GPS reconnect recovery</h2><p>New release candidate: GoPro GPS time synchronisation and reconnect recovery, enhanced AP/USB settings, Betaflight OSD improvements and verified USB readback. The recovery baseline passed CI; RC1 hardware verification is ongoing. Stable v1.0.2 and all historical releases remain available.</p><p><a href="flash.html">Choose firmware in the main flasher</a> · <a href="https://github.com/alfonsogordon/FPV-CamBuddy/blob/v1.0.3-rc1/RC1_RELEASE_NOTES.md">Features, test status and known limitations</a></p></section>'
-          s=s.replace('</main>',info+'</main>',1) if '</main>' in s else s.replace('</body>',info+'</body>',1)
-          p.write_text(s)
-          PY
+          # Preserve the production homepage, including its current feature sections.
+          # RC1 configurator assets are staged above, but RC1 must not overwrite index.html.
+
         env:
           GH_TOKEN: ${{ github.token }}
 
