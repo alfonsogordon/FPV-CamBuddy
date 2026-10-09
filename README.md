@@ -70,7 +70,7 @@ You can exercise the same behaviour interactively in the **OSD Preview** inside 
 
 ### Betaflight compatibility
 - **Betaflight 4.5:** Pilot Name / Craft Name compatibility mode
-- **Betaflight 2026.6+:** Custom Messages 1–4 support
+- **Betaflight 2025.12+:** Custom Messages 1–4 support
 - Automatic arm-state polling over MSP
 - Configurable UART/AUX integration
 
@@ -98,7 +98,7 @@ FPV CamBuddy ships with sensible flight defaults. On **BF 4.5**, Pilot Name is e
 
 `{stateonly} {batt} {rectf}`
 
-On **BF 2026.6+**, the four Custom Message defaults are:
+On **BF 2025.12+**, the four Custom Message defaults are:
 
 | Message | Default template |
 |---|---|
@@ -133,7 +133,7 @@ Camera-warning behaviour and priority have been validated in the integrated Prev
 
 ## Implemented, but not yet hardware-tested
 
-**Betaflight 2026.6+ Custom Messages 1–4** are implemented and exercised through the integrated OSD Preview/firmware logic, but have **not yet been physically tested against a flight controller running that Betaflight generation**. The V1 hardware available for testing currently runs Betaflight 4.5, so this distinction is intentional.
+**Betaflight 2025.12+ Custom Messages 1–4** are implemented and exercised through the integrated OSD Preview/firmware logic, but have **not yet been physically tested against a flight controller running that Betaflight generation**. The V1 hardware available for testing currently runs Betaflight 4.5, so this distinction is intentional.
 
 The V1.0.2 profile-name OSD notification has now been physically confirmed from the C3 through the flight controller into Betaflight OSD. Its USB/AP setting and saved Camera Switch configuration are part of the current V1.0.2 candidate.
 
