@@ -140,14 +140,14 @@
     .cfg-field-name { font-size: 14px; color: #111827; margin-bottom: 2px; }
     .cfg-field-desc { font-size: 11px; color: #6b7280; line-height: 1.4; }
 
-    /* GPS time experiment: keep the long description and timezone picker
+    /* GPS time settings: keep the long description and timezone picker
        full-width instead of squeezing them into the normal two-column row. */
     .gps-time-card {
       flex-direction: column;
       align-items: stretch;
       gap: 12px;
-      border: 1px solid #8b5f00;
-      background: #2a2208;
+      border: 1px solid #34294a;
+      background: #0e151f;
       border-radius: 6px;
       margin: 10px 0;
       padding: 14px 16px;
@@ -468,7 +468,7 @@
         <label class="switch" title="Advanced power mode"><input type="checkbox" id="advancedPower" disabled><span class="track"><span class="thumb"></span></span></label>
       </div>
 
-      <!-- GoPro GPS time sync experimental -->
+      <!-- GoPro GPS time sync -->
       <div class="cfg-field gps-time-card" id="goproGpsTimeRow">
         <div class="gps-time-head">
           <div class="cfg-field-text">
@@ -476,7 +476,7 @@
             <div class="cfg-field-desc">GoPro only. Automatically sets the camera clock once per connection after Betaflight reports a valid GPS-derived RTC time. Intended for naked GoPro cameras that lose date/time when power is removed.</div>
           </div>
           <label class="switch" title="Automatic GPS to GoPro time sync">
-            <input type="checkbox" id="goproGpsTime" checked disabled>
+            <input type="checkbox" id="goproGpsTime" disabled>
             <span class="track"><span class="thumb"></span></span>
           </label>
         </div>
