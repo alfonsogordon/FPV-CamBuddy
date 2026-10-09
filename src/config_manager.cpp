@@ -333,6 +333,7 @@ void ConfigManager::printAll(Stream &out) {
     out.printf("[cfg] caddx_ssid      = %s\n", haveCaddx ? ce.addr : "");
     out.printf("[cfg] caddx_pass      = %s\n",
                (haveCaddx && strlen(ce.pass)) ? "(set)" : "(not set — uses factory default)");
+    out.println("[cfg] END_SHOW");
 }
 
 void ConfigManager::handleLine(const char *line, Stream &out) {
