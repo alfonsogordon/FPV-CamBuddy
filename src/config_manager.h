@@ -30,6 +30,7 @@ public:
         uint8_t cameraType;
         uint8_t cameraMatchMode;
         bool cameraWakeGuard;
+        bool nanoNoWake;
         bool debugBle;
         bool lowPowerMode;
         bool advancedPowerMode;
@@ -159,6 +160,7 @@ public:
     void setProfileOsdTarget(uint8_t target);
     void setCameraMatchMode(uint8_t v);
     void setCameraWakeGuard(bool v);
+    void setNanoNoWake(bool v);
     void setDebugBle(bool v);
     void setLowPowerMode(bool v);
     void setAdvancedPowerMode(bool v);
