@@ -433,6 +433,7 @@ void loop() {
     configManager.update();
     mspSerial.setAuxChannel(configManager.config().auxChannel);
     mspSerial.setProfileAuxChannel(configManager.config().profileAuxChannel);
+    mspSerial.setRecordAuxRange(configManager.config().recordAuxMin, configManager.config().recordAuxMax);
     mspSerial.setRecordAuxChannel(configManager.config().recordAuxChannel);
 
     // Configuration mode owns the C3 radio until reboot. Do not let any camera
