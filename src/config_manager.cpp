@@ -29,6 +29,7 @@ static constexpr const char *KEY_OSD3 = "osd3_tpl";
 static constexpr const char *KEY_OSD4 = "osd4_tpl";
 static constexpr const char *KEY_CMM  = "cam_match";
 static constexpr const char *KEY_WAKE = "wake_guard";
+static constexpr const char *KEY_NANO_NOWAKE = "nano_nw";
 static constexpr const char *KEY_DBG  = "debug_ble";
 static constexpr const char *KEY_LPM  = "low_power";
 static constexpr const char *KEY_APM  = "adv_power";
@@ -109,6 +110,7 @@ void ConfigManager::load() {
     _cfg.cameraType        = static_cast<uint8_t>(_prefs.getUInt(KEY_CAM, DEFAULT_CAMERA_TYPE));
     _cfg.cameraMatchMode   = static_cast<uint8_t>(_prefs.getUInt(KEY_CMM, DEFAULT_CAMERA_MATCH_MODE));
     _cfg.cameraWakeGuard   = _prefs.getBool(KEY_WAKE, DEFAULT_CAMERA_WAKE_GUARD);
+    _cfg.nanoNoWake = _prefs.getBool(KEY_NANO_NOWAKE, false);
     _cfg.debugBle          = _prefs.getBool(KEY_DBG, DEFAULT_DEBUG_BLE);
     _cfg.lowPowerMode      = _prefs.getBool(KEY_LPM, DEFAULT_LOW_POWER_MODE);
     _cfg.advancedPowerMode = _prefs.getBool(KEY_APM, DEFAULT_ADVANCED_POWER_MODE);
@@ -205,6 +207,7 @@ void ConfigManager::save() {
     _prefs.putUInt(KEY_CAM, _cfg.cameraType);
     _prefs.putUInt(KEY_CMM, _cfg.cameraMatchMode);
     _prefs.putBool(KEY_WAKE, _cfg.cameraWakeGuard);
+    _prefs.putBool(KEY_NANO_NOWAKE, _cfg.nanoNoWake);
     _prefs.putBool(KEY_DBG, _cfg.debugBle);
     _prefs.putBool(KEY_LPM, _cfg.lowPowerMode);
     _prefs.putBool(KEY_APM, _cfg.advancedPowerMode);
@@ -268,6 +271,7 @@ void ConfigManager::printAll(Stream &out) {
     out.printf("[cfg] camera_match    = %s\n",
                _cfg.cameraMatchMode <= 2 ? matchModeNames[_cfg.cameraMatchMode] : "?");
     out.printf("[cfg] wake_guard      = %s\n", _cfg.cameraWakeGuard ? "true" : "false");
+    out.printf("[cfg] nano_no_wake    = %s\n", _cfg.nanoNoWake ? "true" : "false");
     out.printf("[cfg] disarm_delay    = %u ms\n", _cfg.disarmStopDelayMs);
     out.printf("[cfg] stop_on_disarm  = %s\n", _cfg.stopOnDisarm ? "true" : "false");
     if (_cfg.auxChannel == 0)
@@ -560,6 +564,12 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
             setCameraMatchMode(m);
             static const char *matchModeNames[] = {"fallback", "strict", "best_signal"};
             out.printf("[cfg] camera_match = %s (saved)\n", matchModeNames[m]);
+            return;
+        }
+
+        if (strncmp(rest, "nano_no_wake ", 13) == 0) {
+            setNanoNoWake(strtoul(rest + 13, nullptr, 10) != 0);
+            out.printf("[cfg] nano_no_wake = %s (saved)\n", _cfg.nanoNoWake ? "true" : "false");
             return;
         }
 
@@ -1067,6 +1077,11 @@ void ConfigManager::setCameraMatchMode(uint8_t v) {
 void ConfigManager::setCameraWakeGuard(bool v) {
     _cfg.cameraWakeGuard = v;
     _prefs.putBool(KEY_WAKE, v);
+}
+
+void ConfigManager::setNanoNoWake(bool v) {
+    _cfg.nanoNoWake = v;
+    _prefs.putBool(KEY_NANO_NOWAKE, v);
 }
 
 void ConfigManager::setDebugBle(bool v) {
