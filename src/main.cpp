@@ -392,6 +392,7 @@ void setup() {
     // sleep/awake advertisement format), but it's harmless to set on all.
     const bool wakeGuard = configManager.config().cameraWakeGuard;
     djiCamera.setWakeGuard(wakeGuard);
+    djiCamera.setNanoNoWake(configManager.config().nanoNoWake);
     goProCamera.setWakeGuard(wakeGuard);
     sonyCamera.setWakeGuard(wakeGuard);
     blackmagicCamera.setWakeGuard(wakeGuard);
