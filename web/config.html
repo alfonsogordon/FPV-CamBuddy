@@ -420,6 +420,12 @@
         </label>
       </div>
 
+      <!-- Experimental Nano guard: prevents all Nano BLE connections, even if awake. -->
+      <div class="cfg-field">
+        <div class="cfg-field-text"><div class="cfg-field-name">DJI Nano: never wake (experimental)</div><div class="cfg-field-desc">When enabled, CamBuddy will not connect to an Osmo Nano, even if it is already awake. Turn OFF to control the Nano. This is not GoPro-style awake detection.</div></div>
+        <label class="switch"><input type="checkbox" id="nanoNoWake" disabled><span class="track"><span class="thumb"></span></span></label>
+      </div>
+
       <!-- Stop on disarm -->
       <div class="cfg-field">
         <div class="cfg-field-text">
@@ -832,6 +838,7 @@ const caddxSavedMsg     = document.getElementById('caddxSavedMsg');
 const stopToggle          = document.getElementById('stopOnDisarm');
 const cameraMatchSel      = document.getElementById('cameraMatch');
 const wakeGuardToggle     = document.getElementById('wakeGuard');
+const nanoNoWakeToggle = document.getElementById('nanoNoWake');
 const debugBleToggle      = document.getElementById('debugBle');
 const lowPowerToggle      = document.getElementById('lowPower');
 const advancedPowerToggle = document.getElementById('advancedPower');
@@ -1055,6 +1062,8 @@ function parseConfigLine(line) {
     cameraMatchSel.value = CAMERA_MATCH_VALUES[val] ?? '0';
   } else if (key === 'wake_guard') {
     wakeGuardToggle.checked = (val === 'true');
+  } else if (key === 'nano_no_wake') {
+    nanoNoWakeToggle.checked = (val === 'true');
   } else if (key === 'debug_ble') {
     debugBleToggle.checked = (val === 'true');
   } else if (key === 'low_power') {
@@ -1294,6 +1303,7 @@ applyBtn.addEventListener('click', async () => {
       `set camera_type ${cameraTypeSel.value}`,
       `set camera_match ${cameraMatchSel.value}`,
       `set wake_guard ${wakeGuard}`,
+      `set nano_no_wake ${nanoNoWakeToggle.checked ? 1 : 0}`,
       `set debug_ble ${debugBle}`,
       `set low_power ${lowPower}`,
       `set advanced_power ${advancedPowerToggle.checked ? 1 : 0}`,
@@ -1754,6 +1764,7 @@ function setConnected(connected) {
   stopToggle.disabled         = !connected;
   cameraMatchSel.disabled     = !connected;
   wakeGuardToggle.disabled    = !connected;
+  nanoNoWakeToggle.disabled = !connected;
   debugBleToggle.disabled     = !connected;
   lowPowerToggle.disabled     = !connected || advancedPowerToggle.checked;
   advancedPowerToggle.disabled = !connected;
