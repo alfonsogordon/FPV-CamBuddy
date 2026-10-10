@@ -63,6 +63,10 @@ jobs:
         with:
           ref: v1.0.3-rc1
           path: rc1
+      - uses: actions/checkout@v4
+        with:
+          ref: dev-dji-nano-aux-range
+          path: devnano
       - uses: actions/configure-pages@v5
 
       - name: Generate stable V1 site
@@ -335,6 +339,42 @@ jobs:
           # Preserve the production homepage, including its current feature sections.
           # RC1 configurator assets are staged above, but RC1 must not overwrite index.html.
 
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Stage isolated Nano + AUX development test site
+        run: |
+          set -eu
+          mkdir -p stable/web/dev-nano/firmware/dev-nano
+          for name in config.html fps-ui-rebuild.js fps-demo-v1.js fps-integrated-preview.js fps-stage3-parity.js fps-autosync.js fps-theme.css fps-osd-cleanup.css fps-home-updates.js osd-preview-bg.jpg; do
+            cp "devnano/web/$name" "stable/web/dev-nano/$name"
+          done
+          cp devnano/web/dev-nano-flash.html stable/web/dev-nano/flash.html
+          run_id=$(gh run list --repo ${{ github.repository }} --branch dev-dji-nano-aux-range --workflow "Validate FPV CamBuddy" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          test -n "$run_id" || { echo "No validated Nano dev firmware"; exit 1; }
+          rm -rf /tmp/devnano-artifacts
+          mkdir -p /tmp/devnano-artifacts
+          gh run download "$run_id" --repo ${{ github.repository }} --dir /tmp/devnano-artifacts
+          c3=$(find /tmp/devnano-artifacts -type d -name freeclinker-stage3-esp32c3 | head -n1)
+          esp=$(find /tmp/devnano-artifacts -type d -name freeclinker-stage3-esp32 | head -n1)
+          test -n "$c3" -a -n "$esp" || { echo "Nano dev artifacts missing"; exit 1; }
+          for pair in "esp32c3supermini:$c3" "esp32dev:$esp"; do
+            target=${pair%%:*}; source=${pair#*:}
+            for name in firmware bootloader partitions; do
+              cp "$source/$name.bin" "stable/web/dev-nano/firmware/dev-nano/$name-$target.bin"
+            done
+          done
+          printf '%s\\n' "$run_id" > stable/web/dev-nano/firmware/dev-nano/build-run.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('stable/web/dev-nano')
+          banner='<div style="background:#ffb000;color:#161616;text-align:center;padding:10px;font:800 13px system-ui">EXPERIMENTAL DJI NANO + AUX RANGE TEST — NOT PUBLIC RC1</div>'
+          for name in ('flash.html','config.html'):
+              p=root/name
+              s=p.read_text().replace('<body>','<body>'+banner,1)
+              s=s.replace('href="index.html"','href="config.html"')
+              p.write_text(s)
+          PY
         env:
           GH_TOKEN: ${{ github.token }}
 
