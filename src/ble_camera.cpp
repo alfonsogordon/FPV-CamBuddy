@@ -246,6 +246,10 @@ void BLECamera::onResult(BLEAdvertisedDevice device) {
 
     if (!isDJI) return;
 
+    // Experimental safety-first mode: the Nano advertises even while asleep.
+    // Until an awake-only advertisement marker is validated, never connect.
+    if (isNano && _nanoNoWake) return;
+
     std::string addr = device.getAddress().toString();
     std::string name = device.haveName() ? device.getName() :
                        (isNano ? "DJI Osmo Nano" : "DJI Action");
