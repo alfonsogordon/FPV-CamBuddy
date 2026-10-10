@@ -600,6 +600,9 @@
         </select>
       </div>
 
+      <div class="cfg-field"><div class="cfg-field-text"><div class="cfg-field-name">Recording AUX position / PWM range</div><div class="cfg-field-desc">HIGH: 1501-2100 (original behaviour); MID: 1300-1700; LOW: 800-1299; or enter a custom range. This only applies when recording trigger is AUX.</div></div><select id="recordRangePreset" disabled><option value="high">HIGH (default)</option><option value="mid">MID (1300-1700)</option><option value="low">LOW (800-1299)</option><option value="custom">Custom PWM</option></select></div>
+      <div class="cfg-field"><div class="cfg-field-text"><div class="cfg-field-name">Custom PWM minimum / maximum (microseconds)</div></div><div class="num-wrap"><input type="number" id="recordRangeMin" min="800" max="2200" value="1501" disabled><input type="number" id="recordRangeMax" min="800" max="2200" value="2100" disabled></div></div>
+
       <!-- Legacy two-position camera-mode controls are retained hidden for
            backwards-compatible reads/CLI handling, but are no longer part of Easy Config. -->
       <div style="display:none" aria-hidden="true">
@@ -873,6 +876,13 @@ const auxApplyBtn    = document.getElementById('auxApplyBtn');
 const auxSavedMsg    = document.getElementById('auxSavedMsg');
 const profileAuxSel = document.getElementById('profileAux');
 const recordAuxSel = document.getElementById('recordAux');
+const recordRangePreset = document.getElementById('recordRangePreset');
+const recordRangeMin = document.getElementById('recordRangeMin');
+const recordRangeMax = document.getElementById('recordRangeMax');
+recordRangePreset.addEventListener('change', () => {
+  const ranges = {high:[1501,2100],mid:[1300,1700],low:[800,1299]};
+  if (ranges[recordRangePreset.value]) [recordRangeMin.value,recordRangeMax.value] = ranges[recordRangePreset.value];
+});
 const profileLowInput = document.getElementById('profileLow');
 const profileMidInput = document.getElementById('profileMid');
 const profileHighInput = document.getElementById('profileHigh');
@@ -1045,6 +1055,9 @@ function parseConfigLine(line) {
   } else if (key === 'aux_mode') {
     // "0x0A" — parseInt auto-detects 0x prefix
     auxModeSel.value = parseInt(val).toString();
+  } else if (key === 'record_range') {
+    const m = val.match(/(\d+)\s*-\s*(\d+)/);
+    if(m) { recordRangeMin.value=m[1];recordRangeMax.value=m[2]; const range=`${m[1]}-${m[2]}`;recordRangePreset.value=({'1501-2100':'high','1300-1700':'mid','800-1299':'low'})[range] || 'custom'; }
   } else if (key === 'record_trigger') {
     if (val === 'ARM') recordAuxSel.value='0'; else { const ch=val.match(/AUX(\d+)/); if(ch) recordAuxSel.value=ch[1]; }
   } else if (key === 'profile_aux') {
@@ -1776,6 +1789,9 @@ function setConnected(connected) {
   auxChannelSel.disabled = !connected;
   auxApplyBtn.disabled   = !connected;
   recordAuxSel.disabled = !connected;
+  recordRangePreset.disabled = !connected;
+  recordRangeMin.disabled = !connected;
+  recordRangeMax.disabled = !connected;
   profileAuxSel.disabled = !connected;
   profileLowInput.disabled = !connected;
   profileMidInput.disabled = !connected;
