@@ -118,6 +118,7 @@ public:
     void setProfileAuxChannel(uint8_t channel);
     void setProfileSwitchCallback(ProfileSwitchCallback cb) { _profileSwitchCb = cb; }
     void setRecordAuxChannel(uint8_t channel);
+    void setRecordAuxRange(uint16_t minUs, uint16_t maxUs);
     void setRecordSwitchCallback(RecordSwitchCallback cb) { _recordSwitchCb = cb; }
     void setRtcCallback(RtcCallback cb) { _rtcCb = cb; }
     const MspRtcDateTime &rtc() const { return _rtc; }
@@ -158,6 +159,8 @@ private:
     uint8_t _profileAuxChannel = 0;
     uint8_t _recordAuxChannel = 0;
     bool _recordAuxHigh = false;
+    uint16_t _recordAuxMin = 1501;
+    uint16_t _recordAuxMax = 2100;
     RecordSwitchCallback _recordSwitchCb = nullptr;
     uint8_t _profilePosition = 0xFF;
     ProfileSwitchCallback _profileSwitchCb = nullptr;
