@@ -19,6 +19,8 @@ public:
         uint8_t auxMode;
         uint8_t profileAuxChannel;
         uint8_t recordAuxChannel;  // 0=ARM state (default), 1-12=AUX trigger
+        uint16_t recordAuxMin;
+        uint16_t recordAuxMax;
         uint32_t profileLow;
         uint32_t profileMid;
         uint32_t profileHigh;
@@ -154,6 +156,7 @@ public:
     void setAuxMode(uint8_t mode);
     void setProfileAuxChannel(uint8_t ch);
     void setRecordAuxChannel(uint8_t ch);
+    void setRecordAuxRange(uint16_t minUs, uint16_t maxUs);
     void setProfileId(uint8_t position, uint32_t id);
     void setProfileName(uint8_t position, const char *name);
     void setProfileOsdEnabled(bool enabled);
