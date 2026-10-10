@@ -30,6 +30,8 @@ class BLECamera : public Camera,
 public:
     void begin() override;
     void update() override;
+    // Conservative experimental guard: never initiate a Nano BLE connection.
+    void setNanoNoWake(bool enabled) { _nanoNoWake = enabled; }
 
     bool isConnected() const override { return _djiConnected; }
 
@@ -41,6 +43,7 @@ public:
     bool queryProfiles() override;
 
 private:
+    bool _nanoNoWake = false;
     // BLE stack callbacks
     void onResult(BLEAdvertisedDevice device) override;
     void onConnect(BLEClient *client) override;
