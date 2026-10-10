@@ -349,7 +349,7 @@ void MSPSerial::handleRcResponse() {
         if (_rxSize >= static_cast<uint16_t>(rcIdx + 1) * 2) {
             uint16_t value = 0;
             memcpy(&value, _rxBuf + rcIdx * 2, sizeof(value));
-            const bool high = value > 1500;
+            const bool high = value >= _recordAuxMin && value <= _recordAuxMax;
             if (high != _auxHigh) {
                 _auxHigh = high;
                 if (_auxSwitchCb) _auxSwitchCb(high);
@@ -394,6 +394,11 @@ void MSPSerial::setProfileAuxChannel(uint8_t channel) {
         _profileAuxChannel = channel;
         _profilePosition = 0xFF;
     }
+}
+
+void MSPSerial::setRecordAuxRange(uint16_t minUs, uint16_t maxUs) {
+    _recordAuxMin = minUs;
+    _recordAuxMax = maxUs;
 }
 
 void MSPSerial::setRecordAuxChannel(uint8_t channel) {
