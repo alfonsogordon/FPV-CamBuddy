@@ -1084,6 +1084,14 @@ void BLECamera::handleCameraStatus(const uint8_t *payload, uint16_t len) {
 
     const uint8_t mode = payload[0];
     const uint8_t status = payload[1];
+    // Diagnostic only: log raw status bytes to establish Nano-specific field
+    // offsets before changing resolution/FPS/EIS mappings. No protocol guesses.
+    if (_isOsmoNano && _debugBle) {
+        DBG_SERIAL.printf("[NANO_STATUS] len=%u raw=", static_cast<unsigned>(len));
+        for (uint16_t i = 0; i < len; ++i)
+            DBG_SERIAL.printf("%02X", payload[i]);
+        DBG_SERIAL.println();
+    }
     const uint8_t videoResolution = payload[2];
     const uint8_t fpsCode = payload[3];
     const uint8_t eisMode = payload[4];
