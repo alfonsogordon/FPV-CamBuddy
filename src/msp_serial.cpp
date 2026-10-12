@@ -480,6 +480,7 @@ void MSPSerial::sendCustomOSD(uint8_t textType, const CameraData &data, const ch
     const bool cameraError = !data.valid || !data.has_recording || criticalHot || mediaNotReady;
     const bool cameraRecording = data.valid && data.has_recording && data.recording;
     const bool recOnlyWhenArmed = startsWith(_fpvRecordingText, "@ARM:");
+    const bool recOnlyWhenRecording = startsWith(_fpvRecordingText, "@REC:");
 
     const char *state = "RDY";
     if (cameraError) state = "ERR";
@@ -532,8 +533,8 @@ void MSPSerial::sendCustomOSD(uint8_t textType, const CameraData &data, const ch
     }
 
     char text[TEXT_LIMIT + 1] = {};
-    const bool recOnlyTakeover = recOnlyWhenArmed && _armed && cameraRecording &&
-                                 !cameraError && templateHasStatus(tpl);
+    const bool recOnlyTakeover = (recOnlyWhenRecording || (recOnlyWhenArmed && _armed)) &&
+                                 cameraRecording && !cameraError && templateHasStatus(tpl);
     if (recOnlyTakeover) {
         // Locked V1 behaviour: only a Status-containing destination is
         // temporarily replaced by REC while armed + recording. All other
