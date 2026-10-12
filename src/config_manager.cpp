@@ -115,7 +115,15 @@ void ConfigManager::load() {
     _cfg.recordAuxMax = static_cast<uint16_t>(_prefs.getUInt(KEY_RMAX, 2100));
     _cfg.cameraWakeGuard   = _prefs.getBool(KEY_WAKE, DEFAULT_CAMERA_WAKE_GUARD);
     _cfg.nanoNoWake = _prefs.getBool(KEY_NANO_NOWAKE, false);
-    _cfg.debugBle          = _prefs.getBool(KEY_DBG, DEFAULT_DEBUG_BLE);
+    // One-time diagnostic opt-in for the isolated Nano test build. Existing
+    // testers may have debug_ble=0 saved from earlier firmware, so changing
+    // the default alone would not enable logging after an OTA/USB reflash.
+    // Respect subsequent explicit CLI/UI changes, including debug_ble=0.
+    if (!_prefs.getBool("nano_dbg_init", false)) {
+        _prefs.putBool(KEY_DBG, true);
+        _prefs.putBool("nano_dbg_init", true);
+    }
+    _cfg.debugBle          = _prefs.getBool(KEY_DBG, true);
     _cfg.lowPowerMode      = _prefs.getBool(KEY_LPM, DEFAULT_LOW_POWER_MODE);
     _cfg.advancedPowerMode = _prefs.getBool(KEY_APM, DEFAULT_ADVANCED_POWER_MODE);
     _cfg.advancedPowerDbm  = static_cast<int8_t>(_prefs.getInt(KEY_APDB, DEFAULT_ADVANCED_POWER_DBM));
