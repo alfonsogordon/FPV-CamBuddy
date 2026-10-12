@@ -879,6 +879,7 @@ const recordAuxSel = document.getElementById('recordAux');
 const recordRangePreset = document.getElementById('recordRangePreset');
 const recordRangeMin = document.getElementById('recordRangeMin');
 const recordRangeMax = document.getElementById('recordRangeMax');
+for (const field of [recordRangeMin, recordRangeMax]) field.addEventListener('input', () => { recordRangePreset.value = 'custom'; });
 recordRangePreset.addEventListener('change', () => {
   const ranges = {high:[1501,2100],mid:[1300,1700],low:[800,1299]};
   if (ranges[recordRangePreset.value]) [recordRangeMin.value,recordRangeMax.value] = ranges[recordRangePreset.value];
@@ -1310,9 +1311,20 @@ applyBtn.addEventListener('click', async () => {
   const debugBle   = debugBleToggle.checked ? 1 : 0;
   const lowPower   = (advancedPowerToggle.checked ? savedLowPowerState : lowPowerToggle.checked) ? 1 : 0;
   const [tzMode,tzOffset] = goproTimezoneSel.value.split(':').map(Number);
+  const recMin = Number(recordRangeMin.value), recMax = Number(recordRangeMax.value);
+  if (!Number.isInteger(recMin) || !Number.isInteger(recMax) || recMin < 800 || recMax > 2200 || recMin > recMax) {
+    alert('Recording PWM range must be 800-2200, minimum no greater than maximum');
+    return;
+  }
+  // Recording range lives alongside the main camera controls. Save it from
+  // the main Apply button too; previously only the separate Profile Apply
+  // wrote it, so users could change MID/custom and see HIGH after reconnect.
+  const recChannel = recordAuxSel.value;
   applyBtn.disabled = true;
   try {
     const cmds = [
+      `set record_range ${recMin} ${recMax}`,
+      `set record_aux ${recChannel}`,
       `set camera_type ${cameraTypeSel.value}`,
       `set camera_match ${cameraMatchSel.value}`,
       `set wake_guard ${wakeGuard}`,
@@ -1330,6 +1342,7 @@ applyBtn.addEventListener('click', async () => {
       `set stop_on_disarm ${stop}`
     ];
     for (const cmd of cmds) await sendCommandAck(cmd);
+    await sendCommand('show');
     flashSaved(savedMsg);
   } catch (e) {
     log('Save stopped: ' + e.message, 'err');
