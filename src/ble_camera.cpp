@@ -246,6 +246,25 @@ void BLECamera::onResult(BLEAdvertisedDevice device) {
 
     if (!isDJI) return;
 
+    // Passive Nano diagnostics: record advertising bytes BEFORE the no-wake guard
+    // and before any BLE connection attempt. Enable with 'set debug_ble 1'.
+    // Throttle output so continuous advertising cannot overwhelm serial logs.
+    if (isNano && _debugBle) {
+        static uint32_t lastNanoAdvLogMs = 0;
+        const uint32_t now = millis();
+        if (lastNanoAdvLogMs == 0 || now - lastNanoAdvLogMs >= 1500) {
+            lastNanoAdvLogMs = now;
+            const std::string raw = device.haveManufacturerData()
+                ? device.getManufacturerData() : std::string();
+            DBG_SERIAL.printf("[NANO_ADV] rssi=%d name=%s mfr=", device.getRSSI(),
+                              device.haveName() ? device.getName().c_str() : "(none)");
+            for (size_t i = 0; i < raw.size(); ++i)
+                DBG_SERIAL.printf("%02X", static_cast<unsigned char>(raw[i]));
+            DBG_SERIAL.printf(" len=%u no_wake=%u\\n",
+                              static_cast<unsigned>(raw.size()), _nanoNoWake ? 1 : 0);
+        }
+    }
+
     // Experimental safety-first mode: the Nano advertises even while asleep.
     // Until an awake-only advertisement marker is validated, never connect.
     if (isNano && _nanoNoWake) return;
