@@ -189,7 +189,7 @@ jobs:
           rm -rf stable/web/v1.0.3
           mkdir -p stable/web/v1.0.3/firmware
           cp -a candidate/web/. stable/web/v1.0.3/
-          cp candidate/web/v1.0.3-flash.html stable/web/v1.0.3/flash.html
+          if [ -f candidate/web/v1.0.3-flash.html ]; then cp candidate/web/v1.0.3-flash.html stable/web/v1.0.3/flash.html; else cp candidate/web/flash.html stable/web/v1.0.3/flash.html; fi
 
       - name: Download latest successful V1.0.3 test firmware
         run: |
