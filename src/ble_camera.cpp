@@ -250,14 +250,24 @@ void BLECamera::onResult(BLEAdvertisedDevice device) {
     // and before any BLE connection attempt. Enable with 'set debug_ble 1'.
     // Throttle output so continuous advertising cannot overwhelm serial logs.
     if (isNano && _debugBle) {
+        // Record transitions as well as periodic samples: a 1.5-second
+        // throttle alone can hide a short-lived awake advertisement.
+        static std::string lastNanoAdv;
         static uint32_t lastNanoAdvLogMs = 0;
         const uint32_t now = millis();
-        if (lastNanoAdvLogMs == 0 || now - lastNanoAdvLogMs >= 1500) {
+        const std::string raw = device.haveManufacturerData()
+            ? device.getManufacturerData() : std::string();
+        const std::string name = device.haveName()
+            ? device.getName() : std::string("(none)");
+        const std::string addr = device.getAddress().toString();
+        std::string fingerprint = addr + "|" + name + "|" + raw;
+        if (fingerprint != lastNanoAdv ||
+            lastNanoAdvLogMs == 0 || now - lastNanoAdvLogMs >= 1500) {
+            lastNanoAdv = fingerprint;
             lastNanoAdvLogMs = now;
-            const std::string raw = device.haveManufacturerData()
-                ? device.getManufacturerData() : std::string();
-            DBG_SERIAL.printf("[NANO_ADV] rssi=%d name=%s mfr=", device.getRSSI(),
-                              device.haveName() ? device.getName().c_str() : "(none)");
+            DBG_SERIAL.printf("[NANO_ADV] ms=%lu addr=%s rssi=%d name=%s mfr=",
+                              static_cast<unsigned long>(now), addr.c_str(),
+                              device.getRSSI(), name.c_str());
             for (size_t i = 0; i < raw.size(); ++i)
                 DBG_SERIAL.printf("%02X", static_cast<unsigned char>(raw[i]));
             DBG_SERIAL.printf(" len=%u no_wake=%u\\n",
