@@ -1,0 +1,47 @@
+name: Publish GoPro Reconnect Web Test
+on:
+  push:
+    branches: [test/rc1-gopro-reconnect-stability]
+    paths:
+      - '.github/workflows/reconnect-web-test.yml'
+      - 'web/reconnect-stability-flash.html'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: test/rc1-gopro-reconnect-stability
+      - name: Download validated firmware for exact tested commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          run_id=38532398127
+          sha=e7d5842f7d9b61488d3f24595879cf156c3acf6a
+          actual=$(gh run view "$run_id" --repo "${{ github.repository }}" --json headSha,conclusion --jq '.headSha + " " + .conclusion')
+          test "$actual" = "$sha success" || { echo "Firmware run does not match validated SHA"; exit 1; }
+          mkdir -p /tmp/reconnect-build web/firmware/reconnect-stability
+          gh run download "$run_id" --repo "${{ github.repository }}" --dir /tmp/reconnect-build
+          c3=/tmp/reconnect-build/freeclinker-stage3-esp32c3
+          esp=/tmp/reconnect-build/freeclinker-stage3-esp32
+          for part in bootloader partitions firmware; do
+            test -s "$c3/$part.bin"
+            test -s "$esp/$part.bin"
+            cp "$c3/$part.bin" "web/firmware/reconnect-stability/$part-esp32c3supermini.bin"
+            cp "$esp/$part.bin" "web/firmware/reconnect-stability/$part-esp32dev.bin"
+          done
+          printf '{"source_sha":"%s","run_id":%s,"label":"RC1 GoPro reconnect stability test"}\n' "$sha" "$run_id" > web/firmware/reconnect-stability/meta.json
+      - name: Commit validated firmware to test branch
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add web/firmware/reconnect-stability
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish validated GoPro reconnect test binaries"
+            git push origin HEAD:test/rc1-gopro-reconnect-stability
+          fi
