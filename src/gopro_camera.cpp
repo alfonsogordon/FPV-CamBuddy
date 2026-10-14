@@ -454,14 +454,11 @@ void GoProCamera::resetRecoveryState() {
 }
 
 void GoProCamera::rebuildClient() {
-    DBG_SERIAL.println("[GP-RECOVER] Recreating local BLE client");
-    if (_client) {
-        if (_client->isConnected()) _client->disconnect();
-        delay(75);
-        // Arduino BLEDevice owns client lifetime internally. Do not delete the
-        // pointer directly; request a new client object for the next attempt.
-        _client = nullptr;
-    }
+    // The Arduino BLEDevice client registry owns these objects. Dropping the
+    // pointer and creating another client leaks a registered BLE client.
+    // Reuse the disconnected client; reset only Open GoPro session state.
+    DBG_SERIAL.println("[GP-RECOVER] Resetting BLE session (reusing client)");
+    if (_client && _client->isConnected()) _client->disconnect();
     _bleConnected = false;
     _gpConnected = false;
     _cmdChar = nullptr;
@@ -496,7 +493,6 @@ bool GoProCamera::clearLocalBond(const std::string &addr, esp_ble_addr_type_t ad
 
 void GoProCamera::noteConnectionFailure(const char *reason) {
     const std::string failedAddr = _targetAddr;
-    const esp_ble_addr_type_t failedType = _targetType;
 
     if (_recoveryAddr != failedAddr) {
         _recoveryAddr = failedAddr;
@@ -505,6 +501,9 @@ void GoProCamera::noteConnectionFailure(const char *reason) {
         _bondClearedForAddr = false;
     }
     if (_connectFailCount < 255) ++_connectFailCount;
+    ++_recoveryFailures;
+    if (strcmp(reason, "handshake timeout") == 0) ++_recoveryHandshakeTimeouts;
+    else if (strcmp(reason, "GATT connect failed") == 0) ++_recoveryGattFailures;
 
     DBG_SERIAL.printf("[GP-RECOVER] GoPro %s but connection failed (%u/3): %s\n",
                       failedAddr.c_str(), (unsigned)_connectFailCount, reason);
@@ -523,15 +522,17 @@ void GoProCamera::noteConnectionFailure(const char *reason) {
         _clientRebuiltForAddr = true;
     }
 
+    // Never remove a BLE bond automatically. A camera may still hold its
+    // matching bond; one-sided removal can turn a transient failure into a
+    // persistent pairing failure. Explicit AP Forget/Re-pair remains available.
     if (_connectFailCount >= 3 && !_bondClearedForAddr) {
-        DBG_SERIAL.printf("[GP-RECOVER] Same GoPro is still visible — clearing only its local bond (%s)\n",
-                          failedAddr.c_str());
-        const bool cleared = clearLocalBond(failedAddr, failedType);
-        DBG_SERIAL.printf("[GP-RECOVER] Local bond cleanup %s; next attempt is a fresh pairing\n",
-                          cleared ? "succeeded" : "found no exact stored bond");
-        rebuildClient();
+        DBG_SERIAL.println("[GP-RECOVER] Retry limit reached; keeping bond intact");
         _bondClearedForAddr = true;
     }
+    DBG_SERIAL.printf("[GP-RECOVER] totals: failures=%lu GATT=%lu handshake=%lu\n",
+                      (unsigned long)_recoveryFailures,
+                      (unsigned long)_recoveryGattFailures,
+                      (unsigned long)_recoveryHandshakeTimeouts);
 
     _targetFound = false;
     _targetAddr.clear();
