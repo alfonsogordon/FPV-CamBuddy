@@ -32,7 +32,7 @@ function syncMetadataFromDevice(){
   if(off)input.value=input.dataset.fpsLastTemplate||CURRENT_DEFAULTS[n];
   fire('osd'+n,'input');fire('fpsMsg'+n);
  }
- const recordMeta=String($('fpvRecordText')?.value||'');if($('fpsRecOnly')){$('fpsRecOnly').checked=recordMeta.startsWith('@ARM:');fire('fpsRecOnly')}
+ const recordMeta=String($('fpvRecordText')?.value||'');if($('fpsRecOnly')){$('fpsRecOnly').checked=recordMeta.startsWith('@ARM:')||recordMeta.startsWith('@REC:');if($('fpsRecMode'))$('fpsRecMode').value=recordMeta.startsWith('@REC:')?'recording':'armed';fire('fpsRecOnly');fire('fpsRecMode')}
  const p=stripTarget($('fpvPreArmText')?.value);if($('fpvPreArmText')){$('fpvPreArmText').value=p.text||'CLEAN LENS';fire('fpvPreArmText','input')}if($('fpsTempMaster')){$('fpsTempMaster').checked=!!p.text;fire('fpsTempMaster')}setSelectTarget('fpsTempDest',p.target);
  if($('fpvCustomDurationSec')&&$('fpvPreArmShow')){const ms=Math.max(100,parseInt($('fpvPreArmShow').value,10)||1000);$('fpvCustomDurationSec').value=(ms/1000).toFixed(ms%1000===0?0:1);fire('fpvCustomDurationSec','input')}
  const w=stripTarget($('fpvLowText')?.value);if($('fpsWarnMaster')){$('fpsWarnMaster').checked=!!$('fpvLowBatt')?.checked||!!$('fpvRecLow')?.checked||!!$('fpvHot')?.checked;fire('fpsWarnMaster')}setSelectTarget('fpsWarnDest',w.target);
