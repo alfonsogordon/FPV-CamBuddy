@@ -575,6 +575,21 @@ void BLECamera::handleNanoDuml(const NanoDumlFrame &f) {
     // Native Nano camera-status push (GetPushStateInfo), hardware-captured at ~10 Hz.
     // Layout is documented from real Mimo/Nano captures.
     if (f.cmdSet == 0x02 && f.cmdId == 0x80 && f.payload && f.payloadLen >= 58) {
+        // Native Nano status uses DUML 02/80, not the Action-camera
+        // handleCameraStatus() path. Log changes only to avoid 10 Hz floods.
+        if (_debugBle && f.payloadLen <= 80) {
+            static uint8_t previous[80] = {};
+            static uint16_t previousLen = 0;
+            if (f.payloadLen != previousLen ||
+                memcmp(previous, f.payload, f.payloadLen) != 0) {
+                DBG_SERIAL.printf("[NANO_STATUS] len=%u raw=", static_cast<unsigned>(f.payloadLen));
+                for (uint16_t i = 0; i < f.payloadLen; ++i)
+                    DBG_SERIAL.printf("%02X", f.payload[i]);
+                DBG_SERIAL.println();
+                memcpy(previous, f.payload, f.payloadLen);
+                previousLen = f.payloadLen;
+            }
+        }
         const uint32_t stateFlags = nanoLe32(f.payload + 0);
         const bool recording = (stateFlags & 0x00000080UL) != 0;
         const uint8_t mode = f.payload[57];
