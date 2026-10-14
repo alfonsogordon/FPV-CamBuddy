@@ -43,5 +43,7 @@ jobs:
           git add web/firmware/reconnect-stability
           if ! git diff --cached --quiet; then
             git commit -m "Publish validated GoPro reconnect test binaries"
+            git fetch origin test/rc1-gopro-reconnect-stability
+            git rebase origin/test/rc1-gopro-reconnect-stability
             git push origin HEAD:test/rc1-gopro-reconnect-stability
           fi
