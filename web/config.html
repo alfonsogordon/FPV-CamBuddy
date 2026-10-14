@@ -879,6 +879,7 @@ const recordAuxSel = document.getElementById('recordAux');
 const recordRangePreset = document.getElementById('recordRangePreset');
 const recordRangeMin = document.getElementById('recordRangeMin');
 const recordRangeMax = document.getElementById('recordRangeMax');
+let recordingRangeSaveInProgress = false;
 for (const field of [recordRangeMin, recordRangeMax]) field.addEventListener('input', () => { recordRangePreset.value = 'custom'; });
 recordRangePreset.addEventListener('change', () => {
   const ranges = {high:[1501,2100],mid:[1300,1700],low:[800,1299]};
@@ -1058,7 +1059,7 @@ function parseConfigLine(line) {
     auxModeSel.value = parseInt(val).toString();
   } else if (key === 'record_range') {
     const m = val.match(/(\d+)\s*-\s*(\d+)/);
-    if(m) { recordRangeMin.value=m[1];recordRangeMax.value=m[2]; const range=`${m[1]}-${m[2]}`;recordRangePreset.value=({'1501-2100':'high','1300-1700':'mid','800-1299':'low'})[range] || 'custom'; }
+    if(m && !recordingRangeSaveInProgress) { recordRangeMin.value=m[1];recordRangeMax.value=m[2]; const range=`${m[1]}-${m[2]}`;recordRangePreset.value=({'1501-2100':'high','1300-1700':'mid','800-1299':'low'})[range] || 'custom'; }
   } else if (key === 'record_trigger') {
     if (val === 'ARM') recordAuxSel.value='0'; else { const ch=val.match(/AUX(\d+)/); if(ch) recordAuxSel.value=ch[1]; }
   } else if (key === 'profile_aux') {
@@ -1320,6 +1321,7 @@ applyBtn.addEventListener('click', async () => {
   // the main Apply button too; previously only the separate Profile Apply
   // wrote it, so users could change MID/custom and see HIGH after reconnect.
   const recChannel = recordAuxSel.value;
+  recordingRangeSaveInProgress = true;
   applyBtn.disabled = true;
   try {
     const cmds = [
@@ -1349,6 +1351,7 @@ applyBtn.addEventListener('click', async () => {
     savedMsg.textContent = 'Save failed — check CLI';
     savedMsg.style.opacity = '1';
   } finally {
+    recordingRangeSaveInProgress = false;
     applyBtn.disabled = !port;
   }
 });
@@ -1409,8 +1412,13 @@ profileApplyBtn.addEventListener('click', async () => {
   const lowName = low ? label(profileLowInput) : '';
   const midName = mid ? label(profileMidInput) : '';
   const highName = high ? label(profileHighInput) : '';
-  await sendCommandAck(`set record_range ${recMin} ${recMax}`);
-  await sendCommandAck(`set record_aux ${recChannel}`);
+  recordingRangeSaveInProgress = true;
+  try {
+    await sendCommandAck(`set record_range ${recMin} ${recMax}`);
+    await sendCommandAck(`set record_aux ${recChannel}`);
+  } finally {
+    recordingRangeSaveInProgress = false;
+  }
   await sendCommand(`set profile_aux ${aux}`);
   await sendCommand(`set profile_low ${low}`);
   await sendCommand(`set profile_mid ${mid}`);
