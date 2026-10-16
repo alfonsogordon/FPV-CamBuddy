@@ -596,6 +596,20 @@ void BLECamera::handleNanoDuml(const NanoDumlFrame &f) {
         DBG_SERIAL.println();
     }
 
+    // Passive capture of camera-parameter replies, without sending requests.
+    // DJI command 02/8E is used for keyed camera parameters on other models;
+    // Nano layout is not established. Keep data raw until hardware verified.
+    if (_debugBle && f.cmdSet == 0x02 && f.cmdId == 0x8E && f.payload) {
+        DBG_SERIAL.printf("[NANO_PARAM] ms=%lu flags=0x%02X len=%u raw=",
+                          static_cast<unsigned long>(millis()),
+                          static_cast<unsigned>(f.flags),
+                          static_cast<unsigned>(f.payloadLen));
+        const uint16_t n = f.payloadLen < 48 ? f.payloadLen : 48;
+        for (uint16_t i = 0; i < n; ++i) DBG_SERIAL.printf("%02X", f.payload[i]);
+        if (f.payloadLen > n) DBG_SERIAL.print("...");
+        DBG_SERIAL.println();
+    }
+
     // Native Nano camera-status push (GetPushStateInfo), hardware-captured at ~10 Hz.
     // Layout is documented from real Mimo/Nano captures.
     if (f.cmdSet == 0x02 && f.cmdId == 0x80 && f.payload && f.payloadLen >= 58) {
