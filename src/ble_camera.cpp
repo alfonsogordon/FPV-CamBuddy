@@ -582,6 +582,20 @@ void BLECamera::handleNanoDuml(const NanoDumlFrame &f) {
     DBG_SERIAL.printf("[Nano] DUML RX %02X/%02X flags=0x%02X id=0x%04X payload=%uB\n",
                       f.cmdSet, f.cmdId, f.flags, f.id, f.payloadLen);
 
+    // Diagnostic only: capture video-format responses/notifications for comparison
+    // with external DJI protocol research. Do not interpret Pocket 3 format
+    // codes as Nano values or issue unverified setters.
+    if (_debugBle && f.cmdSet == 0x02 && f.cmdId == 0x18 && f.payload) {
+        DBG_SERIAL.printf("[NANO_FORMAT] ms=%lu flags=0x%02X len=%u raw=",
+                          static_cast<unsigned long>(millis()),
+                          static_cast<unsigned>(f.flags),
+                          static_cast<unsigned>(f.payloadLen));
+        const uint16_t n = f.payloadLen < 48 ? f.payloadLen : 48;
+        for (uint16_t i = 0; i < n; ++i) DBG_SERIAL.printf("%02X", f.payload[i]);
+        if (f.payloadLen > n) DBG_SERIAL.print("...");
+        DBG_SERIAL.println();
+    }
+
     // Native Nano camera-status push (GetPushStateInfo), hardware-captured at ~10 Hz.
     // Layout is documented from real Mimo/Nano captures.
     if (f.cmdSet == 0x02 && f.cmdId == 0x80 && f.payload && f.payloadLen >= 58) {
