@@ -606,7 +606,7 @@ void BLECamera::handleNanoDuml(const NanoDumlFrame &f) {
             static uint16_t previousLen = 0;
             if (f.payloadLen != previousLen ||
                 memcmp(previous, f.payload, f.payloadLen) != 0) {
-                DBG_SERIAL.printf("[NANO_STATUS] ms=%lu mode=0x%02X flags=0x%08lX len=%u raw=", static_cast<unsigned long>(millis()), static_cast<unsigned>(f.payload[57]), static_cast<unsigned long>(nanoLe32(f.payload)), static_cast<unsigned>(f.payloadLen));
+                DBG_SERIAL.printf("[NANO_STATUS] ms=%lu mode=0x%02X flags=0x%08lX remain_s=%u len=%u raw=", static_cast<unsigned long>(millis()), static_cast<unsigned>(f.payload[57]), static_cast<unsigned long>(nanoLe32(f.payload)), static_cast<unsigned>(nanoLe16(f.payload + 17)), static_cast<unsigned>(f.payloadLen));
                 for (uint16_t i = 0; i < f.payloadLen; ++i)
                     DBG_SERIAL.printf("%02X", f.payload[i]);
                 DBG_SERIAL.println();
