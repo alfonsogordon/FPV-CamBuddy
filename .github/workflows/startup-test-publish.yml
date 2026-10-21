@@ -1,17 +1,16 @@
 name: Publish GoPro Startup Test Firmware
 on:
-  push:
+  workflow_run:
+    workflows: ["Validate FPV CamBuddy"]
+    types: [completed]
     branches: [test/rc1-gopro-startup-diagnostics]
-    paths:
-      - ".github/workflows/startup-test-publish.yml"
-      - "src/**"
-      - "platformio.ini"
   workflow_dispatch:
 permissions:
   contents: write
   actions: read
 jobs:
   publish:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
