@@ -131,6 +131,10 @@ private:
     bool                     _clientRebuiltForAddr = false;
     bool                     _bondClearedForAddr = false;
     uint32_t                 _handshakeStartMs = 0;
+    uint32_t                 _startupScans = 0;
+    uint32_t                 _startupSeen = 0;
+    uint32_t                 _startupGuardRejected = 0;
+    uint32_t                 _startupUnknownFamily = 0;
     uint32_t                 _recoveryFailures = 0;
     uint32_t                 _recoveryGattFailures = 0;
     uint32_t                 _recoveryHandshakeTimeouts = 0;
