@@ -1,0 +1,48 @@
+name: Publish GoPro Startup Test Firmware
+on:
+  workflow_run:
+    workflows: ["Validate FPV CamBuddy"]
+    types: [completed]
+    branches: [test/rc1-gopro-startup-diagnostics]
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: test/rc1-gopro-startup-diagnostics
+      - name: Download latest successful startup firmware
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          run_id=$(gh run list --repo "${{ github.repository }}" --branch test/rc1-gopro-startup-diagnostics --workflow "Validate FPV CamBuddy" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          test -n "$run_id" || { echo "No successful startup diagnostic build"; exit 1; }
+          sha=$(gh run view "$run_id" --repo "${{ github.repository }}" --json headSha --jq .headSha)
+          mkdir -p /tmp/startup-build web/firmware/startup-diagnostics
+          gh run download "$run_id" --repo "${{ github.repository }}" --dir /tmp/startup-build
+          c3=/tmp/startup-build/freeclinker-stage3-esp32c3
+          esp=/tmp/startup-build/freeclinker-stage3-esp32
+          for part in bootloader partitions firmware; do
+            test -s "$c3/$part.bin"
+            test -s "$esp/$part.bin"
+            cp "$c3/$part.bin" "web/firmware/startup-diagnostics/$part-esp32c3supermini.bin"
+            cp "$esp/$part.bin" "web/firmware/startup-diagnostics/$part-esp32dev.bin"
+          done
+          printf '{"source_sha":"%s","run_id":%s}\n' "$sha" "$run_id" > web/firmware/startup-diagnostics/meta.json
+      - name: Publish binaries
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add web/firmware/startup-diagnostics
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish validated GoPro startup diagnostics firmware"
+            git fetch origin test/rc1-gopro-startup-diagnostics
+            git rebase origin/test/rc1-gopro-startup-diagnostics
+            git push origin HEAD:test/rc1-gopro-startup-diagnostics
+          fi
