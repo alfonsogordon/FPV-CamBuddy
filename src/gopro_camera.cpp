@@ -169,6 +169,9 @@ void GoProCamera::startScan() {
     else
         DBG_SERIAL.printf("[BLE] Scanning for GoPro %s...\n", preferred.c_str());
 
+    DBG_SERIAL.printf("[GP-START] scan #%lu at %lu ms (preferred=%s)\n",
+                      (unsigned long)++_startupScans, (unsigned long)millis(),
+                      preferred.empty() ? "none" : preferred.c_str());
     scan->start(BLE_SCAN_DURATION_SECS, scanDoneCallback, false);
 }
 
@@ -192,6 +195,11 @@ void GoProCamera::scanDoneCallback(BLEScanResults /*r*/) {
         return;
     }
 
+    DBG_SERIAL.printf("[GP-START] scan finished: scans=%lu seen=%lu guard_rejected=%lu unknown=%lu\n",
+                      (unsigned long)_instance->_startupScans,
+                      (unsigned long)_instance->_startupSeen,
+                      (unsigned long)_instance->_startupGuardRejected,
+                      (unsigned long)_instance->_startupUnknownFamily);
     if (!_instance->_candidateAddr.empty() && _instance->_matchMode != CAM_MATCH_STRICT) {
         // Preferred camera wasn't seen — fall back to first GoPro found
         DBG_SERIAL.printf("[BLE] Preferred not found — connecting to %s\n",
@@ -238,6 +246,7 @@ void GoProCamera::onResult(BLEAdvertisedDevice device) {
     }
 
     if (!isGoPro) return;
+    ++_startupSeen;
 
     std::string addr = device.getAddress().toString();
     std::string name = device.haveName() ? device.getName() : "GoPro";
@@ -284,11 +293,14 @@ void GoProCamera::onResult(BLEAdvertisedDevice device) {
         }
 
         if (!knownFamily) {
+            ++_startupUnknownFamily;
+            ++_startupGuardRejected;
+            if (mfr.size() >= 4) DBG_SERIAL.printf("[GP-START] unknown family=0x%02X state=0x%02X mfr_len=%u\n", (uint8_t)mfr[2], (uint8_t)mfr[3], (unsigned)mfr.size());
             DBG_SERIAL.printf("[BLE] GoPro \"%s\" uses unknown manufacturer format — not auto-connecting\n",
                               name.c_str());
             return;
         }
-        if (!awake) return;
+        if (!awake) { ++_startupGuardRejected; return; }
     }
 
     if (_matchMode == CAM_MATCH_BEST_SIGNAL && !manualRequest) {
