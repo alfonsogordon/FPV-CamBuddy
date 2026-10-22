@@ -40,3 +40,16 @@ Startup diagnostics is 11 commits ahead of reconnect-stability and zero behind i
 7. Update release notes and test matrix after hardware validation.
 
 No branches have been deleted or merged as part of this audit.
+
+## Deployment dependency discovered in production Pages workflow
+The current `main:.github/workflows/pages.yml` explicitly checks out `v1.0.3`, `gopro-gps-time-test`, `gopro-gps-reconnect-test`, `v1.0.3-rc1`, and `dev-dji-nano-aux-range` to assemble the Pages site. Therefore **do not delete the old GPS branches or duplicate v1.0.3 yet**, despite their contained/identical commit histories: deleting them would break the live Pages deployment until its checkout and staging logic is changed and validated.
+
+The RC1 copy of `pages.yml` is older than `main`; do not replace production workflow with RC1 workflow. The production Pages workflow has separate stable, experimental, RC1, GPS and Nano staging dependencies.
+
+The startup diagnostic publisher pulls the most recent successful validation artifacts and pushes binaries to its test branch; audit the selected artifact SHA before declaring test firmware current.
+
+## Safe sequencing
+1. Make a minimal, isolated change to `main` Pages workflow removing legacy checkout dependencies only after finding all uses of those directories.
+2. Validate deployment and verify existing public URLs and manifests.
+3. Only then archive/remove redundant GPS refs.
+4. Keep RC1 source and stable fallback untouched until GoPro and Nano hardware tests.
