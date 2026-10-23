@@ -1,44 +1,27 @@
-# V1.0.3 staging site
 name: Deploy GitHub Pages
-
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_run:
-    workflows:
-      - Validate FPV CamBuddy
-      - Build V1.0.3 Test Firmware
-    types:
-      - completed
-    branches:
-      - main
-      - experimental
-      - v1.0.3
-      - v1.0.3-rc1
-      - gopro-gps-time-test
-      - gopro-gps-reconnect-test
-      - dev-dji-nano-aux-range
+    workflows: [Validate FPV CamBuddy]
+    types: [completed]
+    branches: [integration/v1.0.3-rc2]
   workflow_dispatch:
-
 permissions:
   contents: read
   actions: read
   pages: write
   id-token: write
-
 concurrency:
   group: pages
   cancel-in-progress: false
-
 jobs:
   deploy:
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -46,343 +29,78 @@ jobs:
           path: stable
       - uses: actions/checkout@v4
         with:
-          ref: experimental
-          path: experiment
-      - uses: actions/checkout@v4
-        with:
-          ref: v1.0.3
-          path: candidate
-      - uses: actions/checkout@v4
-        with:
-          ref: gopro-gps-time-test
-          path: gpstime
-      - uses: actions/checkout@v4
-        with:
-          ref: gopro-gps-reconnect-test
-          path: gpreconnect
-      - uses: actions/checkout@v4
-        with:
-          ref: v1.0.3-rc1
-          path: rc1
-      - uses: actions/checkout@v4
-        with:
-          ref: dev-dji-nano-aux-range
-          path: devnano
-      - uses: actions/configure-pages@v5
-
-      - name: Generate stable V1 site
+          ref: integration/v1.0.3-rc2
+          path: devsrc
+      - name: Generate main site
         working-directory: stable
         run: python3 tools/build_fps_site.py
-
-      - name: Download stable firmware releases
-        working-directory: stable
+      - name: Stage development configurator
         run: |
-          mkdir -p web/firmware
-          tags=$(gh release list --repo ${{ github.repository }} --limit 15 --json tagName --jq '.[].tagName')
-          if [ -z "$tags" ]; then echo "No releases yet, skipping firmware download"; fi
-          for tag in $tags; do
-            mkdir -p "web/firmware/$tag"
-            gh release download "$tag" --repo ${{ github.repository }} --pattern "*.bin" --dir "web/firmware/$tag" --clobber 2>/dev/null || echo "Failed to download assets for $tag, skipping"
-          done
-        env:
-          GH_TOKEN: ${{ github.token }}
-
-      - name: Download latest successful validated main candidate firmware
-        working-directory: stable
-        run: |
-          mkdir -p web/firmware/main-candidate
-          run_id=$(gh run list --repo ${{ github.repository }} --branch main --workflow "Validate FPV CamBuddy" --status success --limit 20 --json databaseId,headSha --jq '.[0].databaseId // empty')
-          test -n "$run_id" || { echo "No successful validated main firmware run found"; exit 1; }
-          cand_sha=$(gh run view "$run_id" --repo ${{ github.repository }} --json headSha --jq '.headSha')
-          echo "Using validated main candidate run $run_id at $cand_sha"
-          rm -rf /tmp/main-artifacts
-          mkdir -p /tmp/main-artifacts
-          gh run download "$run_id" --repo ${{ github.repository }} --dir /tmp/main-artifacts
-          c3=$(find /tmp/main-artifacts -type d -name 'freeclinker-stage3-esp32c3' | head -n1)
-          esp=$(find /tmp/main-artifacts -type d -name 'freeclinker-stage3-esp32' | head -n1)
-          test -n "$c3" -a -n "$esp" || { echo "Validated main firmware artifacts missing"; exit 1; }
-          cp "$c3/bootloader.bin" web/firmware/main-candidate/bootloader-esp32c3supermini.bin
-          cp "$c3/partitions.bin" web/firmware/main-candidate/partitions-esp32c3supermini.bin
-          cp "$c3/firmware.bin" web/firmware/main-candidate/firmware-esp32c3supermini.bin
-          cp "$esp/bootloader.bin" web/firmware/main-candidate/bootloader-esp32dev.bin
-          cp "$esp/partitions.bin" web/firmware/main-candidate/partitions-esp32dev.bin
-          cp "$esp/firmware.bin" web/firmware/main-candidate/firmware-esp32dev.bin
-          printf '{"sha":"%s","run_id":"%s"}\n' "$cand_sha" "$run_id" > web/firmware/main-candidate/meta.json
-        env:
-          GH_TOKEN: ${{ github.token }}
-
-      - name: Generate experimental site
-        working-directory: experiment
-        run: python3 tools/build_fps_site.py
-
-      - name: Stage isolated experimental environment
-        run: |
-          rm -rf stable/web/experimental
-          mkdir -p stable/web/experimental
-          cp -a experiment/web/. stable/web/experimental/
+          mkdir -p stable/web/dev
+          cp devsrc/web/config.html stable/web/dev/config.html
+          cp devsrc/web/*.js stable/web/dev/
+          cp devsrc/web/*.css stable/web/dev/
+          cp devsrc/web/flash.html stable/web/dev/unused-original-flash.html
+          rm stable/web/dev/unused-original-flash.html
           python3 - <<'PY'
           from pathlib import Path
-          root=Path('stable/web/experimental')
-          for p in root.glob('*.html'):
-              s=p.read_text()
-              marker='</body>'
-              extras=[]
-              if p.name == 'config.html' and 'fps-version-check.js' not in s:
-                  extras.append('<script src="fps-version-check.js"></script>')
-              banner='''<script>(()=>{const s=document.createElement("style");s.textContent=".fps-exp-banner{position:sticky;top:0;z-index:99999;background:#f5ff00;color:#101318;text-align:center;font:800 13px/1.25 system-ui,sans-serif;padding:7px 12px;letter-spacing:.04em;border-bottom:1px solid #a8b000;box-shadow:0 0 14px rgba(245,255,0,.24)}";document.head.appendChild(s);const b=document.createElement("div");b.className="fps-exp-banner";b.innerHTML="<strong>EXPERIMENTAL TEST ENVIRONMENT</strong> — development firmware and settings; not the public V1 build";document.body.prepend(b)})();</script>'''
-              if 'EXPERIMENTAL TEST ENVIRONMENT' not in s:
-                  extras.append(banner)
-              if extras and marker in s:
-                  p.write_text(s.replace(marker,'\n'.join(extras)+'\n'+marker))
-          PY
-
-      - name: Download latest successful experimental firmware
-        run: |
-          rm -rf /tmp/exp-artifacts
-          mkdir -p /tmp/exp-artifacts stable/web/experimental/firmware/experimental
-          run_id=$(gh run list --repo ${{ github.repository }} --branch experimental --workflow "Validate FPV CamBuddy" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
-          if [ -n "$run_id" ]; then
-            gh run download "$run_id" --repo ${{ github.repository }} --dir /tmp/exp-artifacts || true
-          fi
-          c3=$(find /tmp/exp-artifacts -type d \( -name 'fpv-cambuddy-stage3-esp32c3' -o -name 'freeclinker-stage3-esp32c3' \) | head -n1)
-          esp=$(find /tmp/exp-artifacts -type d \( -name 'fpv-cambuddy-stage3-esp32' -o -name 'freeclinker-stage3-esp32' \) | head -n1)
-          if [ -z "$c3" ] || [ -z "$esp" ]; then
-            echo "No downloadable experimental validation artifacts; building current experimental branch for Pages staging"
-            python3 -m pip install --user platformio
-            (cd experiment && ~/.local/bin/pio run -e esp32c3supermini -e esp32dev)
-            c3="experiment/.pio/build/esp32c3supermini"
-            esp="experiment/.pio/build/esp32dev"
-          fi
-          cp "$c3/bootloader.bin" stable/web/experimental/firmware/experimental/bootloader-esp32c3supermini.bin
-          cp "$c3/partitions.bin" stable/web/experimental/firmware/experimental/partitions-esp32c3supermini.bin
-          cp "$c3/firmware.bin" stable/web/experimental/firmware/experimental/firmware-esp32c3supermini.bin
-          cp "$esp/bootloader.bin" stable/web/experimental/firmware/experimental/bootloader-esp32dev.bin
-          cp "$esp/partitions.bin" stable/web/experimental/firmware/experimental/partitions-esp32dev.bin
-          cp "$esp/firmware.bin" stable/web/experimental/firmware/experimental/firmware-esp32dev.bin
-        env:
-          GH_TOKEN: ${{ github.token }}
-
-      - name: Make legacy experimental flasher use experimental firmware only
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('stable/web/experimental/flash.html')
+          p=Path('stable/web/dev/config.html')
           s=p.read_text()
-          marker="fetch(GH_API).then"
-          if marker in s:
-              start=s.index(marker)
-              end=s.index("function showPostFlash", start)
-              replacement="""releases=[{tag_name:'experimental',published_at:new Date().toISOString(),html_url:'https://github.com/alfonsogordon/FPV-CamBuddy/tree/experimental'}];versionSelect.innerHTML='<option value=\"experimental\">experimental — latest successful test build</option>';versionSelect.disabled=true;selectRelease(releases[0]);\n"""
-              s=s[:start]+replacement+s[end:]
-              s=s.replace("<h1>Flash Firmware</h1>","<h1>Flash Experimental Firmware</h1>")
-              p.write_text(s)
-          else:
-              print('Standalone experimental flasher detected; leaving its manifest unchanged')
-          PY
-
-      - name: Generate V1.0.3 candidate site
-        working-directory: candidate
-        run: python3 tools/build_fps_site.py
-
-      - name: Stage isolated V1.0.3 test site
-        run: |
-          rm -rf stable/web/v1.0.3
-          mkdir -p stable/web/v1.0.3/firmware
-          cp -a candidate/web/. stable/web/v1.0.3/
-          if [ -f candidate/web/v1.0.3-flash.html ]; then cp candidate/web/v1.0.3-flash.html stable/web/v1.0.3/flash.html; else cp candidate/web/flash.html stable/web/v1.0.3/flash.html; fi
-
-      - name: Download latest successful V1.0.3 test firmware
-        run: |
-          rm -rf /tmp/v103-artifacts
-          mkdir -p /tmp/v103-artifacts
-          run_id=$(gh api "repos/${{ github.repository }}/actions/runs?branch=v1.0.3&status=success&per_page=50" --jq '.workflow_runs[] | select(.name == "Build V1.0.3 Test Firmware") | .id' | head -n1)
-          test -n "$run_id" || { echo "No successful V1.0.3 test build found"; exit 1; }
-          echo "Using V1.0.3 build run $run_id"
-          gh run download "$run_id" --repo ${{ github.repository }} --dir /tmp/v103-artifacts
-          c3=$(find /tmp/v103-artifacts -type d -name 'fpv-cambuddy-v1.0.3-test-esp32c3' | head -n1)
-          esp=$(find /tmp/v103-artifacts -type d -name 'fpv-cambuddy-v1.0.3-test-esp32' | head -n1)
-          test -n "$c3" -a -n "$esp" || { echo "V1.0.3 firmware artifacts missing"; exit 1; }
-          cp "$c3/bootloader.bin" stable/web/v1.0.3/firmware/bootloader-esp32c3supermini.bin
-          cp "$c3/partitions.bin" stable/web/v1.0.3/firmware/partitions-esp32c3supermini.bin
-          cp "$c3/firmware.bin" stable/web/v1.0.3/firmware/firmware-esp32c3supermini.bin
-          cp "$esp/bootloader.bin" stable/web/v1.0.3/firmware/bootloader-esp32dev.bin
-          cp "$esp/partitions.bin" stable/web/v1.0.3/firmware/partitions-esp32dev.bin
-          cp "$esp/firmware.bin" stable/web/v1.0.3/firmware/firmware-esp32dev.bin
-        env:
-          GH_TOKEN: ${{ github.token }}
-
-      - name: Generate GoPro GPS Time test site
-        working-directory: gpstime
-        run: python3 tools/build_fps_site.py
-
-      - name: Build GoPro GPS Time test firmware
-        working-directory: gpstime
-        run: |
-          python3 -m pip install --user platformio
-          ~/.local/bin/pio run -e esp32c3supermini -e esp32dev
-
-      - name: Stage isolated GoPro GPS Time test environment
-        run: |
-          rm -rf stable/web/gopro-gps-time
-          mkdir -p stable/web/gopro-gps-time/firmware/gps-time-test
-          cp -a gpstime/web/. stable/web/gopro-gps-time/
-
-          cp gpstime/.pio/build/esp32c3supermini/bootloader.bin stable/web/gopro-gps-time/firmware/gps-time-test/bootloader-esp32c3supermini.bin
-          cp gpstime/.pio/build/esp32c3supermini/partitions.bin stable/web/gopro-gps-time/firmware/gps-time-test/partitions-esp32c3supermini.bin
-          cp gpstime/.pio/build/esp32c3supermini/firmware.bin stable/web/gopro-gps-time/firmware/gps-time-test/firmware-esp32c3supermini.bin
-          cp gpstime/.pio/build/esp32dev/bootloader.bin stable/web/gopro-gps-time/firmware/gps-time-test/bootloader-esp32dev.bin
-          cp gpstime/.pio/build/esp32dev/partitions.bin stable/web/gopro-gps-time/firmware/gps-time-test/partitions-esp32dev.bin
-          cp gpstime/.pio/build/esp32dev/firmware.bin stable/web/gopro-gps-time/firmware/gps-time-test/firmware-esp32dev.bin
-
-          python3 - <<'PY'
-          from pathlib import Path
-          root=Path('stable/web/gopro-gps-time')
-
-          banner='''<style>
-          .gps-time-banner{position:sticky;top:0;z-index:999999;background:#ffb000;color:#17110a;text-align:center;font:800 12px/1.3 system-ui,sans-serif;padding:8px 12px;border-bottom:1px solid #8b5f00}
-          </style><div class="gps-time-banner">GOPRO GPS TIME SYNC TEST — isolated experimental build for naked GoPro HERO11 clock recovery</div>'''
-          for p in root.glob('*.html'):
-              x=p.read_text()
-              if 'GOPRO GPS TIME SYNC TEST' not in x:
-                  x=x.replace('<body>', '<body>'+banner, 1)
-              x=x.replace('href="https://github.com/alfonsogordon/FPV-CamBuddy"', 'href="https://github.com/alfonsogordon/FPV-CamBuddy/tree/gopro-gps-time-test"')
-              p.write_text(x)
-
-          p=root/'index.html'
-          x=p.read_text()
-          x=x.replace('<title>FPV CamBuddy · by FPSteVe</title>', '<title>FPV CamBuddy — GoPro GPS Time Sync Test</title>')
-          x=x.replace("Never forget to hit record again.<br><span>FPV CamBuddy's got the camera.</span>",
-                      "Naked GoPro lost its clock?<br><span>Let the flight controller set it.</span>")
-          x=x.replace('Automatic action-camera recording, live camera status in the Betaflight OSD and a simple browser configurator — built around the way an FPV quad is actually used.',
-                      'Experimental side build based on V1.0.2 main. It reads Betaflight RTC over MSP after GPS has supplied a valid date/time, then sets the connected GoPro clock over BLE.')
-          x=x.replace('Flash FPV CamBuddy →','Flash GPS Time Test →')
-          x=x.replace('Open Easy Config','Open Test Config')
-          p.write_text(x)
-
-          p=root/'flash.html'
-          x=p.read_text()
-          x=x.replace('<title>FPV CamBuddy · by FPSteVe — Flash Firmware</title>',
-                      '<title>FPV CamBuddy — GoPro GPS Time Sync Test Flasher</title>')
-          x=x.replace('<h1>Flash Firmware</h1>','<h1>Flash GoPro GPS Time Sync Test</h1>')
-          x=x.replace('All releases ↗','Test branch ↗')
-          x=x.replace('https://github.com/alfonsogordon/FPV-CamBuddy/releases',
-                      'https://github.com/alfonsogordon/FPV-CamBuddy/tree/gopro-gps-time-test')
-          start=x.index("Promise.all([fetch(GH_API)")
-          end=x.index("function showPostFlash", start)
-          replacement="""releases=[{tag_name:'gps-time-test',display_name:'GoPro GPS Time Sync Test',published_at:new Date().toISOString(),html_url:'https://github.com/alfonsogordon/FPV-CamBuddy/tree/gopro-gps-time-test',is_candidate:true,sha:'branch'}];
-          versionSelect.innerHTML='<option value="gps-time-test">GoPro GPS Time Sync Test — isolated branch build</option>';
-          versionSelect.disabled=true;
-          selectRelease(releases[0]);
-          """
-          x=x[:start]+replacement+x[end:]
-          p.write_text(x)
-          PY
-
-      - name: Build GoPro reconnect recovery test firmware
-        working-directory: gpreconnect
-        run: |
-          python3 -m pip install --user platformio
-          ~/.local/bin/pio run -e esp32c3supermini -e esp32dev
-
-      - name: Add reconnect recovery build to GPS Time flasher
-        run: |
-          mkdir -p stable/web/gopro-gps-time/firmware/gps-reconnect-test
-          cp gpreconnect/.pio/build/esp32c3supermini/bootloader.bin stable/web/gopro-gps-time/firmware/gps-reconnect-test/bootloader-esp32c3supermini.bin
-          cp gpreconnect/.pio/build/esp32c3supermini/partitions.bin stable/web/gopro-gps-time/firmware/gps-reconnect-test/partitions-esp32c3supermini.bin
-          cp gpreconnect/.pio/build/esp32c3supermini/firmware.bin stable/web/gopro-gps-time/firmware/gps-reconnect-test/firmware-esp32c3supermini.bin
-          cp gpreconnect/.pio/build/esp32dev/bootloader.bin stable/web/gopro-gps-time/firmware/gps-reconnect-test/bootloader-esp32dev.bin
-          cp gpreconnect/.pio/build/esp32dev/partitions.bin stable/web/gopro-gps-time/firmware/gps-reconnect-test/partitions-esp32dev.bin
-          cp gpreconnect/.pio/build/esp32dev/firmware.bin stable/web/gopro-gps-time/firmware/gps-reconnect-test/firmware-esp32dev.bin
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('stable/web/gopro-gps-time/flash.html')
-          s=p.read_text()
-          marker="releases=[{tag_name:'gps-time-test'"
-          start=s.find(marker)
-          end=s.find("function showPostFlash", start)
-          if start < 0 or end < 0:
-              raise SystemExit('GPS static flasher release block not found')
-          new="""releases=[
-            {tag_name:'gps-time-test',display_name:'GPS Time Test — current proven build',published_at:new Date().toISOString(),html_url:'https://github.com/alfonsogordon/FPV-CamBuddy/tree/gopro-gps-time-test',is_candidate:true,sha:'gps-time'},
-            {tag_name:'gps-reconnect-test',display_name:'GPS Time + GoPro Reconnect Recovery Test',published_at:new Date().toISOString(),html_url:'https://github.com/alfonsogordon/FPV-CamBuddy/tree/gopro-gps-reconnect-test',is_candidate:true,sha:'gps-reconnect'}
-          ];
-          versionSelect.innerHTML='<option value="gps-time-test">GPS Time Test — current proven build</option><option value="gps-reconnect-test">GPS Time + GoPro Reconnect Recovery Test</option>';
-          versionSelect.disabled=false;
-          versionSelect.onchange=()=>selectRelease(releases.find(r=>r.tag_name===versionSelect.value)||releases[0]);
-          selectRelease(releases[0]);
-          """
-          s=s[:start]+new+s[end:]
+          s=s.replace('</body>', '<div style="position:fixed;bottom:0;left:0;right:0;padding:6px;background:#452d05;color:#fff;text-align:center;z-index:99999;font:700 12px system-ui">DEVELOPMENT CONFIGURATOR — experimental firmware</div></body>')
           p.write_text(s)
           PY
-
-      - name: Publish validated v1.0.3 RC1 firmware and firmware-aware configurator
-        run: |
-          set -eu
-          (cd rc1 && python3 tools/build_fps_site.py)
-          mkdir -p stable/web/firmware/v1.0.3-rc1
-          run_id=$(gh run list --repo ${{ github.repository }} --branch v1.0.3-rc1 --workflow "Validate FPV CamBuddy" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
-          test -n "$run_id" || { echo "No successful RC1 validation"; exit 1; }
-          rm -rf /tmp/rc1-artifacts
-          mkdir -p /tmp/rc1-artifacts
-          gh run download "$run_id" --repo ${{ github.repository }} --dir /tmp/rc1-artifacts
-          c3=$(find /tmp/rc1-artifacts -type d -name 'freeclinker-stage3-esp32c3' | head -n1)
-          esp=$(find /tmp/rc1-artifacts -type d -name 'freeclinker-stage3-esp32' | head -n1)
-          test -n "$c3" -a -n "$esp" || { echo "RC1 artifacts missing"; exit 1; }
-          for pair in "esp32c3supermini:$c3" "esp32dev:$esp"; do
-            target=${pair%%:*}; source=${pair#*:}
-            for name in firmware bootloader partitions; do
-              cp "$source/$name.bin" "stable/web/firmware/v1.0.3-rc1/$name-$target.bin"
-            done
-          done
-          for name in config.html fps-ui-rebuild.js fps-demo-v1.js fps-integrated-preview.js fps-stage3-parity.js fps-autosync.js fps-theme.css fps-osd-cleanup.css fps-home-updates.js osd-preview-bg.jpg; do
-            cp "rc1/web/$name" "stable/web/$name"
-          done
-          # Preserve the production homepage, including its current feature sections.
-          # RC1 configurator assets are staged above, but RC1 must not overwrite index.html.
-
+      - name: Download stable release binaries
+        working-directory: stable
         env:
           GH_TOKEN: ${{ github.token }}
-
-      - name: Stage isolated Nano + AUX development test site
         run: |
-          set -eu
-          mkdir -p stable/web/dev-nano/firmware/dev-nano
-          for name in config.html fps-ui-rebuild.js fps-demo-v1.js fps-integrated-preview.js fps-stage3-parity.js fps-autosync.js fps-theme.css fps-osd-cleanup.css fps-home-updates.js osd-preview-bg.jpg; do
-            cp "devnano/web/$name" "stable/web/dev-nano/$name"
+          mkdir -p web/firmware
+          gh release list --repo "${{ github.repository }}" --limit 40 --json tagName,isPrerelease,isDraft --jq '.[] | select(.isPrerelease == false and .isDraft == false) | .tagName' | while read -r tag; do
+            if echo "$tag" | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+$'; then
+              mkdir -p "web/firmware/$tag"
+              gh release download "$tag" --repo "${{ github.repository }}" --pattern '*.bin' --dir "web/firmware/$tag" --clobber
+            fi
           done
-          cp devnano/web/dev-nano-flash.html stable/web/dev-nano/flash.html
-          run_id=$(gh run list --repo ${{ github.repository }} --branch dev-dji-nano-aux-range --workflow "Validate FPV CamBuddy" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
-          test -n "$run_id" || { echo "No validated Nano dev firmware"; exit 1; }
-          rm -rf /tmp/devnano-artifacts
-          mkdir -p /tmp/devnano-artifacts
-          gh run download "$run_id" --repo ${{ github.repository }} --dir /tmp/devnano-artifacts
-          c3=$(find /tmp/devnano-artifacts -type d -name freeclinker-stage3-esp32c3 | head -n1)
-          esp=$(find /tmp/devnano-artifacts -type d -name freeclinker-stage3-esp32 | head -n1)
-          test -n "$c3" -a -n "$esp" || { echo "Nano dev artifacts missing"; exit 1; }
-          for pair in "esp32c3supermini:$c3" "esp32dev:$esp"; do
-            target=${pair%%:*}; source=${pair#*:}
-            for name in firmware bootloader partitions; do
-              cp "$source/$name.bin" "stable/web/dev-nano/firmware/dev-nano/$name-$target.bin"
-            done
-          done
-          printf '%s\\n' "$run_id" > stable/web/dev-nano/firmware/dev-nano/build-run.txt
+      - name: Stage validated development firmware versions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
           python3 - <<'PY'
           from pathlib import Path
-          root=Path('stable/web/dev-nano')
-          banner='<div style="background:#ffb000;color:#161616;text-align:center;padding:10px;font:800 13px system-ui">EXPERIMENTAL DJI NANO + AUX RANGE TEST — NOT PUBLIC RC1</div>'
-          for name in ('flash.html','config.html'):
-              p=root/name
-              s=p.read_text().replace('<body>','<body>'+banner,1)
-              s=s.replace('href="index.html"','href="config.html"')
-              p.write_text(s)
+          Path('stable/web/dev/firmware').mkdir(parents=True,exist_ok=True)
           PY
-        env:
-          GH_TOKEN: ${{ github.token }}
-
+          for branch in integration/v1.0.3-rc2 v1.0.3-rc1; do
+            if [ "$branch" = integration/v1.0.3-rc2 ]; then version=rc2; else version=rc1; fi
+            run_id=$(gh run list --repo "${{ github.repository }}" --branch "$branch" --workflow "Validate FPV CamBuddy" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+            if [ -z "$run_id" ]; then echo "No successful build for $branch"; continue; fi
+            mkdir -p "/tmp/dev-$version" "stable/web/dev/firmware/$version"
+            gh run download "$run_id" --repo "${{ github.repository }}" --dir "/tmp/dev-$version"
+            for board in esp32c3 esp32; do
+              src="/tmp/dev-$version/freeclinker-stage3-$board"
+              test -f "$src/firmware.bin" || { echo "Missing $board firmware for $branch"; exit 1; }
+              if [ "$board" = esp32c3 ]; then target=esp32c3supermini; else target=esp32dev; fi
+              for part in bootloader partitions firmware; do
+                cp "$src/$part.bin" "stable/web/dev/firmware/$version/$part-$target.bin"
+              done
+            done
+            sha=$(gh run view "$run_id" --repo "${{ github.repository }}" --json headSha --jq .headSha)
+            printf '%s|%s|%s\n' "$version" "$sha" "$run_id" >> /tmp/dev-versions.txt
+          done
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('/tmp/dev-versions.txt')
+          entries=[]
+          if p.exists():
+              for line in p.read_text().splitlines():
+                  version,sha,run_id=line.split('|')
+                  entries.append(dict(tag_name=version,display_name='v1.0.3 '+version.upper()+' — validated build',sha=sha,published_at='GitHub Actions run '+run_id,html_url='https://github.com/alfonsogordon/FPV-CamBuddy/actions/runs/'+run_id,is_candidate=True))
+          if not entries: raise SystemExit('No validated development builds found')
+          Path('stable/web/dev/firmware/versions.json').write_text(json.dumps(entries))
+          PY
+      - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: stable/web/
-
-      - uses: actions/deploy-pages@v4
-        id: deploy
-
+          path: stable/web
+      - id: deployment
+        uses: actions/deploy-pages@v4
