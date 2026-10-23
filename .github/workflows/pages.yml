@@ -40,6 +40,7 @@ jobs:
           cp devsrc/web/config.html stable/web/dev/config.html
           cp devsrc/web/*.js stable/web/dev/
           cp devsrc/web/*.css stable/web/dev/
+          find devsrc/web -maxdepth 1 -type f \\( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.svg" -o -name "*.webp" -o -name "*.json" \\) -exec cp {} stable/web/dev/ \\;
           python3 - <<'PY'
           from pathlib import Path
           p=Path('stable/web/dev/config.html')
