@@ -9,6 +9,7 @@ on:
       - gopro-gps-reconnect-test
       - v1.0.3-rc1
       - dev-dji-nano-aux-range
+      - integration/v1.0.3-rc2
   workflow_dispatch:
 
 permissions:
