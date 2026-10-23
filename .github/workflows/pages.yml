@@ -86,7 +86,7 @@ jobs:
                 cp "$src/$part.bin" "stable/web/dev/firmware/$build_version/$part-$target.bin"
               done
             done
-            printf '%s|%s|%s\n' "$version" "$sha" "$run_id" >> /tmp/dev-versions.txt
+            printf '%s|%s|%s\n' "$build_version" "$sha" "$run_id" >> /tmp/dev-versions.txt
           done
           python3 - <<'PY'
           import json
