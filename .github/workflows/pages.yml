@@ -73,17 +73,19 @@ jobs:
             if [ "$branch" = integration/v1.0.3-rc2 ]; then version=rc2; else version=rc1; fi
             run_id=$(gh run list --repo "${{ github.repository }}" --branch "$branch" --workflow "Validate FPV CamBuddy" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
             if [ -z "$run_id" ]; then echo "No successful build for $branch"; continue; fi
-            mkdir -p "/tmp/dev-$version" "stable/web/dev/firmware/$version"
+            mkdir -p "/tmp/dev-$version"
             gh run download "$run_id" --repo "${{ github.repository }}" --dir "/tmp/dev-$version"
+            sha=$(gh run view "$run_id" --repo "${{ github.repository }}" --json headSha --jq .headSha)
+            build_version="$version-${sha:0:8}"
+            mkdir -p "stable/web/dev/firmware/$build_version"
             for board in esp32c3 esp32; do
               src="/tmp/dev-$version/freeclinker-stage3-$board"
               test -f "$src/firmware.bin" || { echo "Missing $board firmware for $branch"; exit 1; }
               if [ "$board" = esp32c3 ]; then target=esp32c3supermini; else target=esp32dev; fi
               for part in bootloader partitions firmware; do
-                cp "$src/$part.bin" "stable/web/dev/firmware/$version/$part-$target.bin"
+                cp "$src/$part.bin" "stable/web/dev/firmware/$build_version/$part-$target.bin"
               done
             done
-            sha=$(gh run view "$run_id" --repo "${{ github.repository }}" --json headSha --jq .headSha)
             printf '%s|%s|%s\n' "$version" "$sha" "$run_id" >> /tmp/dev-versions.txt
           done
           python3 - <<'PY'
@@ -94,7 +96,7 @@ jobs:
           if p.exists():
               for line in p.read_text().splitlines():
                   version,sha,run_id=line.split('|')
-                  entries.append(dict(tag_name=version,display_name='v1.0.3 '+version.upper()+' — validated build',sha=sha,published_at='GitHub Actions run '+run_id,html_url='https://github.com/alfonsogordon/FPV-CamBuddy/actions/runs/'+run_id,is_candidate=True))
+                  entries.append(dict(tag_name=version,display_name='v1.0.3 '+version.split('-')[0].upper()+' — '+sha[:8]+' (validated)',sha=sha,published_at='GitHub Actions run '+run_id,html_url='https://github.com/alfonsogordon/FPV-CamBuddy/actions/runs/'+run_id,is_candidate=True))
           if not entries: raise SystemExit('No validated development builds found')
           Path('stable/web/dev/firmware/versions.json').write_text(json.dumps(entries))
           PY
