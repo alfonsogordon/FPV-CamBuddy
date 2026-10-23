@@ -612,6 +612,9 @@ void WebConfigServer::handleGetConfig() {
     d["aux_mode"] = c.auxMode;
     d["profile_aux"] = c.profileAuxChannel;
     d["record_aux"] = c.recordAuxChannel;
+    d["record_min"] = c.recordAuxMin;
+    d["record_max"] = c.recordAuxMax;
+    d["nano_no_wake"] = c.nanoNoWake;
     d["profile_low"] = c.profileLow;
     d["profile_mid"] = c.profileMid;
     d["profile_high"] = c.profileHigh;
@@ -693,6 +696,13 @@ void WebConfigServer::handlePostConfig() {
     if (d["aux_mode"].is<int>()) _cfg->setAuxMode(d["aux_mode"].as<uint8_t>());
     if (d["profile_aux"].is<int>()) _cfg->setProfileAuxChannel(d["profile_aux"].as<uint8_t>());
     if (d["record_aux"].is<int>()) _cfg->setRecordAuxChannel(d["record_aux"].as<uint8_t>());
+    if (d["record_min"].is<int>() && d["record_max"].is<int>()) {
+        const int lo = d["record_min"].as<int>();
+        const int hi = d["record_max"].as<int>();
+        if (lo < 800 || hi > 2200 || lo > hi) { _server.send(400, "text/plain", "Invalid recording AUX PWM range"); return; }
+        _cfg->setRecordAuxRange(static_cast<uint16_t>(lo), static_cast<uint16_t>(hi));
+    }
+    if (d["nano_no_wake"].is<bool>()) _cfg->setNanoNoWake(d["nano_no_wake"].as<bool>());
     if (d["profile_low"].is<uint32_t>()) _cfg->setProfileId(0, d["profile_low"].as<uint32_t>());
     if (d["profile_mid"].is<uint32_t>()) _cfg->setProfileId(1, d["profile_mid"].as<uint32_t>());
     if (d["profile_high"].is<uint32_t>()) _cfg->setProfileId(2, d["profile_high"].as<uint32_t>());
@@ -706,6 +716,9 @@ void WebConfigServer::handlePostConfig() {
     if (d["advanced_dbm"].is<int>()) _cfg->setAdvancedPowerDbm(d["advanced_dbm"].as<int8_t>());
     if (d["wifi_ap_enabled"].is<bool>()) _cfg->setWifiApEnabled(d["wifi_ap_enabled"].as<bool>());
     if (d["wifi_ap_delay"].is<int>()) _cfg->setWifiApStartDelay(d["wifi_ap_delay"].as<uint32_t>());
+    if (d["gopro_gps_time"].is<bool>()) _cfg->setGoProGpsTimeSync(d["gopro_gps_time"].as<bool>());
+    if (d["gopro_tz_mode"].is<int>()) _cfg->setGoProTimezoneMode(d["gopro_tz_mode"].as<uint8_t>());
+    if (d["gopro_tz_offset"].is<int>()) _cfg->setGoProTimezoneOffsetMin(d["gopro_tz_offset"].as<int16_t>());
     if (d["osd1"].is<const char*>()) _cfg->setOsdTemplate(1, d["osd1"].as<const char*>());
     if (d["osd2"].is<const char*>()) _cfg->setOsdTemplate(2, d["osd2"].as<const char*>());
     if (d["osd3"].is<const char*>()) _cfg->setOsdTemplate(3, d["osd3"].as<const char*>());
@@ -768,6 +781,16 @@ void WebConfigServer::handlePostConfig() {
     checkBool("stop_on_disarm", c.stopOnDisarm);
     checkInt("aux_channel", c.auxChannel);
     checkInt("aux_mode", c.auxMode);
+    checkInt("record_min", c.recordAuxMin);
+    checkInt("record_max", c.recordAuxMax);
+    checkBool("nano_no_wake", c.nanoNoWake);
+    checkInt("profile_aux", c.profileAuxChannel);
+    checkInt("record_aux", c.recordAuxChannel);
+    checkInt("profile_low", c.profileLow);
+    checkInt("profile_mid", c.profileMid);
+    checkInt("profile_high", c.profileHigh);
+    checkBool("profile_osd", c.profileOsdEnabled);
+    checkInt("profile_osd_dest", c.profileOsdTarget);
     checkInt("camera_match", c.cameraMatchMode);
     checkBool("wake_guard", c.cameraWakeGuard);
     checkBool("debug_ble", c.debugBle);
@@ -776,6 +799,9 @@ void WebConfigServer::handlePostConfig() {
     checkInt("advanced_dbm", c.advancedPowerDbm);
     checkBool("wifi_ap_enabled", c.wifiApEnabled);
     checkInt("wifi_ap_delay", c.wifiApStartDelaySec);
+    checkBool("gopro_gps_time", c.goproGpsTimeSync);
+    checkInt("gopro_tz_mode", c.goproTimezoneMode);
+    if (d["gopro_tz_offset"].is<int>() && d["gopro_tz_offset"].as<int>() != c.goproTimezoneOffsetMin) fail("gopro_tz_offset");
     checkStr("osd1", c.osd1Tpl);
     checkStr("osd2", c.osd2Tpl);
     checkStr("osd3", c.osd3Tpl);

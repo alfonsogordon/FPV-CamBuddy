@@ -392,6 +392,7 @@ void setup() {
     // sleep/awake advertisement format), but it's harmless to set on all.
     const bool wakeGuard = configManager.config().cameraWakeGuard;
     djiCamera.setWakeGuard(wakeGuard);
+    djiCamera.setNanoNoWake(configManager.config().nanoNoWake);
     goProCamera.setWakeGuard(wakeGuard);
     sonyCamera.setWakeGuard(wakeGuard);
     blackmagicCamera.setWakeGuard(wakeGuard);
@@ -432,6 +433,7 @@ void loop() {
     configManager.update();
     mspSerial.setAuxChannel(configManager.config().auxChannel);
     mspSerial.setProfileAuxChannel(configManager.config().profileAuxChannel);
+    mspSerial.setRecordAuxRange(configManager.config().recordAuxMin, configManager.config().recordAuxMax);
     mspSerial.setRecordAuxChannel(configManager.config().recordAuxChannel);
 
     // Configuration mode owns the C3 radio until reboot. Do not let any camera

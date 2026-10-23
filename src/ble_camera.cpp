@@ -246,6 +246,39 @@ void BLECamera::onResult(BLEAdvertisedDevice device) {
 
     if (!isDJI) return;
 
+    // Passive Nano diagnostics: record advertising bytes BEFORE the no-wake guard
+    // and before any BLE connection attempt. Enable with 'set debug_ble 1'.
+    // Throttle output so continuous advertising cannot overwhelm serial logs.
+    if (isNano && _debugBle) {
+        // Record transitions as well as periodic samples: a 1.5-second
+        // throttle alone can hide a short-lived awake advertisement.
+        static std::string lastNanoAdv;
+        static uint32_t lastNanoAdvLogMs = 0;
+        const uint32_t now = millis();
+        const std::string raw = device.haveManufacturerData()
+            ? device.getManufacturerData() : std::string();
+        const std::string name = device.haveName()
+            ? device.getName() : std::string("(none)");
+        const std::string addr = device.getAddress().toString();
+        std::string fingerprint = addr + "|" + name + "|" + raw;
+        if (fingerprint != lastNanoAdv ||
+            lastNanoAdvLogMs == 0 || now - lastNanoAdvLogMs >= 1500) {
+            lastNanoAdv = fingerprint;
+            lastNanoAdvLogMs = now;
+            DBG_SERIAL.printf("[NANO_ADV] ms=%lu addr=%s rssi=%d name=%s mfr=",
+                              static_cast<unsigned long>(now), addr.c_str(),
+                              device.getRSSI(), name.c_str());
+            for (size_t i = 0; i < raw.size(); ++i)
+                DBG_SERIAL.printf("%02X", static_cast<unsigned char>(raw[i]));
+            DBG_SERIAL.printf(" len=%u no_wake=%u\\n",
+                              static_cast<unsigned>(raw.size()), _nanoNoWake ? 1 : 0);
+        }
+    }
+
+    // Experimental safety-first mode: the Nano advertises even while asleep.
+    // Until an awake-only advertisement marker is validated, never connect.
+    if (isNano && _nanoNoWake) return;
+
     std::string addr = device.getAddress().toString();
     std::string name = device.haveName() ? device.getName() :
                        (isNano ? "DJI Osmo Nano" : "DJI Action");
@@ -549,9 +582,52 @@ void BLECamera::handleNanoDuml(const NanoDumlFrame &f) {
     DBG_SERIAL.printf("[Nano] DUML RX %02X/%02X flags=0x%02X id=0x%04X payload=%uB\n",
                       f.cmdSet, f.cmdId, f.flags, f.id, f.payloadLen);
 
+    // Diagnostic only: capture video-format responses/notifications for comparison
+    // with external DJI protocol research. Do not interpret Pocket 3 format
+    // codes as Nano values or issue unverified setters.
+    if (_debugBle && f.cmdSet == 0x02 && f.cmdId == 0x18 && f.payload) {
+        DBG_SERIAL.printf("[NANO_FORMAT] ms=%lu flags=0x%02X len=%u raw=",
+                          static_cast<unsigned long>(millis()),
+                          static_cast<unsigned>(f.flags),
+                          static_cast<unsigned>(f.payloadLen));
+        const uint16_t n = f.payloadLen < 48 ? f.payloadLen : 48;
+        for (uint16_t i = 0; i < n; ++i) DBG_SERIAL.printf("%02X", f.payload[i]);
+        if (f.payloadLen > n) DBG_SERIAL.print("...");
+        DBG_SERIAL.println();
+    }
+
+    // Passive capture of camera-parameter replies, without sending requests.
+    // DJI command 02/8E is used for keyed camera parameters on other models;
+    // Nano layout is not established. Keep data raw until hardware verified.
+    if (_debugBle && f.cmdSet == 0x02 && f.cmdId == 0x8E && f.payload) {
+        DBG_SERIAL.printf("[NANO_PARAM] ms=%lu flags=0x%02X len=%u raw=",
+                          static_cast<unsigned long>(millis()),
+                          static_cast<unsigned>(f.flags),
+                          static_cast<unsigned>(f.payloadLen));
+        const uint16_t n = f.payloadLen < 48 ? f.payloadLen : 48;
+        for (uint16_t i = 0; i < n; ++i) DBG_SERIAL.printf("%02X", f.payload[i]);
+        if (f.payloadLen > n) DBG_SERIAL.print("...");
+        DBG_SERIAL.println();
+    }
+
     // Native Nano camera-status push (GetPushStateInfo), hardware-captured at ~10 Hz.
     // Layout is documented from real Mimo/Nano captures.
     if (f.cmdSet == 0x02 && f.cmdId == 0x80 && f.payload && f.payloadLen >= 58) {
+        // Native Nano status uses DUML 02/80, not the Action-camera
+        // handleCameraStatus() path. Log changes only to avoid 10 Hz floods.
+        if (_debugBle && f.payloadLen <= 80) {
+            static uint8_t previous[80] = {};
+            static uint16_t previousLen = 0;
+            if (f.payloadLen != previousLen ||
+                memcmp(previous, f.payload, f.payloadLen) != 0) {
+                DBG_SERIAL.printf("[NANO_STATUS] ms=%lu mode=0x%02X flags=0x%08lX remain_s=%u len=%u raw=", static_cast<unsigned long>(millis()), static_cast<unsigned>(f.payload[57]), static_cast<unsigned long>(nanoLe32(f.payload)), static_cast<unsigned>(nanoLe16(f.payload + 17)), static_cast<unsigned>(f.payloadLen));
+                for (uint16_t i = 0; i < f.payloadLen; ++i)
+                    DBG_SERIAL.printf("%02X", f.payload[i]);
+                DBG_SERIAL.println();
+                memcpy(previous, f.payload, f.payloadLen);
+                previousLen = f.payloadLen;
+            }
+        }
         const uint32_t stateFlags = nanoLe32(f.payload + 0);
         const bool recording = (stateFlags & 0x00000080UL) != 0;
         const uint8_t mode = f.payload[57];
@@ -1061,6 +1137,14 @@ void BLECamera::handleCameraStatus(const uint8_t *payload, uint16_t len) {
 
     const uint8_t mode = payload[0];
     const uint8_t status = payload[1];
+    // Diagnostic only: log raw status bytes to establish Nano-specific field
+    // offsets before changing resolution/FPS/EIS mappings. No protocol guesses.
+    if (_isOsmoNano && _debugBle) {
+        DBG_SERIAL.printf("[NANO_STATUS] len=%u raw=", static_cast<unsigned>(len));
+        for (uint16_t i = 0; i < len; ++i)
+            DBG_SERIAL.printf("%02X", payload[i]);
+        DBG_SERIAL.println();
+    }
     const uint8_t videoResolution = payload[2];
     const uint8_t fpsCode = payload[3];
     const uint8_t eisMode = payload[4];

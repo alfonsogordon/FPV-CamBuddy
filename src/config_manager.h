@@ -19,6 +19,8 @@ public:
         uint8_t auxMode;
         uint8_t profileAuxChannel;
         uint8_t recordAuxChannel;  // 0=ARM state (default), 1-12=AUX trigger
+        uint16_t recordAuxMin;
+        uint16_t recordAuxMax;
         uint32_t profileLow;
         uint32_t profileMid;
         uint32_t profileHigh;
@@ -30,6 +32,7 @@ public:
         uint8_t cameraType;
         uint8_t cameraMatchMode;
         bool cameraWakeGuard;
+        bool nanoNoWake;
         bool debugBle;
         bool lowPowerMode;
         bool advancedPowerMode;
@@ -153,12 +156,14 @@ public:
     void setAuxMode(uint8_t mode);
     void setProfileAuxChannel(uint8_t ch);
     void setRecordAuxChannel(uint8_t ch);
+    void setRecordAuxRange(uint16_t minUs, uint16_t maxUs);
     void setProfileId(uint8_t position, uint32_t id);
     void setProfileName(uint8_t position, const char *name);
     void setProfileOsdEnabled(bool enabled);
     void setProfileOsdTarget(uint8_t target);
     void setCameraMatchMode(uint8_t v);
     void setCameraWakeGuard(bool v);
+    void setNanoNoWake(bool v);
     void setDebugBle(bool v);
     void setLowPowerMode(bool v);
     void setAdvancedPowerMode(bool v);

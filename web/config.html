@@ -420,6 +420,12 @@
         </label>
       </div>
 
+      <!-- Experimental Nano guard: prevents all Nano BLE connections, even if awake. -->
+      <div class="cfg-field">
+        <div class="cfg-field-text"><div class="cfg-field-name">DJI Nano: never wake (experimental)</div><div class="cfg-field-desc">When enabled, CamBuddy will not connect to an Osmo Nano, even if it is already awake. Turn OFF to control the Nano. This is not GoPro-style awake detection.</div></div>
+        <label class="switch"><input type="checkbox" id="nanoNoWake" disabled><span class="track"><span class="thumb"></span></span></label>
+      </div>
+
       <!-- Stop on disarm -->
       <div class="cfg-field">
         <div class="cfg-field-text">
@@ -593,6 +599,9 @@
           <option value="9">AUX 9</option><option value="10">AUX 10</option><option value="11">AUX 11</option><option value="12">AUX 12</option>
         </select>
       </div>
+
+      <div class="cfg-field"><div class="cfg-field-text"><div class="cfg-field-name">Recording AUX position / PWM range</div><div class="cfg-field-desc">HIGH: 1501-2100 (original behaviour); MID: 1300-1700; LOW: 800-1299; or enter a custom range. This only applies when recording trigger is AUX.</div></div><select id="recordRangePreset" disabled><option value="high">HIGH (default)</option><option value="mid">MID (1300-1700)</option><option value="low">LOW (800-1299)</option><option value="custom">Custom PWM</option></select></div>
+      <div class="cfg-field"><div class="cfg-field-text"><div class="cfg-field-name">Custom PWM minimum / maximum (microseconds)</div></div><div class="num-wrap"><input type="number" id="recordRangeMin" min="800" max="2200" value="1501" disabled><input type="number" id="recordRangeMax" min="800" max="2200" value="2100" disabled></div></div>
 
       <!-- Legacy two-position camera-mode controls are retained hidden for
            backwards-compatible reads/CLI handling, but are no longer part of Easy Config. -->
@@ -832,6 +841,7 @@ const caddxSavedMsg     = document.getElementById('caddxSavedMsg');
 const stopToggle          = document.getElementById('stopOnDisarm');
 const cameraMatchSel      = document.getElementById('cameraMatch');
 const wakeGuardToggle     = document.getElementById('wakeGuard');
+const nanoNoWakeToggle = document.getElementById('nanoNoWake');
 const debugBleToggle      = document.getElementById('debugBle');
 const lowPowerToggle      = document.getElementById('lowPower');
 const advancedPowerToggle = document.getElementById('advancedPower');
@@ -866,6 +876,15 @@ const auxApplyBtn    = document.getElementById('auxApplyBtn');
 const auxSavedMsg    = document.getElementById('auxSavedMsg');
 const profileAuxSel = document.getElementById('profileAux');
 const recordAuxSel = document.getElementById('recordAux');
+const recordRangePreset = document.getElementById('recordRangePreset');
+const recordRangeMin = document.getElementById('recordRangeMin');
+const recordRangeMax = document.getElementById('recordRangeMax');
+let recordingRangeSaveInProgress = false;
+for (const field of [recordRangeMin, recordRangeMax]) field.addEventListener('input', () => { recordRangePreset.value = 'custom'; });
+recordRangePreset.addEventListener('change', () => {
+  const ranges = {high:[1501,2100],mid:[1300,1700],low:[800,1299]};
+  if (ranges[recordRangePreset.value]) [recordRangeMin.value,recordRangeMax.value] = ranges[recordRangePreset.value];
+});
 const profileLowInput = document.getElementById('profileLow');
 const profileMidInput = document.getElementById('profileMid');
 const profileHighInput = document.getElementById('profileHigh');
@@ -1038,6 +1057,9 @@ function parseConfigLine(line) {
   } else if (key === 'aux_mode') {
     // "0x0A" — parseInt auto-detects 0x prefix
     auxModeSel.value = parseInt(val).toString();
+  } else if (key === 'record_range') {
+    const m = val.match(/(\d+)\s*-\s*(\d+)/);
+    if(m && !recordingRangeSaveInProgress) { recordRangeMin.value=m[1];recordRangeMax.value=m[2]; const range=`${m[1]}-${m[2]}`;recordRangePreset.value=({'1501-2100':'high','1300-1700':'mid','800-1299':'low'})[range] || 'custom'; }
   } else if (key === 'record_trigger') {
     if (val === 'ARM') recordAuxSel.value='0'; else { const ch=val.match(/AUX(\d+)/); if(ch) recordAuxSel.value=ch[1]; }
   } else if (key === 'profile_aux') {
@@ -1055,6 +1077,8 @@ function parseConfigLine(line) {
     cameraMatchSel.value = CAMERA_MATCH_VALUES[val] ?? '0';
   } else if (key === 'wake_guard') {
     wakeGuardToggle.checked = (val === 'true');
+  } else if (key === 'nano_no_wake') {
+    nanoNoWakeToggle.checked = (val === 'true');
   } else if (key === 'debug_ble') {
     debugBleToggle.checked = (val === 'true');
   } else if (key === 'low_power') {
@@ -1288,12 +1312,25 @@ applyBtn.addEventListener('click', async () => {
   const debugBle   = debugBleToggle.checked ? 1 : 0;
   const lowPower   = (advancedPowerToggle.checked ? savedLowPowerState : lowPowerToggle.checked) ? 1 : 0;
   const [tzMode,tzOffset] = goproTimezoneSel.value.split(':').map(Number);
+  const recMin = Number(recordRangeMin.value), recMax = Number(recordRangeMax.value);
+  if (!Number.isInteger(recMin) || !Number.isInteger(recMax) || recMin < 800 || recMax > 2200 || recMin > recMax) {
+    alert('Recording PWM range must be 800-2200, minimum no greater than maximum');
+    return;
+  }
+  // Recording range lives alongside the main camera controls. Save it from
+  // the main Apply button too; previously only the separate Profile Apply
+  // wrote it, so users could change MID/custom and see HIGH after reconnect.
+  const recChannel = recordAuxSel.value;
+  recordingRangeSaveInProgress = true;
   applyBtn.disabled = true;
   try {
     const cmds = [
+      `set record_range ${recMin} ${recMax}`,
+      `set record_aux ${recChannel}`,
       `set camera_type ${cameraTypeSel.value}`,
       `set camera_match ${cameraMatchSel.value}`,
       `set wake_guard ${wakeGuard}`,
+      `set nano_no_wake ${nanoNoWakeToggle.checked ? 1 : 0}`,
       `set debug_ble ${debugBle}`,
       `set low_power ${lowPower}`,
       `set advanced_power ${advancedPowerToggle.checked ? 1 : 0}`,
@@ -1307,12 +1344,14 @@ applyBtn.addEventListener('click', async () => {
       `set stop_on_disarm ${stop}`
     ];
     for (const cmd of cmds) await sendCommandAck(cmd);
+    await sendCommand('show');
     flashSaved(savedMsg);
   } catch (e) {
     log('Save stopped: ' + e.message, 'err');
     savedMsg.textContent = 'Save failed — check CLI';
     savedMsg.style.opacity = '1';
   } finally {
+    recordingRangeSaveInProgress = false;
     applyBtn.disabled = !port;
   }
 });
@@ -1363,6 +1402,9 @@ profileApplyBtn.addEventListener('click', async () => {
   // still running; reading .value after an await could therefore save a later
   // field as 0/Disabled instead of what the user selected.
   const aux  = profileAuxSel.value;
+  const recChannel = recordAuxSel.value;
+  const recMin = Number(recordRangeMin.value), recMax = Number(recordRangeMax.value);
+  if (!Number.isInteger(recMin) || !Number.isInteger(recMax) || recMin < 800 || recMax > 2200 || recMin > recMax) { alert('Recording PWM range must be 800-2200, minimum no greater than maximum'); return; }
   const low  = parseInt(profileLowInput.value) || 0;
   const mid  = parseInt(profileMidInput.value) || 0;
   const high = parseInt(profileHighInput.value) || 0;
@@ -1370,6 +1412,13 @@ profileApplyBtn.addEventListener('click', async () => {
   const lowName = low ? label(profileLowInput) : '';
   const midName = mid ? label(profileMidInput) : '';
   const highName = high ? label(profileHighInput) : '';
+  recordingRangeSaveInProgress = true;
+  try {
+    await sendCommandAck(`set record_range ${recMin} ${recMax}`);
+    await sendCommandAck(`set record_aux ${recChannel}`);
+  } finally {
+    recordingRangeSaveInProgress = false;
+  }
   await sendCommand(`set profile_aux ${aux}`);
   await sendCommand(`set profile_low ${low}`);
   await sendCommand(`set profile_mid ${mid}`);
@@ -1754,6 +1803,7 @@ function setConnected(connected) {
   stopToggle.disabled         = !connected;
   cameraMatchSel.disabled     = !connected;
   wakeGuardToggle.disabled    = !connected;
+  nanoNoWakeToggle.disabled = !connected;
   debugBleToggle.disabled     = !connected;
   lowPowerToggle.disabled     = !connected || advancedPowerToggle.checked;
   advancedPowerToggle.disabled = !connected;
@@ -1765,6 +1815,9 @@ function setConnected(connected) {
   auxChannelSel.disabled = !connected;
   auxApplyBtn.disabled   = !connected;
   recordAuxSel.disabled = !connected;
+  recordRangePreset.disabled = !connected;
+  recordRangeMin.disabled = !connected;
+  recordRangeMax.disabled = !connected;
   profileAuxSel.disabled = !connected;
   profileLowInput.disabled = !connected;
   profileMidInput.disabled = !connected;

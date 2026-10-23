@@ -29,6 +29,9 @@ static constexpr const char *KEY_OSD3 = "osd3_tpl";
 static constexpr const char *KEY_OSD4 = "osd4_tpl";
 static constexpr const char *KEY_CMM  = "cam_match";
 static constexpr const char *KEY_WAKE = "wake_guard";
+static constexpr const char *KEY_NANO_NOWAKE = "nano_nw";
+static constexpr const char *KEY_RMIN = "rec_min";
+static constexpr const char *KEY_RMAX = "rec_max";
 static constexpr const char *KEY_DBG  = "debug_ble";
 static constexpr const char *KEY_LPM  = "low_power";
 static constexpr const char *KEY_APM  = "adv_power";
@@ -108,8 +111,19 @@ void ConfigManager::load() {
     if (_cfg.profileOsdTarget < 1 || _cfg.profileOsdTarget > 4) _cfg.profileOsdTarget = DEFAULT_PROFILE_OSD_TARGET;
     _cfg.cameraType        = static_cast<uint8_t>(_prefs.getUInt(KEY_CAM, DEFAULT_CAMERA_TYPE));
     _cfg.cameraMatchMode   = static_cast<uint8_t>(_prefs.getUInt(KEY_CMM, DEFAULT_CAMERA_MATCH_MODE));
+    _cfg.recordAuxMin = static_cast<uint16_t>(_prefs.getUInt(KEY_RMIN, 1501));
+    _cfg.recordAuxMax = static_cast<uint16_t>(_prefs.getUInt(KEY_RMAX, 2100));
     _cfg.cameraWakeGuard   = _prefs.getBool(KEY_WAKE, DEFAULT_CAMERA_WAKE_GUARD);
-    _cfg.debugBle          = _prefs.getBool(KEY_DBG, DEFAULT_DEBUG_BLE);
+    _cfg.nanoNoWake = _prefs.getBool(KEY_NANO_NOWAKE, false);
+    // One-time diagnostic opt-in for the isolated Nano test build. Existing
+    // testers may have debug_ble=0 saved from earlier firmware, so changing
+    // the default alone would not enable logging after an OTA/USB reflash.
+    // Respect subsequent explicit CLI/UI changes, including debug_ble=0.
+    if (!_prefs.getBool("nano_dbg_init", false)) {
+        _prefs.putBool(KEY_DBG, true);
+        _prefs.putBool("nano_dbg_init", true);
+    }
+    _cfg.debugBle          = _prefs.getBool(KEY_DBG, true);
     _cfg.lowPowerMode      = _prefs.getBool(KEY_LPM, DEFAULT_LOW_POWER_MODE);
     _cfg.advancedPowerMode = _prefs.getBool(KEY_APM, DEFAULT_ADVANCED_POWER_MODE);
     _cfg.advancedPowerDbm  = static_cast<int8_t>(_prefs.getInt(KEY_APDB, DEFAULT_ADVANCED_POWER_DBM));
@@ -205,6 +219,9 @@ void ConfigManager::save() {
     _prefs.putUInt(KEY_CAM, _cfg.cameraType);
     _prefs.putUInt(KEY_CMM, _cfg.cameraMatchMode);
     _prefs.putBool(KEY_WAKE, _cfg.cameraWakeGuard);
+    _prefs.putBool(KEY_NANO_NOWAKE, _cfg.nanoNoWake);
+    _prefs.putUInt(KEY_RMIN, _cfg.recordAuxMin);
+    _prefs.putUInt(KEY_RMAX, _cfg.recordAuxMax);
     _prefs.putBool(KEY_DBG, _cfg.debugBle);
     _prefs.putBool(KEY_LPM, _cfg.lowPowerMode);
     _prefs.putBool(KEY_APM, _cfg.advancedPowerMode);
@@ -268,6 +285,7 @@ void ConfigManager::printAll(Stream &out) {
     out.printf("[cfg] camera_match    = %s\n",
                _cfg.cameraMatchMode <= 2 ? matchModeNames[_cfg.cameraMatchMode] : "?");
     out.printf("[cfg] wake_guard      = %s\n", _cfg.cameraWakeGuard ? "true" : "false");
+    out.printf("[cfg] nano_no_wake    = %s\n", _cfg.nanoNoWake ? "true" : "false");
     out.printf("[cfg] disarm_delay    = %u ms\n", _cfg.disarmStopDelayMs);
     out.printf("[cfg] stop_on_disarm  = %s\n", _cfg.stopOnDisarm ? "true" : "false");
     if (_cfg.auxChannel == 0)
@@ -277,6 +295,7 @@ void ConfigManager::printAll(Stream &out) {
     out.printf("[cfg] aux_mode        = 0x%02X\n", _cfg.auxMode);
     if (_cfg.profileAuxChannel) out.printf("[cfg] profile_aux     = AUX%u\n", _cfg.profileAuxChannel);
     else out.println("[cfg] profile_aux     = disabled");
+    out.printf("[cfg] record_range    = %u-%u\n", _cfg.recordAuxMin, _cfg.recordAuxMax);
     if (_cfg.recordAuxChannel) out.printf("[cfg] record_trigger  = AUX%u\n", _cfg.recordAuxChannel);
     else out.println("[cfg] record_trigger  = ARM");
     out.printf("[cfg] profile_ids     = low:%lu mid:%lu high:%lu\n", (unsigned long)_cfg.profileLow, (unsigned long)_cfg.profileMid, (unsigned long)_cfg.profileHigh);
@@ -563,6 +582,12 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
             return;
         }
 
+        if (strncmp(rest, "nano_no_wake ", 13) == 0) {
+            setNanoNoWake(strtoul(rest + 13, nullptr, 10) != 0);
+            out.printf("[cfg] nano_no_wake = %s (saved)\n", _cfg.nanoNoWake ? "true" : "false");
+            return;
+        }
+
         if (strncmp(rest, "wake_guard ", 11) == 0) {
             const char *val = rest + 11;
             while (*val == ' ') val++;
@@ -611,6 +636,15 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
             return;
         }
 
+        if (strncmp(rest, "record_range ", 13) == 0) {
+            unsigned int lo = 0, hi = 0;
+            if (sscanf(rest + 13, "%u %u", &lo, &hi) != 2 || lo < 800 || hi > 2200 || lo > hi) {
+                out.println("[cfg] record_range requires MIN MAX in 800-2200, MIN <= MAX"); return;
+            }
+            setRecordAuxRange(static_cast<uint16_t>(lo), static_cast<uint16_t>(hi));
+            out.printf("[cfg] record_range = %u-%u (saved)\n", lo, hi);
+            return;
+        }
         if (strncmp(rest, "record_aux ", 11) == 0) {
             const char *val = rest + 11; while (*val == ' ') ++val;
             const unsigned long ch = strtoul(val, nullptr, 10);
@@ -1041,6 +1075,13 @@ void ConfigManager::setProfileAuxChannel(uint8_t ch) {
     _prefs.putUInt(KEY_PACH, ch);
 }
 
+void ConfigManager::setRecordAuxRange(uint16_t lo, uint16_t hi) {
+    _cfg.recordAuxMin = lo;
+    _cfg.recordAuxMax = hi;
+    _prefs.putUInt(KEY_RMIN, lo);
+    _prefs.putUInt(KEY_RMAX, hi);
+}
+
 void ConfigManager::setRecordAuxChannel(uint8_t ch) {
     _cfg.recordAuxChannel = ch;
     _prefs.putUInt(KEY_RACH, ch);
@@ -1067,6 +1108,11 @@ void ConfigManager::setCameraMatchMode(uint8_t v) {
 void ConfigManager::setCameraWakeGuard(bool v) {
     _cfg.cameraWakeGuard = v;
     _prefs.putBool(KEY_WAKE, v);
+}
+
+void ConfigManager::setNanoNoWake(bool v) {
+    _cfg.nanoNoWake = v;
+    _prefs.putBool(KEY_NANO_NOWAKE, v);
 }
 
 void ConfigManager::setDebugBle(bool v) {
