@@ -56,7 +56,7 @@ jobs:
           gh release list --repo "${{ github.repository }}" --limit 40 --json tagName,isPrerelease,isDraft --jq '.[] | select(.isPrerelease == false and .isDraft == false) | .tagName' | while read -r tag; do
             if echo "$tag" | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+$'; then
               mkdir -p "web/firmware/$tag"
-              gh release download "$tag" --repo "${{ github.repository }}" --pattern '*.bin' --dir "web/firmware/$tag" --clobber
+              gh release download "$tag" --repo "${{ github.repository }}" --pattern '*.bin' --dir "web/firmware/$tag" --clobber || echo "Skipping release $tag: firmware assets unavailable"
             fi
           done
       - name: Stage validated development firmware versions
