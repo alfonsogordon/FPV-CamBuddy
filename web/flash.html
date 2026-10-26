@@ -21,10 +21,10 @@ async function loadStableVersions(){
   }catch(error){console.warn('GitHub release lookup unavailable; using deployed stable firmware',error)}
   const checked=await Promise.all(candidates.map(async r=>{
     try{
-      const files=await Promise.all(['esp32dev','esp32c3supermini'].map(async board=>{
-        const response=await fetch(`${FW}/${r.tag_name}/firmware-${board}.bin`,{method:'GET',headers:{Range:'bytes=0-0'},cache:'no-store'});
+      const files=await Promise.all(['esp32dev','esp32c3supermini'].flatMap(board=>['bootloader','partitions','firmware'].map(async part=>{
+        const response=await fetch(`${FW}/${r.tag_name}/${part}-${board}.bin`,{method:'GET',headers:{Range:'bytes=0-0'},cache:'no-store'});
         return response.ok&&response.headers.get('content-type')?.includes('text/html')!==true;
-      }));
+      })));
       return files.every(Boolean)?r:null;
     }catch{return null}
   }));
