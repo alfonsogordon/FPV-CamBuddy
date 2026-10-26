@@ -64,6 +64,7 @@ jobs:
         working-directory: stable
         run: |
           python3 -m pip install platformio
+          sed -i "s/^platform = espressif32$/platform = espressif32@6.9.0/" platformio.ini
           pio run -e esp32c3supermini -e esp32dev
           mkdir -p web/firmware/v1.0.2-main
           for board in esp32c3supermini esp32dev; do
