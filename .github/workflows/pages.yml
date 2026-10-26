@@ -60,6 +60,17 @@ jobs:
               gh release download "$tag" --repo "${{ github.repository }}" --pattern '*.bin' --dir "web/firmware/$tag" --clobber || echo "Skipping release $tag: firmware assets unavailable"
             fi
           done
+      - name: Check stable release assets
+        working-directory: stable
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          for d in sorted(Path('web/firmware').iterdir()):
+              if not d.is_dir(): continue
+              missing=[f'{part}-{board}.bin' for board in ('esp32dev','esp32c3supermini') for part in ('bootloader','partitions','firmware') if not (d/f'{part}-{board}.bin').is_file()]
+              if missing: print(f'Incomplete release {d.name}: {missing}')
+              else: print(f'Complete stable release: {d.name}')
+          PY
       - name: Build stable firmware from main
         working-directory: stable
         run: |
