@@ -85,6 +85,36 @@ jobs:
               cp "$src" "web/firmware/v1.0.2-main/$part-$board.bin"
             done
           done
+      - name: Publish stable firmware version index
+        working-directory: stable
+        run: |
+          python3 - <<'PY'
+          import json,re
+          from pathlib import Path
+          root=Path('web/firmware')
+          entries=[]
+          for folder in sorted(root.iterdir(),reverse=True):
+              if not folder.is_dir(): continue
+              files=[folder/f'{part}-{board}.bin' for board in ('esp32dev','esp32c3supermini') for part in ('bootloader','partitions','firmware')]
+              if not all(f.is_file() and f.stat().st_size>100 for f in files): continue
+              tag=folder.name
+              if re.fullmatch(r'v?1\\.0\\.2',tag):
+                  label='v1.0.2 — Original stable release'
+                  priority=0
+              elif tag=='v1.0.2-main':
+                  label='v1.0.2 baseline — rebuilt from main'
+                  priority=1
+              elif re.fullmatch(r'v?\\d+\\.\\d+\\.\\d+',tag):
+                  label=tag+' — Stable release'
+                  priority=2
+              else: continue
+              entries.append((priority,dict(tag_name=tag,name=label,display_name=label,is_candidate=(tag=='v1.0.2-main'),published_at='',html_url='https://github.com/alfonsogordon/FPV-CamBuddy/releases')))
+          entries.sort(key=lambda item:item[0])
+          result=[entry for _,entry in entries]
+          if not result: raise SystemExit('No complete stable firmware bundles')
+          (root/'versions.json').write_text(json.dumps(result,indent=2))
+          print('Stable firmware versions:',[e['tag_name'] for e in result])
+          PY
       - name: Build RC2 development firmware from pinned branch
         working-directory: devsrc
         run: |
