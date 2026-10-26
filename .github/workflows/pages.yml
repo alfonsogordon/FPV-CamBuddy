@@ -40,7 +40,7 @@ jobs:
           cp devsrc/web/config.html stable/web/dev/config.html
           cp devsrc/web/*.js stable/web/dev/
           cp devsrc/web/*.css stable/web/dev/
-          find devsrc/web -maxdepth 1 -type f | grep -E "\\.(png|jpg|jpeg|svg|webp|json)$" | while IFS= read -r asset; do cp "$asset" stable/web/dev/; done || true
+          find devsrc/web -maxdepth 1 -type f | grep -E "\.(png|jpg|jpeg|svg|webp|json)$" | while IFS= read -r asset; do cp "$asset" stable/web/dev/; done || true
           python3 - <<'PY'
           from pathlib import Path
           p=Path('stable/web/dev/config.html')
@@ -98,13 +98,13 @@ jobs:
               files=[folder/f'{part}-{board}.bin' for board in ('esp32dev','esp32c3supermini') for part in ('bootloader','partitions','firmware')]
               if not all(f.is_file() and f.stat().st_size>100 for f in files): continue
               tag=folder.name
-              if re.fullmatch(r'v?1\\.0\\.2',tag):
+              if re.fullmatch(r'v?1\.0\.2',tag):
                   label='v1.0.2 — Original stable release'
                   priority=0
               elif tag=='v1.0.2-main':
                   label='v1.0.2 baseline — rebuilt from main'
                   priority=1
-              elif re.fullmatch(r'v?\\d+\\.\\d+\\.\\d+',tag):
+              elif re.fullmatch(r'v?\d+\.\d+\.\d+',tag):
                   label=tag+' — Stable release'
                   priority=2
               else: continue
