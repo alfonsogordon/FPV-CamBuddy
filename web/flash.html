@@ -7,9 +7,35 @@ const REPO='alfonsogordon/FPV-CamBuddy',GH_API=`https://api.github.com/repos/${R
 function buildTarget(target,version){const d=`${FW}/${version}`;return target==='esp32dev'?{chipFamily:'ESP32',parts:[{path:`${d}/bootloader-esp32dev.bin`,offset:0x1000},{path:`${d}/partitions-esp32dev.bin`,offset:0x8000},{path:`${d}/firmware-esp32dev.bin`,offset:0x10000}]}:{chipFamily:'ESP32-C3',parts:[{path:`${d}/bootloader-esp32c3supermini.bin`,offset:0},{path:`${d}/partitions-esp32c3supermini.bin`,offset:0x8000},{path:`${d}/firmware-esp32c3supermini.bin`,offset:0x10000}]};}
 let selectedTarget='esp32c3supermini',currentVersion='unknown',manifestBlobUrl=null,releases=[];const installBtn=document.getElementById('installBtn'),versionEl=document.getElementById('version'),relDateEl=document.getElementById('relDate'),versionSelect=document.getElementById('versionSelect');
 document.querySelectorAll('.board-card').forEach(card=>card.addEventListener('click',()=>{document.querySelectorAll('.board-card').forEach(c=>c.classList.remove('selected'));card.classList.add('selected');selectedTarget=card.dataset.target;applyManifest()}));versionSelect.addEventListener('change',()=>{const r=releases.find(x=>x.tag_name===versionSelect.value);if(r)selectRelease(r)});
-function selectRelease(r){currentVersion=r.tag_name;versionEl.textContent=r.display_name||r.tag_name;versionEl.className='version';relDateEl.textContent=r.is_candidate?r.tag_name==='v1.0.3-rc1'?'Release candidate · hardware testing ongoing':`Validated main build · v1.0.2 baseline`:`Released ${new Date(r.published_at).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})}`;document.getElementById('releaseLink').href=r.html_url;applyManifest()}
+function selectRelease(r){currentVersion=r.tag_name;versionEl.textContent=r.display_name||r.tag_name;versionEl.className='version';relDateEl.textContent=r.is_candidate?`Built from main · stable baseline`:`Released ${new Date(r.published_at).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})}`;document.getElementById('releaseLink').href=r.html_url;applyManifest()}
 function applyManifest(){if(manifestBlobUrl)URL.revokeObjectURL(manifestBlobUrl);const m={name:'FPV CamBuddy · by FPSteVe',version:currentVersion,new_install_prompt_erase:true,builds:[buildTarget(selectedTarget,currentVersion)]};manifestBlobUrl=URL.createObjectURL(new Blob([JSON.stringify(m)],{type:'application/json'}));installBtn.setAttribute('manifest',manifestBlobUrl)}
-fetch(GH_API).then(r=>r.ok?r.json():Promise.reject(r.status)).then(async rs=>{if(!Array.isArray(rs))throw Error('invalid releases');const candidates=rs.filter(r=>!r.prerelease&&!r.draft&&/^v?\d+\.\d+\.\d+$/.test(r.tag_name));const available=await Promise.all(candidates.map(async r=>{try{const res=await fetch(`${FW}/${r.tag_name}/firmware-esp32c3supermini.bin`,{method:'HEAD'});return res.ok?r:null}catch{return null}}));releases=available.filter(Boolean);try{const main=await fetch(`${FW}/main-candidate/firmware-esp32c3supermini.bin`,{method:'HEAD'});if(main.ok)releases.push({tag_name:'main-candidate',name:'v1.0.2 · validated main build',display_name:'v1.0.2 · validated main build',is_candidate:true,sha:'',html_url:`https://github.com/${REPO}/actions/workflows/validate.yml`})}catch(e){}if(!releases.length)throw Error('no stable firmware builds');versionSelect.innerHTML=releases.map(r=>`<option value="${r.tag_name}">${r.name||r.tag_name}</option>`).join('');versionSelect.disabled=false;selectRelease(releases[0])}).catch(()=>{versionEl.innerHTML='<span class="err">No stable firmware releases available</span>';versionSelect.innerHTML='<option>Unavailable</option>'});
+async function loadStableVersions(){
+  const known={tag_name:'v1.0.2-main',name:'v1.0.2 · Main firmware',display_name:'v1.0.2 · Main firmware',is_candidate:true,html_url:`https://github.com/${REPO}/tree/main`};
+  const candidates=[known];
+  try{
+    const response=await fetch(GH_API,{cache:'no-store'});
+    if(response.ok){
+      const remote=await response.json();
+      if(Array.isArray(remote)) candidates.unshift(...remote.filter(r=>!r.prerelease&&!r.draft&&/^v?\\d+\\.\\d+\\.\\d+$/.test(r.tag_name)));
+    }
+  }catch(error){console.warn('GitHub release lookup unavailable; using deployed stable firmware',error)}
+  const checked=await Promise.all(candidates.map(async r=>{
+    try{
+      const files=await Promise.all(['esp32dev','esp32c3supermini'].map(async board=>{
+        const response=await fetch(`${FW}/${r.tag_name}/firmware-${board}.bin`,{method:'GET',headers:{Range:'bytes=0-0'},cache:'no-store'});
+        return response.ok&&response.headers.get('content-type')?.includes('text/html')!==true;
+      }));
+      return files.every(Boolean)?r:null;
+    }catch{return null}
+  }));
+  releases=checked.filter(Boolean);
+  if(!releases.length)throw Error('no published stable firmware files');
+  versionSelect.innerHTML=releases.map(r=>`<option value="${r.tag_name}">${r.name||r.tag_name}</option>`).join('');
+  versionSelect.disabled=false;
+  selectRelease(releases[0]);
+}
+loadStableVersions().catch(error=>{console.error(error);versionEl.innerHTML='<span class="err">Stable firmware not published yet</span>';versionSelect.innerHTML='<option>Unavailable</option>'});
+
 function showPostFlash(){document.getElementById('postFlash').classList.add('show')}
 document.body.addEventListener('closed',e=>{if(e.target&&e.target.tagName==='EWT-INSTALL-DIALOG')showPostFlash()},true);
 installBtn.addEventListener('state-changed',e=>{const s=String(e.detail?.state||'').toLowerCase();if(s.includes('finished')||s.includes('installed')||s.includes('complete'))showPostFlash()});
