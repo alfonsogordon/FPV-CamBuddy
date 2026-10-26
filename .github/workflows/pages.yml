@@ -154,7 +154,15 @@ jobs:
                   for part in ('bootloader','partitions','firmware'):
                       f=d/f'{part}-{board}.bin'
                       assert f.is_file() and f.stat().st_size > 100, f'Missing/empty {f}'
-          for board in ('esp32dev','esp32c3supermini'):\n              for part in ('bootloader','partitions','firmware'):\n                  f=root/'firmware/v1.0.2-main'/f'{part}-{board}.bin'\n                  assert f.is_file() and f.stat().st_size > 100, f'Missing stable {f}'\n          assert (root/'flash.html').is_file()
+          stable=json.loads((root/'firmware/versions.json').read_text())
+          assert stable, 'No stable firmware indexed'
+          for v in stable:
+              d=root/'firmware'/v['tag_name']
+              for board in ('esp32dev','esp32c3supermini'):
+                  for part in ('bootloader','partitions','firmware'):
+                      f=d/f'{part}-{board}.bin'
+                      assert f.is_file() and f.stat().st_size>100, f'Missing stable {f}'
+          assert (root/'flash.html').is_file()
           assert (root/'dev/flash.html').is_file()
           assert (root/'dev/config.html').is_file()
           print('Main and dev flasher pages and all indexed development firmware binaries verified')
