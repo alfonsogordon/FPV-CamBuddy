@@ -40,7 +40,7 @@ jobs:
           cp devsrc/web/config.html stable/web/dev/config.html
           cp devsrc/web/*.js stable/web/dev/
           cp devsrc/web/*.css stable/web/dev/
-          cp devsrc/web/*.png devsrc/web/*.jpg devsrc/web/*.jpeg devsrc/web/*.svg devsrc/web/*.webp devsrc/web/*.json stable/web/dev/ 2>/dev/null || true
+          find devsrc/web -maxdepth 1 -type f | grep -E "\\.(png|jpg|jpeg|svg|webp|json)$" | while IFS= read -r asset; do cp "$asset" stable/web/dev/; done || true
           python3 - <<'PY'
           from pathlib import Path
           p=Path('stable/web/dev/config.html')
