@@ -31,6 +31,10 @@ jobs:
         with:
           ref: integration/v1.0.3-rc2
           path: devsrc
+      - uses: actions/checkout@v4
+        with:
+          ref: v1.0.2
+          path: stable102
       - name: Generate main site
         working-directory: stable
         run: python3 tools/build_fps_site.py
@@ -83,6 +87,20 @@ jobs:
               src=".pio/build/$board/$part.bin"
               test -s "$src" || { echo "Missing stable $src"; exit 1; }
               cp "$src" "web/firmware/v1.0.2-main/$part-$board.bin"
+            done
+          done
+      - name: Build original v1.0.2 source firmware
+        working-directory: stable102
+        run: |
+          python3 -m pip install platformio
+          sed -i "s/^platform = espressif32$/platform = espressif32@6.9.0/" platformio.ini
+          pio run -e esp32c3supermini -e esp32dev
+          mkdir -p ../stable/web/firmware/v1.0.2
+          for board in esp32c3supermini esp32dev; do
+            for part in bootloader partitions firmware; do
+              src=".pio/build/$board/$part.bin"
+              test -s "$src" || { echo "Missing v1.0.2 $src"; exit 1; }
+              cp "$src" "../stable/web/firmware/v1.0.2/$part-$board.bin"
             done
           done
       - name: Publish stable firmware version index
