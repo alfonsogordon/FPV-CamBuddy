@@ -31,10 +31,6 @@ jobs:
         with:
           ref: integration/v1.0.3-rc2
           path: devsrc
-      - uses: actions/checkout@v4
-        with:
-          ref: v1.0.2
-          path: stable102
       - name: Generate main site
         working-directory: stable
         run: python3 tools/build_fps_site.py
@@ -52,55 +48,18 @@ jobs:
           s=s.replace('</body>', '<div style="position:fixed;bottom:0;left:0;right:0;padding:6px;background:#452d05;color:#fff;text-align:center;z-index:99999;font:700 12px system-ui">DEVELOPMENT CONFIGURATOR — experimental firmware</div></body>')
           p.write_text(s)
           PY
-      - name: Download stable release binaries
-        working-directory: stable
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p web/firmware
-          gh release list --repo "${{ github.repository }}" --limit 40 --json tagName,isPrerelease,isDraft --jq '.[] | select(.isPrerelease == false and .isDraft == false) | .tagName' | while read -r tag; do
-            if echo "$tag" | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+$'; then
-              mkdir -p "web/firmware/$tag"
-              gh release download "$tag" --repo "${{ github.repository }}" --pattern '*.bin' --dir "web/firmware/$tag" --clobber || echo "Skipping release $tag: firmware assets unavailable"
-            fi
-          done
-      - name: Check stable release assets
-        working-directory: stable
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          for d in sorted(Path('web/firmware').iterdir()):
-              if not d.is_dir(): continue
-              missing=[f'{part}-{board}.bin' for board in ('esp32dev','esp32c3supermini') for part in ('bootloader','partitions','firmware') if not (d/f'{part}-{board}.bin').is_file()]
-              if missing: print(f'Incomplete release {d.name}: {missing}')
-              else: print(f'Complete stable release: {d.name}')
-          PY
       - name: Build stable firmware from main
         working-directory: stable
         run: |
           python3 -m pip install platformio
           sed -i "s/^platform = espressif32$/platform = espressif32@6.9.0/" platformio.ini
           pio run -e esp32c3supermini -e esp32dev
-          mkdir -p web/firmware/v1.0.2-main
+          mkdir -p web/firmware/v1.0.2
           for board in esp32c3supermini esp32dev; do
             for part in bootloader partitions firmware; do
               src=".pio/build/$board/$part.bin"
               test -s "$src" || { echo "Missing stable $src"; exit 1; }
-              cp "$src" "web/firmware/v1.0.2-main/$part-$board.bin"
-            done
-          done
-      - name: Build original v1.0.2 source firmware
-        working-directory: stable102
-        run: |
-          python3 -m pip install platformio
-          sed -i "s/^platform = espressif32$/platform = espressif32@6.9.0/" platformio.ini
-          pio run -e esp32c3supermini -e esp32dev
-          mkdir -p ../stable/web/firmware/v1.0.2
-          for board in esp32c3supermini esp32dev; do
-            for part in bootloader partitions firmware; do
-              src=".pio/build/$board/$part.bin"
-              test -s "$src" || { echo "Missing v1.0.2 $src"; exit 1; }
-              cp "$src" "../stable/web/firmware/v1.0.2/$part-$board.bin"
+              cp "$src" "web/firmware/v1.0.2/$part-$board.bin"
             done
           done
       - name: Publish stable firmware version index
@@ -116,17 +75,11 @@ jobs:
               files=[folder/f'{part}-{board}.bin' for board in ('esp32dev','esp32c3supermini') for part in ('bootloader','partitions','firmware')]
               if not all(f.is_file() and f.stat().st_size>100 for f in files): continue
               tag=folder.name
-              if re.fullmatch(r'v?1\.0\.2',tag):
-                  label='v1.0.2 — Original stable release'
+              if tag=='v1.0.2':
+                  label='v1.0.2 — Stable firmware (main)'
                   priority=0
-              elif tag=='v1.0.2-main':
-                  label='v1.0.2 baseline — rebuilt from main'
-                  priority=1
-              elif re.fullmatch(r'v?\d+\.\d+\.\d+',tag):
-                  label=tag+' — Stable release'
-                  priority=2
               else: continue
-              entries.append((priority,dict(tag_name=tag,name=label,display_name=label,is_candidate=(tag=='v1.0.2-main'),published_at='',html_url='https://github.com/alfonsogordon/FPV-CamBuddy/releases')))
+              entries.append((priority,dict(tag_name=tag,name=label,display_name=label,is_candidate=False,published_at='',html_url='https://github.com/alfonsogordon/FPV-CamBuddy/releases')))
           entries.sort(key=lambda item:item[0])
           result=[entry for _,entry in entries]
           if not result: raise SystemExit('No complete stable firmware bundles')
