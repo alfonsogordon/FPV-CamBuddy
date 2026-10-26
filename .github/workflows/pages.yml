@@ -60,6 +60,29 @@ jobs:
               gh release download "$tag" --repo "${{ github.repository }}" --pattern '*.bin' --dir "web/firmware/$tag" --clobber || echo "Skipping release $tag: firmware assets unavailable"
             fi
           done
+      - name: Restore validated main firmware fallback
+        working-directory: stable
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p web/firmware/main-candidate
+          run_id=$(gh run list --repo "${{ github.repository }}" --branch main --workflow "Validate FPV CamBuddy" --status success --limit 20 --json databaseId --jq '.[0].databaseId // empty')
+          if [ -n "$run_id" ]; then
+            mkdir -p /tmp/stable-main-artifacts
+            gh run download "$run_id" --repo "${{ github.repository }}" --dir /tmp/stable-main-artifacts
+            for board in esp32c3 esp32; do
+              src="/tmp/stable-main-artifacts/freeclinker-stage3-$board"
+              if [ "$board" = esp32c3 ]; then target=esp32c3supermini; else target=esp32dev; fi
+              for part in bootloader partitions firmware; do
+                test -s "$src/$part.bin" || exit 1
+                cp "$src/$part.bin" "web/firmware/main-candidate/$part-$target.bin"
+              done
+            done
+            sha=$(gh run view "$run_id" --repo "${{ github.repository }}" --json headSha --jq .headSha)
+            printf '{"sha":"%s","run_id":"%s"}\\n' "$sha" "$run_id" > web/firmware/main-candidate/meta.json
+          else
+            echo "No validated main build found"
+          fi
       - name: Stage validated development firmware versions
         env:
           GH_TOKEN: ${{ github.token }}
