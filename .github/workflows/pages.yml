@@ -31,6 +31,10 @@ jobs:
         with:
           ref: integration/v1.0.3-rc2
           path: devsrc
+      - uses: actions/checkout@v4
+        with:
+          ref: test/rc1-gopro-startup-diagnostics
+          path: gregsrc
       - name: Generate main site
         working-directory: stable
         run: python3 tools/build_fps_site.py
@@ -48,6 +52,22 @@ jobs:
           s=s.replace('</body>', '<div style="position:fixed;bottom:0;left:0;right:0;padding:6px;background:#452d05;color:#fff;text-align:center;z-index:99999;font:700 12px system-ui">DEVELOPMENT CONFIGURATOR — experimental firmware</div></body>')
           p.write_text(s)
           PY
+      - name: Publish Greg RC1 startup diagnostics test and matching configurator
+        run: |
+          mkdir -p stable/web/dev/greg-startup/firmware
+          cp gregsrc/web/startup-diagnostics-flash.html stable/web/dev/greg-startup/flash.html
+          cp gregsrc/web/config.html stable/web/dev/greg-startup/config.html
+          cp gregsrc/web/*.js stable/web/dev/greg-startup/
+          cp gregsrc/web/*.css stable/web/dev/greg-startup/
+          cp -R gregsrc/web/firmware/startup-diagnostics stable/web/dev/greg-startup/firmware/
+          sed -i 's@https://alfonsogordon.github.io/FPV-CamBuddy/v1.0.3/config.html@config.html@g' stable/web/dev/greg-startup/flash.html
+          sed -i 's@https://raw.githubusercontent.com/alfonsogordon/FPV-CamBuddy/test/rc1-gopro-startup-diagnostics/web/firmware/startup-diagnostics@firmware/startup-diagnostics@g' stable/web/dev/greg-startup/flash.html
+          sed -i 's@href="flash.html"@href="flash.html"@g' stable/web/dev/greg-startup/config.html
+          for board in esp32dev esp32c3supermini; do
+            for part in bootloader partitions firmware; do
+              test -s "stable/web/dev/greg-startup/firmware/startup-diagnostics/$part-$board.bin"
+            done
+          done
       - name: Build stable firmware from main
         working-directory: stable
         run: |
