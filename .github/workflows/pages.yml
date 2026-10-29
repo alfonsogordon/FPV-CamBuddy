@@ -44,6 +44,7 @@ jobs:
           cp devsrc/web/config.html stable/web/dev/config.html
           cp devsrc/web/*.js stable/web/dev/
           cp devsrc/web/*.css stable/web/dev/
+          cp devsrc/web/osd-preview-bg.jpg stable/web/dev/osd-preview-bg.jpg
           find devsrc/web -maxdepth 1 -type f | grep -E "\.(png|jpg|jpeg|svg|webp|json)$" | while IFS= read -r asset; do cp "$asset" stable/web/dev/; done || true
           python3 - <<'PY'
           from pathlib import Path
@@ -59,10 +60,11 @@ jobs:
           cp gregsrc/web/config.html stable/web/dev/greg-startup/config.html
           cp gregsrc/web/*.js stable/web/dev/greg-startup/
           cp gregsrc/web/*.css stable/web/dev/greg-startup/
+          cp gregsrc/web/osd-preview-bg.jpg stable/web/dev/greg-startup/osd-preview-bg.jpg
           cp -R gregsrc/web/firmware/startup-diagnostics stable/web/dev/greg-startup/firmware/
           sed -i 's@https://alfonsogordon.github.io/FPV-CamBuddy/v1.0.3/config.html@config.html@g' stable/web/dev/greg-startup/flash.html
           sed -i 's@https://raw.githubusercontent.com/alfonsogordon/FPV-CamBuddy/test/rc1-gopro-startup-diagnostics/web/firmware/startup-diagnostics@firmware/startup-diagnostics@g' stable/web/dev/greg-startup/flash.html
-          sed -i 's@href="flash.html"@href="flash.html"@g' stable/web/dev/greg-startup/config.html
+          test -s stable/web/dev/greg-startup/osd-preview-bg.jpg
           for board in esp32dev esp32c3supermini; do
             for part in bootloader partitions firmware; do
               test -s "stable/web/dev/greg-startup/firmware/startup-diagnostics/$part-$board.bin"
