@@ -1265,7 +1265,16 @@ function finalizeProfileCapture() {
       opt.textContent = p.name;
       sel.appendChild(opt);
     }
-    if ([...sel.options].some(o => o.value === previous)) sel.value = previous;
+    // Discovery must never silently erase a saved camera preset ID. A camera
+    // may expose a different list (or return a partial list during reconnect).
+    // Keep the old selection visible until the user deliberately changes it.
+    if (previous && ![...sel.options].some(o => o.value === previous)) {
+      const retained = document.createElement('option');
+      retained.value = previous;
+      retained.textContent = (sel.selectedOptions[0]?.textContent || 'Saved preset ' + previous) + ' (not reported by this camera)';
+      sel.appendChild(retained);
+    }
+    if (previous) sel.value = previous;
   }
   profileDiscoverStatus.textContent = unique.length + ' supported camera options exposed.';
   profileDiscoverBtn.disabled = !port;
