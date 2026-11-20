@@ -1047,17 +1047,17 @@ void ConfigManager::syncCameraProfile(bool connected) {
 }
 
 void ConfigManager::setProfileId(uint8_t position, uint32_t id) {
-    if (position == 0) { if (_cfg.profileLow != id) setProfileName(0, ""); _cfg.profileLow = id; _prefs.putUInt(KEY_PLOW, id); }
-    else if (position == 1) { if (_cfg.profileMid != id) setProfileName(1, ""); _cfg.profileMid = id; _prefs.putUInt(KEY_PMID, id); }
-    else if (position == 2) { if (_cfg.profileHigh != id) setProfileName(2, ""); _cfg.profileHigh = id; _prefs.putUInt(KEY_PHIGH, id); }
+    if (position == 0) { if (_cfg.profileLow != id) setProfileName(0, ""); _cfg.profileLow = id; if (!_profileActive) _prefs.putUInt(KEY_PLOW, id); }
+    else if (position == 1) { if (_cfg.profileMid != id) setProfileName(1, ""); _cfg.profileMid = id; if (!_profileActive) _prefs.putUInt(KEY_PMID, id); }
+    else if (position == 2) { if (_cfg.profileHigh != id) setProfileName(2, ""); _cfg.profileHigh = id; if (!_profileActive) _prefs.putUInt(KEY_PHIGH, id); }
     persistCameraProfile();
 }
 
 void ConfigManager::setProfileName(uint8_t position, const char *name) {
     const char *src = name ? name : "";
-    if (position == 0) { strlcpy(_cfg.profileLowName, src, sizeof(_cfg.profileLowName)); _prefs.putString(KEY_PLNAME, _cfg.profileLowName); }
-    else if (position == 1) { strlcpy(_cfg.profileMidName, src, sizeof(_cfg.profileMidName)); _prefs.putString(KEY_PMNAME, _cfg.profileMidName); }
-    else if (position == 2) { strlcpy(_cfg.profileHighName, src, sizeof(_cfg.profileHighName)); _prefs.putString(KEY_PHNAME, _cfg.profileHighName); }
+    if (position == 0) { strlcpy(_cfg.profileLowName, src, sizeof(_cfg.profileLowName)); if (!_profileActive) _prefs.putString(KEY_PLNAME, _cfg.profileLowName); }
+    else if (position == 1) { strlcpy(_cfg.profileMidName, src, sizeof(_cfg.profileMidName)); if (!_profileActive) _prefs.putString(KEY_PMNAME, _cfg.profileMidName); }
+    else if (position == 2) { strlcpy(_cfg.profileHighName, src, sizeof(_cfg.profileHighName)); if (!_profileActive) _prefs.putString(KEY_PHNAME, _cfg.profileHighName); }
     persistCameraProfile();
 }
 
