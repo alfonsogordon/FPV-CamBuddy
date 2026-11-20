@@ -143,6 +143,7 @@ public:
     void setAuxMode(uint8_t mode);
     void setProfileAuxChannel(uint8_t ch);
     void setRecordAuxChannel(uint8_t ch);
+    void syncCameraProfile(bool connected);
     void setProfileId(uint8_t position, uint32_t id);
     void setProfileName(uint8_t position, const char *name);
     void setProfileOsdEnabled(bool enabled);
@@ -195,6 +196,20 @@ private:
     void handleLine(const char *line, Stream &out);
     void handleCamerasCmd(const char *sub, Stream &out);
     void handleWifiCmd(const char *sub, Stream &out);
+    struct CameraProfile {
+        uint32_t magic;
+        char address[33];
+        uint8_t cameraType;
+        uint32_t ids[3];
+        char names[3][16];
+    };
+    Preferences _profilePrefs;
+    bool _profileStoreReady = false;
+    bool _profileActive = false;
+    char _activeProfileKey[12] = {};
+    char _activeProfileAddress[33] = {};
+    uint8_t _activeProfileType = 255;
+    void persistCameraProfile();
     Preferences _prefs;
     Config _cfg{};
     CameraRegistry *_registry = nullptr;
