@@ -182,12 +182,15 @@ void ConfigManager::save() {
     _prefs.putUInt(KEY_AMD, _cfg.auxMode);
     _prefs.putUInt(KEY_PACH, _cfg.profileAuxChannel);
     _prefs.putUInt(KEY_RACH, _cfg.recordAuxChannel);
-    _prefs.putUInt(KEY_PLOW, _cfg.profileLow);
-    _prefs.putUInt(KEY_PMID, _cfg.profileMid);
-    _prefs.putUInt(KEY_PHIGH, _cfg.profileHigh);
-    _prefs.putString(KEY_PLNAME, _cfg.profileLowName);
-    _prefs.putString(KEY_PMNAME, _cfg.profileMidName);
-    _prefs.putString(KEY_PHNAME, _cfg.profileHighName);
+    if (_profileActive) persistCameraProfile();
+    else {
+        _prefs.putUInt(KEY_PLOW, _cfg.profileLow);
+        _prefs.putUInt(KEY_PMID, _cfg.profileMid);
+        _prefs.putUInt(KEY_PHIGH, _cfg.profileHigh);
+        _prefs.putString(KEY_PLNAME, _cfg.profileLowName);
+        _prefs.putString(KEY_PMNAME, _cfg.profileMidName);
+        _prefs.putString(KEY_PHNAME, _cfg.profileHighName);
+    }
     _prefs.putBool(KEY_POSD, _cfg.profileOsdEnabled);
     _prefs.putUInt(KEY_POSDT, _cfg.profileOsdTarget);
     _prefs.putUInt(KEY_CAM, _cfg.cameraType);
@@ -1039,7 +1042,7 @@ void ConfigManager::syncCameraProfile(bool connected) {
     strlcpy(_activeProfileKey, key, sizeof(_activeProfileKey));
     _activeProfileType = camera.cameraType;
     _profileActive = true;
-    if (_serial) _serial->printf("[profile] camera %s: LOW=%lu MID=%lu HIGH=%lu\\n",
+    if (_serial) _serial->printf("[profile] camera %s: LOW=%lu MID=%lu HIGH=%lu\n",
         camera.name, (unsigned long)p.ids[0], (unsigned long)p.ids[1], (unsigned long)p.ids[2]);
 }
 
