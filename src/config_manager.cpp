@@ -994,8 +994,20 @@ void ConfigManager::persistCameraProfile() {
 
 void ConfigManager::syncCameraProfile(bool connected) {
     if (!connected || !_registry || !_profileStoreReady) {
+        if (_profileActive) {
+            // Do not leave the previous camera's native preset IDs active
+            // during disconnect/reconnect or while another camera is scanned.
+            _cfg.profileLow = DEFAULT_PROFILE_ID;
+            _cfg.profileMid = DEFAULT_PROFILE_ID;
+            _cfg.profileHigh = DEFAULT_PROFILE_ID;
+            _cfg.profileLowName[0] = '\0';
+            _cfg.profileMidName[0] = '\0';
+            _cfg.profileHighName[0] = '\0';
+        }
         _profileActive = false;
         _activeProfileKey[0] = '\0';
+        _activeProfileAddress[0] = '\0';
+        _activeProfileType = 255;
         return;
     }
     CameraEntry camera{};
