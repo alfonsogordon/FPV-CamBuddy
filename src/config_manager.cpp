@@ -663,7 +663,8 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
         }
 
         if (strncmp(rest, "osd4 ", 5) == 0) {
-            setOsdTemplate(4, rest + 5);
+            // A single dash explicitly clears this slot; an empty CLI argument can be trimmed by transport.
+            setOsdTemplate(4, strcmp(rest + 5, "-") == 0 ? "" : rest + 5);
             out.printf("[cfg] osd4 = %s (saved)\n", _cfg.osd4Tpl);
             return;
         }
