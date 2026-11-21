@@ -335,6 +335,7 @@ void loop() {
     if (!configMode) {
         activeCamera->setDebugBle(configManager.config().debugBle);
         activeCamera->update();
+        configManager.syncCameraProfile(activeCamera->isConnected());
     }
     mspSerial.update();
 

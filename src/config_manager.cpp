@@ -75,6 +75,7 @@ extern void benchSimStatus(Stream &out);
 void ConfigManager::begin(Stream &serial) {
     _serial = &serial;
     _prefs.begin(NVS_NS, false);
+    _profileStoreReady = _profilePrefs.begin("cam_prof", false);
     load();
     _serial->println("[cfg] Type 'help' for configuration commands");
     printAll(*_serial);
@@ -181,12 +182,15 @@ void ConfigManager::save() {
     _prefs.putUInt(KEY_AMD, _cfg.auxMode);
     _prefs.putUInt(KEY_PACH, _cfg.profileAuxChannel);
     _prefs.putUInt(KEY_RACH, _cfg.recordAuxChannel);
-    _prefs.putUInt(KEY_PLOW, _cfg.profileLow);
-    _prefs.putUInt(KEY_PMID, _cfg.profileMid);
-    _prefs.putUInt(KEY_PHIGH, _cfg.profileHigh);
-    _prefs.putString(KEY_PLNAME, _cfg.profileLowName);
-    _prefs.putString(KEY_PMNAME, _cfg.profileMidName);
-    _prefs.putString(KEY_PHNAME, _cfg.profileHighName);
+    if (_profileActive) persistCameraProfile();
+    else {
+        _prefs.putUInt(KEY_PLOW, _cfg.profileLow);
+        _prefs.putUInt(KEY_PMID, _cfg.profileMid);
+        _prefs.putUInt(KEY_PHIGH, _cfg.profileHigh);
+        _prefs.putString(KEY_PLNAME, _cfg.profileLowName);
+        _prefs.putString(KEY_PMNAME, _cfg.profileMidName);
+        _prefs.putString(KEY_PHNAME, _cfg.profileHighName);
+    }
     _prefs.putBool(KEY_POSD, _cfg.profileOsdEnabled);
     _prefs.putUInt(KEY_POSDT, _cfg.profileOsdTarget);
     _prefs.putUInt(KEY_CAM, _cfg.cameraType);
@@ -659,7 +663,8 @@ void ConfigManager::handleLine(const char *line, Stream &out) {
         }
 
         if (strncmp(rest, "osd4 ", 5) == 0) {
-            setOsdTemplate(4, rest + 5);
+            // A single dash explicitly clears this slot; an empty CLI argument can be trimmed by transport.
+            setOsdTemplate(4, strcmp(rest + 5, "-") == 0 ? "" : rest + 5);
             out.printf("[cfg] osd4 = %s (saved)\n", _cfg.osd4Tpl);
             return;
         }
@@ -964,17 +969,109 @@ void ConfigManager::setRecordAuxChannel(uint8_t ch) {
     _prefs.putUInt(KEY_RACH, ch);
 }
 
+
+static uint32_t cameraProfileHash(const char *addr, uint8_t type) {
+    uint32_t h = 2166136261UL;
+    h = (h ^ type) * 16777619UL;
+    for (const unsigned char *p = (const unsigned char *)addr; *p; ++p)
+        h = (h ^ *p) * 16777619UL;
+    return h;
+}
+
+void ConfigManager::persistCameraProfile() {
+    if (!_profileStoreReady || !_profileActive) return;
+    CameraProfile p{};
+    p.magic = 0x43505231UL; // CPR1
+    strlcpy(p.address, _activeProfileAddress, sizeof(p.address));
+    p.cameraType = _activeProfileType;
+    p.ids[0] = _cfg.profileLow;
+    p.ids[1] = _cfg.profileMid;
+    p.ids[2] = _cfg.profileHigh;
+    strlcpy(p.names[0], _cfg.profileLowName, sizeof(p.names[0]));
+    strlcpy(p.names[1], _cfg.profileMidName, sizeof(p.names[1]));
+    strlcpy(p.names[2], _cfg.profileHighName, sizeof(p.names[2]));
+    _profilePrefs.putBytes(_activeProfileKey, &p, sizeof(p));
+}
+
+void ConfigManager::syncCameraProfile(bool connected) {
+    if (!connected || !_registry || !_profileStoreReady) {
+        if (_profileActive) {
+            // Do not leave the previous camera's native preset IDs active
+            // during disconnect/reconnect or while another camera is scanned.
+            _cfg.profileLow = DEFAULT_PROFILE_ID;
+            _cfg.profileMid = DEFAULT_PROFILE_ID;
+            _cfg.profileHigh = DEFAULT_PROFILE_ID;
+            _cfg.profileLowName[0] = '\0';
+            _cfg.profileMidName[0] = '\0';
+            _cfg.profileHighName[0] = '\0';
+        }
+        _profileActive = false;
+        _activeProfileKey[0] = '\0';
+        _activeProfileAddress[0] = '\0';
+        _activeProfileType = 255;
+        return;
+    }
+    CameraEntry camera{};
+    const int idx = _registry->lastIdx();
+    if (idx < 0 || !_registry->getEntry((uint8_t)idx, camera) || !camera.addr[0]) return;
+    if (_profileActive && _activeProfileType == camera.cameraType &&
+        strcmp(_activeProfileAddress, camera.addr) == 0) return;
+
+    // The key is derived from the stable camera address, not its movable registry index.
+    char key[12];
+    snprintf(key, sizeof(key), "p%08lx", (unsigned long)cameraProfileHash(camera.addr, camera.cameraType));
+    CameraProfile p{};
+    bool found = _profilePrefs.getBytesLength(key) == sizeof(p) &&
+                 _profilePrefs.getBytes(key, &p, sizeof(p)) == sizeof(p) &&
+                 p.magic == 0x43505231UL && p.cameraType == camera.cameraType &&
+                 strcmp(p.address, camera.addr) == 0;
+
+    if (!found) {
+        // Migrate existing shared assignments once, to the first connected camera.
+        // Other cameras start unassigned to avoid applying incompatible native IDs.
+        const bool migrate = !_profilePrefs.getBool("migrated", false);
+        p = CameraProfile{};
+        p.magic = 0x43505231UL;
+        strlcpy(p.address, camera.addr, sizeof(p.address));
+        p.cameraType = camera.cameraType;
+        if (migrate) {
+            p.ids[0] = _prefs.getUInt(KEY_PLOW, DEFAULT_PROFILE_ID);
+            p.ids[1] = _prefs.getUInt(KEY_PMID, DEFAULT_PROFILE_ID);
+            p.ids[2] = _prefs.getUInt(KEY_PHIGH, DEFAULT_PROFILE_ID);
+            strlcpy(p.names[0], _prefs.getString(KEY_PLNAME, "").c_str(), 16);
+            strlcpy(p.names[1], _prefs.getString(KEY_PMNAME, "").c_str(), 16);
+            strlcpy(p.names[2], _prefs.getString(KEY_PHNAME, "").c_str(), 16);
+        }
+        if (_profilePrefs.putBytes(key, &p, sizeof(p)) != sizeof(p)) return;
+        if (migrate) _profilePrefs.putBool("migrated", true);
+    }
+    _cfg.profileLow = p.ids[0];
+    _cfg.profileMid = p.ids[1];
+    _cfg.profileHigh = p.ids[2];
+    strlcpy(_cfg.profileLowName, p.names[0], sizeof(_cfg.profileLowName));
+    strlcpy(_cfg.profileMidName, p.names[1], sizeof(_cfg.profileMidName));
+    strlcpy(_cfg.profileHighName, p.names[2], sizeof(_cfg.profileHighName));
+    strlcpy(_activeProfileAddress, camera.addr, sizeof(_activeProfileAddress));
+    strlcpy(_activeProfileKey, key, sizeof(_activeProfileKey));
+    _activeProfileType = camera.cameraType;
+    _profileActive = true;
+    if (_serial) _serial->printf("[profile] camera %s: LOW=%lu MID=%lu HIGH=%lu\n",
+        camera.name, (unsigned long)p.ids[0], (unsigned long)p.ids[1], (unsigned long)p.ids[2]);
+}
+
 void ConfigManager::setProfileId(uint8_t position, uint32_t id) {
-    if (position == 0) { if (_cfg.profileLow != id) setProfileName(0, ""); _cfg.profileLow = id; _prefs.putUInt(KEY_PLOW, id); }
-    else if (position == 1) { if (_cfg.profileMid != id) setProfileName(1, ""); _cfg.profileMid = id; _prefs.putUInt(KEY_PMID, id); }
-    else if (position == 2) { if (_cfg.profileHigh != id) setProfileName(2, ""); _cfg.profileHigh = id; _prefs.putUInt(KEY_PHIGH, id); }
+    if (position == 0) { if (_cfg.profileLow != id) setProfileName(0, ""); _cfg.profileLow = id; if (!_profileActive) _prefs.putUInt(KEY_PLOW, id); }
+    else if (position == 1) { if (_cfg.profileMid != id) setProfileName(1, ""); _cfg.profileMid = id; if (!_profileActive) _prefs.putUInt(KEY_PMID, id); }
+    else if (position == 2) { if (_cfg.profileHigh != id) setProfileName(2, ""); _cfg.profileHigh = id; if (!_profileActive) _prefs.putUInt(KEY_PHIGH, id); }
+    persistCameraProfile();
 }
 
 void ConfigManager::setProfileName(uint8_t position, const char *name) {
     const char *src = name ? name : "";
-    if (position == 0) { strlcpy(_cfg.profileLowName, src, sizeof(_cfg.profileLowName)); _prefs.putString(KEY_PLNAME, _cfg.profileLowName); }
-    else if (position == 1) { strlcpy(_cfg.profileMidName, src, sizeof(_cfg.profileMidName)); _prefs.putString(KEY_PMNAME, _cfg.profileMidName); }
-    else if (position == 2) { strlcpy(_cfg.profileHighName, src, sizeof(_cfg.profileHighName)); _prefs.putString(KEY_PHNAME, _cfg.profileHighName); }
+    if (position == 0) { strlcpy(_cfg.profileLowName, src, sizeof(_cfg.profileLowName)); if (!_profileActive) _prefs.putString(KEY_PLNAME, _cfg.profileLowName); }
+    else if (position == 1) { strlcpy(_cfg.profileMidName, src, sizeof(_cfg.profileMidName)); if (!_profileActive) _prefs.putString(KEY_PMNAME, _cfg.profileMidName); }
+    else if (position == 2) { strlcpy(_cfg.profileHighName, src, sizeof(_cfg.profileHighName)); if (!_profileActive) _prefs.putString(KEY_PHNAME, _cfg.profileHighName); }
+    persistCameraProfile();
 }
 
 void ConfigManager::setCameraMatchMode(uint8_t v) {
