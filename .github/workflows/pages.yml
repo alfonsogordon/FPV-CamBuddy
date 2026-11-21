@@ -33,6 +33,10 @@ jobs:
           path: devsrc
       - uses: actions/checkout@v4
         with:
+          ref: test/gopro-switch-persistence-2026-11-20
+          path: profilesrc
+      - uses: actions/checkout@v4
+        with:
           ref: test/rc1-gopro-startup-diagnostics
           path: gregsrc
       - name: Generate main site
@@ -132,6 +136,86 @@ jobs:
           version=os.environ['VERSION']; sha=os.environ['SHA']
           entries=[dict(tag_name=version,display_name='v1.0.3 RC2 — '+sha[:8]+' (build from branch)',sha=sha,published_at='GitHub Pages deployment',html_url='https://github.com/alfonsogordon/FPV-CamBuddy/tree/integration/v1.0.3-rc2',is_candidate=True)]
           Path('stable/web/dev/firmware/versions.json').write_text(json.dumps(entries))
+          PY
+      - name: Build camera-specific switch profile test firmware
+        working-directory: profilesrc
+        run: |
+          python3 -m pip install platformio
+          pio run -e esp32c3supermini -e esp32dev
+      - name: Stage isolated camera profiles test flasher and configurator
+        run: |
+          set -eu
+          dest="stable/web/dev/camera-profiles"
+          mkdir -p "$dest/firmware"
+          cp profilesrc/web/dev/flash.html "$dest/flash.html"
+          cp profilesrc/web/config.html "$dest/config.html"
+          cp profilesrc/web/*.js "$dest/"
+          cp profilesrc/web/*.css "$dest/"
+          cp profilesrc/web/osd-preview-bg.jpg "$dest/osd-preview-bg.jpg"
+          find profilesrc/web -maxdepth 1 -type f | grep -E '\.(png|jpg|jpeg|svg|webp|json)
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('stable/web')
+          versions=json.loads((root/'dev/firmware/versions.json').read_text())
+          assert versions, 'No development versions staged'
+          for v in versions:
+              d=root/'dev/firmware'/v['tag_name']
+              for board in ('esp32dev','esp32c3supermini'):
+                  for part in ('bootloader','partitions','firmware'):
+                      f=d/f'{part}-{board}.bin'
+                      assert f.is_file() and f.stat().st_size > 100, f'Missing/empty {f}'
+          stable=json.loads((root/'firmware/versions.json').read_text())
+          assert stable, 'No stable firmware indexed'
+          for v in stable:
+              d=root/'firmware'/v['tag_name']
+              for board in ('esp32dev','esp32c3supermini'):
+                  for part in ('bootloader','partitions','firmware'):
+                      f=d/f'{part}-{board}.bin'
+                      assert f.is_file() and f.stat().st_size>100, f'Missing stable {f}'
+          assert (root/'flash.html').is_file()
+          assert (root/'dev/flash.html').is_file()
+          assert (root/'dev/config.html').is_file()
+          print('Main and dev flasher pages and all indexed development firmware binaries verified')
+          PY
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: stable/web
+      - id: deployment
+        uses: actions/deploy-pages@v4
+ | while IFS= read -r asset; do cp "$asset" "$dest/"; done || true
+          sha=$(git -C profilesrc rev-parse HEAD)
+          version="camprofiles-${sha:0:8}"
+          mkdir -p "$dest/firmware/$version"
+          for board in esp32c3supermini esp32dev; do
+            for part in bootloader partitions firmware; do
+              src="profilesrc/.pio/build/$board/$part.bin"
+              test -s "$src"
+              cp "$src" "$dest/firmware/$version/$part-$board.bin"
+            done
+          done
+          VERSION="$version" SHA="$sha" python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          dest=Path('stable/web/dev/camera-profiles')
+          version=os.environ['VERSION']
+          sha=os.environ['SHA']
+          entry=dict(tag_name=version,display_name='TEST — Per-camera switch memory ('+sha[:8]+')',sha=sha,published_at='GitHub Pages deployment',html_url='https://github.com/alfonsogordon/FPV-CamBuddy/tree/test/gopro-switch-persistence-2026-11-20',is_candidate=True)
+          (dest/'firmware/versions.json').write_text(json.dumps([entry],indent=2))
+          flash=dest/'flash.html'
+          html=flash.read_text()
+          html=html.replace('href="../index.html"','href="../../index.html"').replace('href="../flash.html"','href="../../flash.html"')
+          html=html.replace('href="config.html"','href="config.html"')
+          html=html.replace('DEVELOPMENT</span>','CAMERA PROFILES TEST</span>')
+          flash.write_text(html)
+          for board in ('esp32dev','esp32c3supermini'):
+              for part in ('bootloader','partitions','firmware'):
+                  file=dest/'firmware'/version/(part+'-'+board+'.bin')
+                  assert file.stat().st_size>100,file
+          assert (dest/'config.html').stat().st_size>100
+          assert (dest/'osd-preview-bg.jpg').stat().st_size>100
           PY
       - name: Validate staged flasher versions and firmware files
         run: |
